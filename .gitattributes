@@ -1,5 +1,25 @@
+# 统一换行：源码一律 LF 入库并在检出时保持 LF。
+# 否则 Windows 检出成 CRLF 后，`dart format --set-exit-if-changed` 会在本地与 CI 之间产生分歧。
 * text=auto
+
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
 *.md text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.kt text eol=lf
+*.kts text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf
+
 *.png binary
 *.jpg binary
+*.jpeg binary
+*.webp binary
 *.apk binary
+*.jar binary
+*.keystore binary
+*.jks binary
