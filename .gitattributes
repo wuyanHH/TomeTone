@@ -23,3 +23,5 @@ gradlew text eol=lf
 *.jar binary
 *.keystore binary
 *.jks binary
+.gitattributes text eol=lf
+.gitignore text eol=lf
