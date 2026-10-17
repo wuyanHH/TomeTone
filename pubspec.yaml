@@ -1,0 +1,24 @@
+name: tometone
+description: "TomeTone（听卷）—— 本地优先的长篇有声书藏馆与播放器。模块化架构，离线完整可用。"
+publish_to: 'none'
+# 版本号规范：SemVer；测试期使用 `0.x.y-beta.N` 预发布后缀（见《架构需求文档》2.7）。
+# 版本号变更必须同步更新 CHANGELOG.md。
+version: 0.1.0-beta.1+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 状态管理与依赖注入（装配层注入）
+  flutter_riverpod: ^3.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

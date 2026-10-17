@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: 工程门禁
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 依赖安装
+        run: flutter pub get
+
+      - name: 格式化检查
+        run: dart format --output=none --set-exit-if-changed lib test tool
+
+      - name: 静态分析（0 错误 0 警告）
+        run: flutter analyze
+
+      - name: 依赖方向门禁
+        run: dart run tool/ci/check_import_boundaries.dart
+
+      - name: 单元测试与契约测试
+        run: flutter test

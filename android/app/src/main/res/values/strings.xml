@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用中文名（《架构需求文档》：产品名「听卷」，英文 TomeTone）。 -->
+<resources>
+    <string name="app_name">听卷</string>
+</resources>

@@ -1,0 +1,57 @@
+# 静态分析门禁（《架构需求文档》§12：`flutter analyze` 0 错误 0 警告）
+#
+# 严格模式全开；生成代码（drift / freezed / mockito）不参与门禁，但仍是编译输入。
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+  errors:
+    # TODO 注释不作为门禁失败项（>4 空格缩进的 TODO 会被单独报告）
+    todo: ignore
+
+  exclude:
+    - build/**
+    - android/**
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mocks.dart"
+
+linter:
+  rules:
+    # 可读性与一致性
+    - always_declare_return_types
+    - directives_ordering
+    - eol_at_end_of_file
+    - prefer_final_fields
+    - prefer_final_locals
+    - prefer_single_quotes
+    - require_trailing_commas
+    - sort_child_properties_last
+    - unnecessary_lambdas
+    - unnecessary_parenthesis
+
+    # 正确性
+    - avoid_void_async
+    - cancel_subscriptions
+    - close_sinks
+    - literal_only_boolean_expressions
+    - only_throw_errors
+    - test_types_in_equals
+    - throw_in_finally
+    - unawaited_futures
+    - unnecessary_late
+
+    # 性能与资源
+    - avoid_slow_async_io
+    - avoid_unnecessary_containers
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - sized_box_for_whitespace
+    - use_string_buffers
+
+    # 禁用项
+    - avoid_print
