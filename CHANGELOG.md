@@ -19,6 +19,20 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 - **Android 平台基线**：`minSdk 24` / `targetSdk 36`，声明
   `FOREGROUND_SERVICE_MEDIA_PLAYBACK` 等前台媒体服务权限（《架构需求文档》2.2）。
 - **发布纪律守门测试**：`pubspec.yaml` / `AppInfo` / `CHANGELOG.md` 版本号一致性。
+- **换行纪律**：`.gitattributes` 统一源码 LF，避免本地（Windows/CRLF）与 CI 的
+  `dart format --set-exit-if-changed` 出现分歧。
+- **模块契约层**（Step 1）：
+  - `contracts/diagnostics/`：`LogTag` 模块级日志标签、`Redactor` 强制脱敏
+    （URL 丢 userinfo/query、敏感请求头、路径只留末段、Token 首尾各 2 字符）。
+  - `contracts/playback/`：`PlaybackEngine` 契约（含 8 条规范行为）、
+    `AudioSourceRef`（本地 / 远程统一抽象）、`EngineEvent`、`EngineCapabilities`、
+    `EngineError` + 11 个错误码、`FakePlaybackEngine`（纯内存 / 零真实定时器，
+    时间由 `advance()` 驱动，可注入故障）。
+  - `contracts/storage/`：`StorageProvider` 契约（含 5 条规范行为）、
+    `StorageEntry` / `StatInfo` / `ProviderCapabilities`、`StorageError` + 11 个错误码、
+    `FakeStorageProvider`（可观测存活流数量，用于泄漏体检）。
+  - 统一契约测试套件：`test/contracts/playback_engine_conformance.dart` 与
+    `storage_provider_conformance.dart`，对 Fake 跑绿；真实实现接入后必须原样跑通。
 
 ### 正在计划
 
