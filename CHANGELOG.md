@@ -145,6 +145,16 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
     `libraryRootUri`。
   - 新增 `PlaybackController.seekToChapter`：目录跳章不重建会话、不清撤销令牌，
     切章前先落盘旧章进度。
+- **本地存储与书库根管理**（Step 6c，`lib/modules/storage_local/`、`lib/app/library/`）：
+  - `LocalStorageProvider`：`StorageProvider` 的本地目录实现（作用域 = 单个书库根）。
+    **路径安全**：直接拒绝 `..` 段与绝对路径/盘符片段，而不是"解析后判断越界" ——
+    越界解析 + 前缀比较在大小写不敏感 / 符号链接 / Windows 短路径下都可能失效；
+    `FileSystemException` 一律折算成结构化 `StorageError`。
+  - 通过统一契约套件 `storage_provider_conformance`（真实临时目录）。
+  - `LibraryRootService`：添加本地根（校验目录存在）与触发 Phase 1 扫描；
+    provider 的创建/释放由它负责，扫描器不感知实现。
+  - `storageProviderFactoryProvider` 在 `main.dart` 注入 —— 应用层不能 import
+    `lib/modules/`（§5.2），工厂注入是唯一合法通路。
 
 ### 正在计划
 

@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
+import 'package:tometone/modules/storage_local/local_storage_provider.dart';
 import 'package:tometone/platform/database_connection.dart';
 import 'package:tometone/ui/app.dart';
 
@@ -23,6 +25,9 @@ void main() {
       overrides: [
         databaseProvider.overrideWithValue(database),
         playbackEngineProvider.overrideWithValue(engine),
+        storageProviderFactoryProvider.overrideWithValue(
+          LocalStorageProvider.new,
+        ),
       ],
       child: const TomeToneApp(),
     ),
