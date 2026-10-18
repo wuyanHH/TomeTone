@@ -105,6 +105,22 @@ void runPlaybackEngineConformance({
       );
     });
 
+    test('音量钳制到 0..1，非有限值抛 unsupportedOperation', () async {
+      await engine.load(validSource());
+
+      await expectLater(engine.setVolume(0.5), completes);
+      await expectLater(engine.setVolume(-1), completes);
+      await expectLater(engine.setVolume(2), completes);
+      await expectLater(
+        engine.setVolume(double.nan),
+        throwsEngineError(EngineErrorCode.unsupportedOperation),
+      );
+      await expectLater(
+        engine.setVolume(double.infinity),
+        throwsEngineError(EngineErrorCode.unsupportedOperation),
+      );
+    });
+
     test('load 至少播报一次时长事件', () async {
       final events = <EngineEvent>[];
       final subscription = engine.events.listen(events.add);
@@ -156,6 +172,10 @@ void runPlaybackEngineConformance({
       );
       await expectLater(
         engine.setSpeed(1),
+        throwsEngineError(EngineErrorCode.illegalState),
+      );
+      await expectLater(
+        engine.setVolume(1),
         throwsEngineError(EngineErrorCode.illegalState),
       );
     });

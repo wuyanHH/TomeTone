@@ -42,6 +42,12 @@ abstract class PlaybackEngine {
   /// 设置倍速。超出引擎能力范围时抛 `EngineError`。
   Future<void> setSpeed(double speed);
 
+  /// 设置输出音量（`0.0`–`1.0`）。
+  ///
+  /// 用于睡眠定时的渐弱（§2.2）与 DSP 音量增强（§6.5）。
+  /// 越界值**钳制**到 `[0, 1]`；非有限值抛 [EngineErrorCode.unsupportedOperation]。
+  Future<void> setVolume(double volume);
+
   /// 引擎事件流（位置 / 时长 / 状态 / 完毕 / 失败）。广播语义。
   Stream<EngineEvent> get events;
 

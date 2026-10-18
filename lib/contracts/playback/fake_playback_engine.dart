@@ -61,6 +61,7 @@ class FakePlaybackEngine implements PlaybackEngine {
   Duration _position = Duration.zero;
   Duration? _duration;
   double _speed = 1;
+  double _volume = 1;
   bool _disposed = false;
   int _disposeCount = 0;
 
@@ -78,6 +79,9 @@ class FakePlaybackEngine implements PlaybackEngine {
 
   /// 当前倍速。
   double get speed => _speed;
+
+  /// 当前音量（`0.0`–`1.0`）。
+  double get volume => _volume;
 
   /// 是否已释放。
   bool get isDisposed => _disposed;
@@ -167,6 +171,18 @@ class FakePlaybackEngine implements PlaybackEngine {
       );
     }
     _speed = speed;
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    _ensureUsable();
+    if (!volume.isFinite) {
+      throw EngineError(
+        code: EngineErrorCode.unsupportedOperation,
+        sourceUri: _source?.uri,
+      );
+    }
+    _volume = volume.clamp(0.0, 1.0).toDouble();
   }
 
   @override
