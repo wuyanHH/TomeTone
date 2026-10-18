@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/ui/app.dart';
 import 'package:tometone/ui/theme/app_color_palette.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 
+import 'ui_test_harness.dart';
+
 void main() {
   testWidgets('应用装配新主题：默认琥珀旧卷，明暗跟随系统', (WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: TomeToneApp()));
+    final FakePlaybackEngine engine = FakePlaybackEngine();
+    final controller = testController(engine);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: testOverrides(controller: controller),
+        child: const TomeToneApp(),
+      ),
+    );
 
     final MaterialApp app = tester.widget<MaterialApp>(
       find.byType(MaterialApp),
@@ -30,8 +42,15 @@ void main() {
   });
 
   testWidgets('OLED 开关只影响暗色形态', (WidgetTester tester) async {
+    final FakePlaybackEngine engine = FakePlaybackEngine();
+    final controller = testController(engine);
+    addTearDown(controller.dispose);
+
     await tester.pumpWidget(
-      const ProviderScope(child: TomeToneApp(oledDark: true)),
+      ProviderScope(
+        overrides: testOverrides(controller: controller),
+        child: const TomeToneApp(oledDark: true),
+      ),
     );
 
     final MaterialApp app = tester.widget<MaterialApp>(

@@ -128,6 +128,23 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - 自查修复：`BookCover.coverPath` 必须是**绝对路径** —— 库内 `cover_path` 相对书库根，
     而 `Image.file` 对相对路径不报错、只是静默不显示，会表现成"封面莫名不见"；
     已加 debug assert 与正负例测试。
+- **书架 / MiniPlayer / 全屏播放大台**（Step 6b，`lib/ui/pages/`、`lib/ui/widgets/mini_player.dart`）：
+  - 书架：`booksProvider` 三态（加载骨架 / 空态引导去设置 / 错误重试）；手机 2 列、
+    宽屏 3–4 列；封面走 `absoluteCoverPath` 解析后的五级继承结果；缺失章给克制提示；
+    点击 `startBook` 后展开播放台。
+  - MiniPlayer：64dp 单条（封面 / 章节标题 / 播放暂停 / 2dp 进度发丝线）；
+    无当前章节时不占位（高度真正归零）。
+  - 播放大台：Hero 封面、双层时间轴（章节可拖 / 全书只读）、五键下沉控制台、
+    0.5–3.0 倍速、睡眠三模式、撤销回退；侧键 56dp / 中央 72dp，
+    320dp 窄视口降到 48/64（仍满足 §3.4 的 48dp 下限）。
+  - 章节目录可按卷分组、缺失章置灰、当前章高亮，并**真正可跳章**。
+  - 交付偏离（已记录）：用 Hero + 淡入/轻缩放代替 Material 3 Container Transform，
+    不为此引入 `animations` 包；减弱动效下时长为 0。
+  - 接口修正（自查）：移除 UI 侧 `Provider<Ref>` 桥 —— 应用层不该替 UI 保管 Riverpod
+    生命周期对象；`startBook` 改为显式接收 `controller` / `currentBook` / `detail` /
+    `libraryRootUri`。
+  - 新增 `PlaybackController.seekToChapter`：目录跳章不重建会话、不清撤销令牌，
+    切章前先落盘旧章进度。
 
 ### 正在计划
 

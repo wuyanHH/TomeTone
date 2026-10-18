@@ -47,16 +47,14 @@ final NotifierProvider<CurrentBookNotifier, BookDetail?> currentBookProvider =
 
 /// 打开一本书并开始播放（书架点击入口）。
 ///
-/// - 队列由 [buildPlaybackQueue] 从书详情构建（缺失章自动跳过）；
-/// - 恢复位置来自 `playback_progress`，中断间隔用进度写入时间近似
-///   （应用在暂停 / 退后台时立即写，因此该值接近真实的暂停时长）；
-/// - 队列为空（整本书都缺文件）时抛 [StateError]，由 UI 提示。
-Future<void> startBook(
-  Ref ref, {
+/// 依赖显式传入而不是收一个 `Ref`：应用层不应该替 UI 层保管 Riverpod 的
+/// 生命周期对象（`Ref` 只在其 Provider 存活期间有效）。
+Future<void> startBook({
+  required PlaybackController controller,
+  required CurrentBookNotifier currentBook,
   required BookDetail detail,
   required String libraryRootUri,
 }) async {
-  final controller = ref.read(playbackControllerProvider);
   final queue = buildPlaybackQueue(
     detail: detail,
     libraryRootUri: libraryRootUri,
@@ -71,7 +69,7 @@ Future<void> startBook(
       ? Duration.zero
       : now.difference(progress.updatedAt.toUtc());
 
-  ref.read(currentBookProvider.notifier).set(detail);
+  currentBook.set(detail);
 
   await controller.open(
     PlaybackRequest(

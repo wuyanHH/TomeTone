@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
+import 'package:tometone/ui/widgets/mini_player.dart';
 
-/// 应用外壳：底部 3 栏（书架 / 纪年 / 设置）+ 底部 MiniPlayer 槽位。
+/// 应用外壳：底部 3 栏（书架 / 纪年 / 设置）+ 底部 MiniPlayer。
 ///
 /// 形态规则（《架构需求文档》§3.1）：
 /// - `< 600dp` 手机纵屏：单列内容 + 底部 [NavigationBar]；
 /// - `>= 600dp` 平板 / 桌面：单列内容 + [NavigationRail]（双列网格留给后续步骤）。
 ///
-/// MiniPlayer 只是一个**槽位**：由上层注入 `Widget`，外壳不读取播放数据、
-/// 不含任何播放策略。点击展开播放台的 Container Transform 由播放器组件实现。
+/// MiniPlayer 默认就是真实的 [MiniPlayer]（没有当前章节时它自己渲染为
+/// `SizedBox.shrink`，不占高度）；测试或特殊端形态可以注入一个替身。
+/// 外壳本身仍不读取播放数据、不含播放策略 —— 展开播放台由 MiniPlayer 自己完成。
 ///
-/// 三个 tab 目前是占位内容；真实页面替换 [_tabs] 中的 widget 即可。
+/// 书架已是真实页面；纪年 / 设置仍是占位内容，后续替换 [_tabs] 即可。
 class AppShell extends StatefulWidget {
   /// 创建应用外壳。
-  const AppShell({super.key, this.miniPlayer});
+  const AppShell({super.key, this.miniPlayer = const MiniPlayer()});
 
-  /// 底部 MiniPlayer 槽位的内容；为空时不占位。
-  final Widget? miniPlayer;
+  /// 底部 MiniPlayer 槽位的内容。
+  final Widget miniPlayer;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -41,7 +44,7 @@ class _AppShellState extends State<AppShell> {
       AppDurations.standard,
     );
     final Widget content = _TabSwitcher(index: _index, duration: swapDuration);
-    final Widget? miniPlayer = widget.miniPlayer;
+    final Widget miniPlayer = widget.miniPlayer;
 
     if (wide) {
       return Scaffold(
@@ -54,7 +57,7 @@ class _AppShellState extends State<AppShell> {
                 child: Column(
                   children: <Widget>[
                     Expanded(child: content),
-                    if (miniPlayer != null) _MiniPlayerSlot(child: miniPlayer),
+                    _MiniPlayerSlot(child: miniPlayer),
                   ],
                 ),
               ),
@@ -69,7 +72,7 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          if (miniPlayer != null) _MiniPlayerSlot(child: miniPlayer),
+          _MiniPlayerSlot(child: miniPlayer),
           _ShellBar(selectedIndex: _index, onSelected: _select),
         ],
       ),
@@ -106,7 +109,7 @@ class _TabSwitcher extends StatelessWidget {
 
 /// 三个 tab 的内容。真实页面替换这里即可（届时建议改用 IndexedStack 保留滚动位置）。
 const List<Widget> _tabs = <Widget>[
-  ShelfTabPlaceholder(),
+  ShelfPage(),
   ChronicleTabPlaceholder(),
   SettingsTabPlaceholder(),
 ];
@@ -198,7 +201,8 @@ class _ShellRail extends StatelessWidget {
   }
 }
 
-/// MiniPlayer 槽位：只负责无障碍容器与周边留白。
+/// MiniPlayer 槽位：只负责无障碍容器；留白由 MiniPlayer 自己控制，
+/// 这样"没有当前章节"时槽位高度可以真正归零。
 class _MiniPlayerSlot extends StatelessWidget {
   const _MiniPlayerSlot({required this.child});
 
@@ -206,36 +210,7 @@ class _MiniPlayerSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.xs,
-          AppSpacing.lg,
-          AppSpacing.sm,
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
-/// 书架 tab 占位（真实页面：多书库根、混合书架、封面五级继承）。
-class ShelfTabPlaceholder extends StatelessWidget {
-  /// 创建书架占位。
-  const ShelfTabPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _TabPlaceholder(
-      eyebrow: '藏馆 · THE VAULT',
-      title: '书卷藏馆',
-      description: '本地与网盘的藏书都会排在这里：多书库根、连播队列、封面五级继承。',
-      note: '占位 · 书籍列表待接入',
-      icon: Icons.auto_stories_outlined,
-    );
+    return Semantics(container: true, explicitChildNodes: true, child: child);
   }
 }
 

@@ -256,6 +256,31 @@ class PlaybackController {
     }
   }
 
+  /// 跳到指定章节（章节目录用）。
+  ///
+  /// 与 [open] 的区别：**不重建会话**、不清撤销令牌、不改当前书 ——
+  /// 只在同一本书的队列内移动，因此当前进度会先落盘、播放意图保持不变。
+  ///
+  /// 目标不在队列（含缺失章，已构建队列时就已剔除）时返回 `false`。
+  Future<bool> seekToChapter(String chapterId, {Duration? position}) async {
+    final target = _queue?.byId(chapterId);
+    if (target == null) {
+      return false;
+    }
+    if (_current?.chapterId == chapterId) {
+      await seek(position ?? _range.start);
+      return true;
+    }
+
+    final shouldPlay = _autoPlayIntent;
+    _flushProgress();
+    await _loadChapter(target, seekTo: position);
+    if (shouldPlay) {
+      await _engine.play();
+    }
+    return true;
+  }
+
   /// 撤销微回退（恢复后 [rewindUndoWindow] 内有效）。返回是否成功。
   Future<bool> undoRewind() async {
     final undo = _rewindUndo;

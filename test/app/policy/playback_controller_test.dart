@@ -237,6 +237,62 @@ void main() {
     });
   });
 
+  group('章节目录跳转', () {
+    test('跳到另一章：切换章节并保持播放意图，旧章进度先落盘', () async {
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+      await controller.play();
+      engine.advance(const Duration(seconds: 30));
+      await pumpEventQueue();
+
+      expect(await controller.seekToChapter('c2'), isTrue);
+      await pumpEventQueue();
+
+      expect(controller.current?.chapterId, 'c2');
+      expect(controller.state, EnginePlaybackState.playing);
+      expect(
+        writes.any((w) => w.chapterId == 'c1'),
+        isTrue,
+        reason: '切章前必须先把旧章进度落盘',
+      );
+    });
+
+    test('跳到当前章 = 回到章首（应用片头跳过）', () async {
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+          preferences: const PerBookPreferences(
+            skipIntro: Duration(seconds: 5),
+          ),
+        ),
+      );
+      await controller.seek(const Duration(minutes: 1));
+
+      expect(await controller.seekToChapter('c1'), isTrue);
+      expect(engine.position, const Duration(seconds: 5));
+    });
+
+    test('缺失 / 未知章节返回 false 且不改变当前章', () async {
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+
+      expect(await controller.seekToChapter('missing'), isFalse);
+      expect(controller.current?.chapterId, 'c1');
+    });
+  });
+
   group('每书偏好', () {
     test('片头跳过：打开即定位到有效区间起点', () async {
       await controller.open(
