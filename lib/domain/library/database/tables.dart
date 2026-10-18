@@ -180,6 +180,13 @@ class Chapters extends Table {
   /// 文件是否缺失。缺失章节保留占位并高亮。
   BoolColumn get missing => boolean().withDefault(const Constant(false))();
 
+  /// 元信息回填尝试次数（Phase 2 内部记账）。
+  ///
+  /// 为什么需要：回填队列是 `duration_ms IS NULL` + 排序 + 限量。若某章永久读不出
+  /// 时长（坏文件 / 编码异常），它会一直留在队首，**饿死**后面所有章节。
+  /// 连续失败达到上限后跳过它，保证队列整体推进。
+  IntColumn get metadataAttempts => integer().withDefault(const Constant(0))();
+
   /// 最近更新时间。
   DateTimeColumn get updatedAt => dateTime()();
 

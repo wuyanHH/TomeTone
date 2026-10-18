@@ -35,6 +35,57 @@ class FakeStorageProvider implements StorageProvider {
     supportsAuth: false,
   );
 
+  /// 由「文件路径 → 字节数」快速构造一棵只读树（测试 / 开发便利）。
+  ///
+  /// 会为每个文件分配真实字节（`List<int>.filled(size, 0)`），因此只适合小文件；
+  /// 需要真实内容时请直接传 `contents`。
+  factory FakeStorageProvider.fromPaths(
+    Map<String, int> fileSizes, {
+    ProviderCapabilities? capabilities,
+  }) {
+    final directories = <String, List<StorageEntry>>{};
+    final contents = <String, List<int>>{};
+
+    fileSizes.forEach((String path, int size) {
+      final normalized = path.replaceAll('\\', '/');
+      final segments = normalized
+          .split('/')
+          .where((String segment) => segment.isNotEmpty)
+          .toList();
+      if (segments.isEmpty) {
+        return;
+      }
+      contents[normalized] = List<int>.filled(size, 0);
+
+      for (var depth = 0; depth < segments.length; depth++) {
+        final parent = segments.take(depth).join('/');
+        final name = segments[depth];
+        final isLeaf = depth == segments.length - 1;
+        final children = directories.putIfAbsent(
+          parent,
+          () => <StorageEntry>[],
+        );
+        if (children.any((StorageEntry entry) => entry.name == name)) {
+          continue;
+        }
+        children.add(
+          StorageEntry(
+            name: name,
+            path: parent.isEmpty ? name : '$parent/$name',
+            isDirectory: !isLeaf,
+            sizeBytes: isLeaf ? size : null,
+          ),
+        );
+      }
+    });
+
+    return FakeStorageProvider(
+      directories: directories,
+      contents: contents,
+      capabilities: capabilities,
+    );
+  }
+
   /// 单次读取 / 写入的最大分片字节数。
   static const int chunkSize = 4096;
 

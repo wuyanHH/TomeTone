@@ -56,6 +56,21 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - 37 个扫描用例，覆盖 §2.1 验收语料（`第1章 / 第一章 / 楔子 / 序 / 番外 / 卷三`）。
   - 自审修复：超长数字（毫秒时间戳命名）会 `FormatException` 中断扫描、
     `万万` 类词语导致整数溢出、`bookDepth < 1` 在 release 下无保护。
+- **扫描编排与两阶段建库**（Step 3b，`lib/domain/library/scan/library_scanner.dart`）：
+  - `scanStructure`（Phase 1）：遍历 `StorageProvider` → 拓扑推导 → **单事务**批量 upsert；
+    不读取时长 / 封面，保证首屏可用（`books.total_duration_ms` 保持 0 直到 Phase 2）。
+  - 增量与数据安全：按绑定键匹配复用**不可变 ID**；消失文件只置 `missing = true`，
+    记录与播放进度全部保留；二次扫描同一棵树**零写入**。
+  - `ScanReport` 只统计真实写入；不可读目录计入 `failedPaths` 且不中断整次扫描；
+    provider 返回重复条目时按归一化路径去重（否则会撞绑定键唯一索引）。
+  - `missing` 章节仍计入 `books.total_chapters`（占位展示），但**不计入**累计时长。
+  - `backfillMetadata`（Phase 2）：分批回填时长并重算书累计时长；单章失败不中断，
+    连续失败达上限后退出队列 —— 否则坏文件永远排在队首，**饿死**后续所有章节
+    （为此在 `chapters` 增加 `metadata_attempts`）。
+  - `UlidIdGenerator`：48 位毫秒时间戳 + 80 位随机，字典序即时间序。
+  - `PathNormalizer`：NFC 归一化绑定键，NFD/NFC 混写不再产生重复书。
+  - 已知规模上限（记录待办）：结构扫描把整本书的章一次性载入内存，
+    十万章级数据集需要改为按书分页（M2/M3 性能专项）。
 
 ### 正在计划
 

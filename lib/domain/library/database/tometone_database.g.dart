@@ -1991,6 +1991,18 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _metadataAttemptsMeta = const VerificationMeta(
+    'metadataAttempts',
+  );
+  @override
+  late final GeneratedColumn<int> metadataAttempts = GeneratedColumn<int>(
+    'metadata_attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -2015,6 +2027,7 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
     durationMs,
     sizeBytes,
     missing,
+    metadataAttempts,
     updatedAt,
   ];
   @override
@@ -2112,6 +2125,15 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
         missing.isAcceptableOrUnknown(data['missing']!, _missingMeta),
       );
     }
+    if (data.containsKey('metadata_attempts')) {
+      context.handle(
+        _metadataAttemptsMeta,
+        metadataAttempts.isAcceptableOrUnknown(
+          data['metadata_attempts']!,
+          _metadataAttemptsMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -2173,6 +2195,10 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
         DriftSqlType.bool,
         data['${effectivePrefix}missing'],
       )!,
+      metadataAttempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}metadata_attempts'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -2220,6 +2246,13 @@ class Chapter extends DataClass implements Insertable<Chapter> {
   /// 文件是否缺失。缺失章节保留占位并高亮。
   final bool missing;
 
+  /// 元信息回填尝试次数（Phase 2 内部记账）。
+  ///
+  /// 为什么需要：回填队列是 `duration_ms IS NULL` + 排序 + 限量。若某章永久读不出
+  /// 时长（坏文件 / 编码异常），它会一直留在队首，**饿死**后面所有章节。
+  /// 连续失败达到上限后跳过它，保证队列整体推进。
+  final int metadataAttempts;
+
   /// 最近更新时间。
   final DateTime updatedAt;
   const Chapter({
@@ -2234,6 +2267,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     this.durationMs,
     this.sizeBytes,
     required this.missing,
+    required this.metadataAttempts,
     required this.updatedAt,
   });
   @override
@@ -2256,6 +2290,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
       map['size_bytes'] = Variable<int>(sizeBytes);
     }
     map['missing'] = Variable<bool>(missing);
+    map['metadata_attempts'] = Variable<int>(metadataAttempts);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -2279,6 +2314,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           ? const Value.absent()
           : Value(sizeBytes),
       missing: Value(missing),
+      metadataAttempts: Value(metadataAttempts),
       updatedAt: Value(updatedAt),
     );
   }
@@ -2300,6 +2336,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
       durationMs: serializer.fromJson<int?>(json['durationMs']),
       sizeBytes: serializer.fromJson<int?>(json['sizeBytes']),
       missing: serializer.fromJson<bool>(json['missing']),
+      metadataAttempts: serializer.fromJson<int>(json['metadataAttempts']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -2318,6 +2355,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
       'durationMs': serializer.toJson<int?>(durationMs),
       'sizeBytes': serializer.toJson<int?>(sizeBytes),
       'missing': serializer.toJson<bool>(missing),
+      'metadataAttempts': serializer.toJson<int>(metadataAttempts),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -2334,6 +2372,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     Value<int?> durationMs = const Value.absent(),
     Value<int?> sizeBytes = const Value.absent(),
     bool? missing,
+    int? metadataAttempts,
     DateTime? updatedAt,
   }) => Chapter(
     id: id ?? this.id,
@@ -2347,6 +2386,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     durationMs: durationMs.present ? durationMs.value : this.durationMs,
     sizeBytes: sizeBytes.present ? sizeBytes.value : this.sizeBytes,
     missing: missing ?? this.missing,
+    metadataAttempts: metadataAttempts ?? this.metadataAttempts,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   Chapter copyWithCompanion(ChaptersCompanion data) {
@@ -2368,6 +2408,9 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           : this.durationMs,
       sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
       missing: data.missing.present ? data.missing.value : this.missing,
+      metadataAttempts: data.metadataAttempts.present
+          ? data.metadataAttempts.value
+          : this.metadataAttempts,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -2386,6 +2429,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           ..write('durationMs: $durationMs, ')
           ..write('sizeBytes: $sizeBytes, ')
           ..write('missing: $missing, ')
+          ..write('metadataAttempts: $metadataAttempts, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -2404,6 +2448,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     durationMs,
     sizeBytes,
     missing,
+    metadataAttempts,
     updatedAt,
   );
   @override
@@ -2421,6 +2466,7 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           other.durationMs == this.durationMs &&
           other.sizeBytes == this.sizeBytes &&
           other.missing == this.missing &&
+          other.metadataAttempts == this.metadataAttempts &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -2436,6 +2482,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
   final Value<int?> durationMs;
   final Value<int?> sizeBytes;
   final Value<bool> missing;
+  final Value<int> metadataAttempts;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const ChaptersCompanion({
@@ -2450,6 +2497,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     this.durationMs = const Value.absent(),
     this.sizeBytes = const Value.absent(),
     this.missing = const Value.absent(),
+    this.metadataAttempts = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2465,6 +2513,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     this.durationMs = const Value.absent(),
     this.sizeBytes = const Value.absent(),
     this.missing = const Value.absent(),
+    this.metadataAttempts = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -2487,6 +2536,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     Expression<int>? durationMs,
     Expression<int>? sizeBytes,
     Expression<bool>? missing,
+    Expression<int>? metadataAttempts,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -2502,6 +2552,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
       if (durationMs != null) 'duration_ms': durationMs,
       if (sizeBytes != null) 'size_bytes': sizeBytes,
       if (missing != null) 'missing': missing,
+      if (metadataAttempts != null) 'metadata_attempts': metadataAttempts,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2519,6 +2570,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     Value<int?>? durationMs,
     Value<int?>? sizeBytes,
     Value<bool>? missing,
+    Value<int>? metadataAttempts,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -2534,6 +2586,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
       durationMs: durationMs ?? this.durationMs,
       sizeBytes: sizeBytes ?? this.sizeBytes,
       missing: missing ?? this.missing,
+      metadataAttempts: metadataAttempts ?? this.metadataAttempts,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2575,6 +2628,9 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     if (missing.present) {
       map['missing'] = Variable<bool>(missing.value);
     }
+    if (metadataAttempts.present) {
+      map['metadata_attempts'] = Variable<int>(metadataAttempts.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -2598,6 +2654,7 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
           ..write('durationMs: $durationMs, ')
           ..write('sizeBytes: $sizeBytes, ')
           ..write('missing: $missing, ')
+          ..write('metadataAttempts: $metadataAttempts, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6950,6 +7007,7 @@ typedef $$ChaptersTableCreateCompanionBuilder = ChaptersCompanion Function({
   Value<int?> durationMs,
   Value<int?> sizeBytes,
   Value<bool> missing,
+  Value<int> metadataAttempts,
   required DateTime updatedAt,
   Value<int> rowid,
 });
@@ -6965,6 +7023,7 @@ typedef $$ChaptersTableUpdateCompanionBuilder = ChaptersCompanion Function({
   Value<int?> durationMs,
   Value<int?> sizeBytes,
   Value<bool> missing,
+  Value<int> metadataAttempts,
   Value<DateTime> updatedAt,
   Value<int> rowid,
 });
@@ -7114,6 +7173,11 @@ class $$ChaptersTableFilterComposer
 
   ColumnFilters<bool> get missing => $composableBuilder(
     column: $table.missing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get metadataAttempts => $composableBuilder(
+    column: $table.metadataAttempts,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7291,6 +7355,11 @@ class $$ChaptersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get metadataAttempts => $composableBuilder(
+    column: $table.metadataAttempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -7402,6 +7471,11 @@ class $$ChaptersTableAnnotationComposer
 
   GeneratedColumn<bool> get missing =>
       $composableBuilder(column: $table.missing, builder: (column) => column);
+
+  GeneratedColumn<int> get metadataAttempts => $composableBuilder(
+    column: $table.metadataAttempts,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -7571,6 +7645,7 @@ class $$ChaptersTableTableManager
                 Value<int?> durationMs = const Value.absent(),
                 Value<int?> sizeBytes = const Value.absent(),
                 Value<bool> missing = const Value.absent(),
+                Value<int> metadataAttempts = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChaptersCompanion(
@@ -7585,6 +7660,7 @@ class $$ChaptersTableTableManager
                 durationMs: durationMs,
                 sizeBytes: sizeBytes,
                 missing: missing,
+                metadataAttempts: metadataAttempts,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -7601,6 +7677,7 @@ class $$ChaptersTableTableManager
                 Value<int?> durationMs = const Value.absent(),
                 Value<int?> sizeBytes = const Value.absent(),
                 Value<bool> missing = const Value.absent(),
+                Value<int> metadataAttempts = const Value.absent(),
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
               }) => ChaptersCompanion.insert(
@@ -7615,6 +7692,7 @@ class $$ChaptersTableTableManager
                 durationMs: durationMs,
                 sizeBytes: sizeBytes,
                 missing: missing,
+                metadataAttempts: metadataAttempts,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
