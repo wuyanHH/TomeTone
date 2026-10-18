@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:tometone/contracts/playback/engine_error.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/contracts/playback/playback_engine.dart';
@@ -78,6 +79,13 @@ class PlaybackController {
   final DateTime Function() _clock;
   late final StreamSubscription<EngineEvent> _subscription;
   late final ProgressScheduler _progress = _buildScheduler();
+  final _Notifier _notifier = _Notifier();
+
+  /// UI 订阅点：状态 / 章节 / 位置变化都会触发。
+  ///
+  /// 用 [Listenable] 而不是把控制器做成 `ChangeNotifier` 子类 —— 后者的
+  /// `dispose()` 返回 `void`，会和这里的异步 `dispose()` 冲突。
+  Listenable get listenable => _notifier;
 
   PlaybackRequest? _request;
   ChapterSequencer? _queue;
@@ -266,6 +274,7 @@ class PlaybackController {
   Future<void> dispose() async {
     _flushProgress();
     await _subscription.cancel();
+    _notifier.dispose();
     await _engine.dispose();
   }
 
@@ -281,6 +290,7 @@ class PlaybackController {
     final target = _clamp(seekTo ?? _range.start);
     await _engine.seek(target);
     _position = target;
+    _notifier.notify();
   }
 
   void _onEngineEvent(EngineEvent event) {
@@ -300,6 +310,7 @@ class PlaybackController {
       case EngineFailed(:final error):
         _lastError = error;
     }
+    _notifier.notify();
   }
 
   void _onPosition(Duration position) {
@@ -405,4 +416,9 @@ class _RewindUndo {
 
   final Duration originalPosition;
   final DateTime expiresAt;
+}
+
+/// 只暴露 `notify()` 的内部通知器（`notifyListeners` 是 protected）。
+class _Notifier extends ChangeNotifier {
+  void notify() => notifyListeners();
 }
