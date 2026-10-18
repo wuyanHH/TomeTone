@@ -33,6 +33,19 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
     `FakeStorageProvider`（可观测存活流数量，用于泄漏体检）。
   - 统一契约测试套件：`test/contracts/playback_engine_conformance.dart` 与
     `storage_provider_conformance.dart`，对 Fake 跑绿；真实实现接入后必须原样跑通。
+- **数据层与迁移框架**（Step 2，`lib/domain/library/database/`）：
+  - 9 张业务表：`library_roots` / `books` / `volumes` / `chapters` /
+    `book_metadata_overrides` / `playback_progress` / `per_book_prefs` /
+    `listening_records` / `storage_accounts`（对应 §8.1 / §8.2）。
+  - 章节身份按 §8.2 提案落地：**不可变 ULID 主键 + 绑定键
+    `library_root_id + NFC 规范化相对路径`**（`chapters` 建唯一索引，重链可 O(log n) 定位）。
+  - 迁移纪律：`onCreate` 建表、`onUpgrade` 缺步骤时**显式失败**而非丢库重建（§8.3）；
+    每个连接强制 `PRAGMA foreign_keys = ON`，建库时启用 WAL（§2.2）。
+  - 时间语义已明确并加测试：drift 按 UTC epoch 秒存储、读回本地 `DateTime`
+    （同一瞬时，毫秒截断）。
+  - `flutter test` 下用 `NativeDatabase.memory()` 跑通 13 个数据层用例
+    （外键 / 唯一绑定键 / 级联 / 缺失保留 / 进度 upsert / 偏好默认值 / 时间语义）。
+  - CI 增加"生成代码与提交内容一致"门禁（`build_runner build` + `git diff --exit-code`）。
 
 ### 正在计划
 
