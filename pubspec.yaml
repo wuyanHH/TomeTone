@@ -28,6 +28,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  # 设备端端到端验证（真实文件系统 / ExoPlayer / SQLite）
+  integration_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
