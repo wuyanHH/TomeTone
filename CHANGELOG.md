@@ -97,6 +97,20 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
     「片头片尾」「睡眠三模式」「进度节流」都是**确定性单测**，不依赖真机。
   - 契约补充：`PlaybackEngine.setVolume(0..1)`（睡眠渐弱与 DSP 音量增强所需，
     越界钳制、非有限值抛错）。
+- **just_audio 播放引擎**（Step 5c，`lib/modules/playback_just_audio/`）：
+  - `JustAudioPlaybackEngine` 实现 `PlaybackEngine`：本地 / 远程源（含请求头）、
+    位置 / 时长 / 状态播报、倍速与音量、广播事件、幂等释放。
+  - 上游陷阱已记录：`play()` 的 Future 在**播放结束时**才完成（不能 `await`）；
+    `paused` 与 `ready` 在 just_audio 里同为 `ready + !playing`，需本地记录
+    "是否播放过"才能正确区分。
+  - 上游错误无稳定枚举，按消息特征归类为结构化错误码，归类失败落 `decodeFailed`。
+  - `android/gradle.properties` 关闭 Kotlin 增量编译：Windows 上
+    `:audio_session:compileDebugKotlin` 因增量缓存无法关闭而**稳定失败**（复现 3 次，
+    含 `flutter clean` 后仍复现）。
+  - `app-debug.apk` 构建通过（含 just_audio 插件；合并清单新增
+    `ACCESS_NETWORK_STATE`）。
+  - 媒体会话 / 前台服务 / MediaNotification（`audio_service`）留待 Step 5d，
+    依赖暂不加入 —— 不预埋"已声明未使用"的配置。
 
 ### 正在计划
 
