@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tometone/ui/pages/settings/settings_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/mini_player.dart';
@@ -13,7 +14,7 @@ import 'package:tometone/ui/widgets/mini_player.dart';
 /// `SizedBox.shrink`，不占高度）；测试或特殊端形态可以注入一个替身。
 /// 外壳本身仍不读取播放数据、不含播放策略 —— 展开播放台由 MiniPlayer 自己完成。
 ///
-/// 书架已是真实页面；纪年 / 设置仍是占位内容，后续替换 [_tabs] 即可。
+/// 书架与设置已是真实页面；纪年仍是占位内容，后续替换 [_tabs] 即可。
 class AppShell extends StatefulWidget {
   /// 创建应用外壳。
   const AppShell({super.key, this.miniPlayer = const MiniPlayer()});
@@ -111,7 +112,7 @@ class _TabSwitcher extends StatelessWidget {
 const List<Widget> _tabs = <Widget>[
   ShelfPage(),
   ChronicleTabPlaceholder(),
-  SettingsTabPlaceholder(),
+  SettingsPage(),
 ];
 
 /// 外壳目的地定义。
@@ -227,23 +228,6 @@ class ChronicleTabPlaceholder extends StatelessWidget {
       description: '只计真实播放的 30 秒心跳：今天听了多久、这一年听过什么，都留在这里。',
       note: '占位 · 统计图表待接入',
       icon: Icons.insights_outlined,
-    );
-  }
-}
-
-/// 设置 tab 占位（真实页面：五套色盘、OLED、睡眠守夜、备份与关于）。
-class SettingsTabPlaceholder extends StatelessWidget {
-  /// 创建设置占位。
-  const SettingsTabPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _TabPlaceholder(
-      eyebrow: '偏好 · PREFERENCES',
-      title: '系统偏好',
-      description: '五套国风色盘、暗夜 OLED、拔耳机防护与备份恢复，都收在这一页。',
-      note: '占位 · 设置项待接入',
-      icon: Icons.tune_outlined,
     );
   }
 }

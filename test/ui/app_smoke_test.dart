@@ -66,7 +66,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('切换 tab 后显示对应占位内容', (WidgetTester tester) async {
+  testWidgets('切换 tab 后显示对应页面，设置页读取注入的书库根', (WidgetTester tester) async {
     _useViewport(tester, const Size(400, 800));
 
     await tester.pumpWidget(
@@ -82,6 +82,9 @@ void main() {
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     expect(find.text('系统偏好'), findsOneWidget);
+    // 设置页现在是真实页面：空态来自 overrides 里注入的空书库根列表。
+    expect(find.text('还没有书库根'), findsOneWidget);
+    expect(find.text('书库根'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
   });
