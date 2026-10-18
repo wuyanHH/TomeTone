@@ -1,17 +1,142 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tometone/app/app_info.dart';
 import 'package:tometone/ui/app.dart';
+import 'package:tometone/ui/app_shell.dart';
+import 'package:tometone/ui/theme/app_color_palette.dart';
+import 'package:tometone/ui/theme/app_theme.dart';
+import 'package:tometone/ui/theme/theme_tokens.dart';
+
+/// 固定视口尺寸，避免测试默认 800×600 落到平板布局。
+void _useViewport(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
 
 void main() {
-  testWidgets('装配入口 → 首屏链路可用', (WidgetTester tester) async {
+  testWidgets('装配入口 → 外壳渲染成功：3 个 tab 存在且无异常', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
     await tester.pumpWidget(const ProviderScope(child: TomeToneApp()));
+    await tester.pumpAndSettle();
 
     expect(find.byType(MaterialApp), findsOneWidget);
-    expect(find.text(AppInfo.appName), findsOneWidget);
-    expect(find.text(AppInfo.appNameLatin), findsOneWidget);
-    expect(find.textContaining(AppInfo.version), findsOneWidget);
+    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('书架'), findsOneWidget);
+    expect(find.text('纪年'), findsOneWidget);
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('书卷藏馆'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('切换 tab 后显示对应占位内容', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
+    await tester.pumpWidget(const ProviderScope(child: TomeToneApp()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('纪年'));
+    await tester.pumpAndSettle();
+    expect(find.text('聆听纪年'), findsOneWidget);
+    expect(find.text('书卷藏馆'), findsNothing);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('系统偏好'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('MiniPlayer 槽位渲染在底部栏之上', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(),
+        home: const AppShell(
+          miniPlayer: SizedBox(
+            height: 56,
+            child: Center(child: Text('正在播放 · 第一章')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('正在播放 · 第一章'), findsOneWidget);
+    final double miniBottom = tester.getBottomLeft(find.text('正在播放 · 第一章')).dy;
+    final double barTop = tester.getTopLeft(find.byType(NavigationBar)).dy;
+    expect(miniBottom, lessThanOrEqualTo(barTop));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('≥600dp 切换为 NavigationRail，布局不崩', (WidgetTester tester) async {
+    _useViewport(tester, const Size(900, 720));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(palette: AppColorPalettes.starryIndigo),
+        home: const AppShell(miniPlayer: Text('播放器')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('书架'), findsOneWidget);
+    expect(find.text('纪年'), findsOneWidget);
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('书卷藏馆'), findsOneWidget);
+    expect(find.text('播放器'), findsOneWidget);
+
+    await tester.tap(find.text('纪年'));
+    await tester.pumpAndSettle();
+    expect(find.text('聆听纪年'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('系统开启"减弱动效"时过渡时长为 0', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(),
+        home: const AppShell(),
+        builder: (BuildContext context, Widget? child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final AnimatedSwitcher switcher = tester.widget<AnimatedSwitcher>(
+      find.byType(AnimatedSwitcher),
+    );
+    expect(switcher.duration, Duration.zero);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('设置'));
+    await tester.pump();
+    expect(find.text('系统偏好'), findsOneWidget);
+  });
+
+  testWidgets('默认动效时长为克制档（200ms）', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.build(), home: const AppShell()),
+    );
+    await tester.pumpAndSettle();
+
+    final AnimatedSwitcher switcher = tester.widget<AnimatedSwitcher>(
+      find.byType(AnimatedSwitcher),
+    );
+    expect(switcher.duration, AppDurations.standard);
   });
 }

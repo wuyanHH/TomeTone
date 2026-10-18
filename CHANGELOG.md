@@ -111,6 +111,23 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
     `ACCESS_NETWORK_STATE`）。
   - 媒体会话 / 前台服务 / MediaNotification（`audio_service`）留待 Step 5d，
     依赖暂不加入 —— 不预埋"已声明未使用"的配置。
+- **国风主题系统与应用外壳**（Step 6a，`lib/ui/theme/`、`lib/ui/widgets/`、`AppShell`）：
+  - 五套国风色盘（琥珀旧卷 / 竹海幽青 / 星夜深蓝 / 暮紫沉香 / 山丹丹红）× 明 / 暗 /
+    暗夜 OLED；OLED 版背景纯黑、`surfaceContainerHighest` 亮度 <0.02、强调色降亮度降饱和。
+  - `AppTheme.build(palette, brightness, oled)` + 中文排版 TextTheme +
+    NavigationBar/Rail、Card、Dialog、Sheet、按钮、输入框组件主题 + `MiniPlayerTheme`。
+  - `theme_tokens.dart`：间距 / 圆角 / 尺寸 / 动效时长 token；`AppMotion.resolve()`
+    统一读 `MediaQuery.disableAnimations`（减弱动效）。
+  - `BookCover`：书脊 + 内框 + 竖排双字的**几何字标**兜底；`FittedBox` 保证任意书名
+    不溢出；`Image.file` 读取失败静默回落字标。
+  - `AppShell`：`<600dp` 用 `NavigationBar`、`≥600dp` 用 `NavigationRail`；
+    MiniPlayer 是**纯槽位**（外壳不读播放数据、不含任何播放策略）。
+  - 主题已接入 `TomeToneApp`（明暗跟随系统；色盘与 OLED 参数已就位，供设置页驱动）。
+  - 对比度门禁：5 套 × 明/暗/OLED 共 20 组 × 7 对语义色，全部 ≥ WCAG AA 4.5:1
+    （用独立 WCAG 相对亮度公式实测，非自证）。
+  - 自查修复：`BookCover.coverPath` 必须是**绝对路径** —— 库内 `cover_path` 相对书库根，
+    而 `Image.file` 对相对路径不报错、只是静默不显示，会表现成"封面莫名不见"；
+    已加 debug assert 与正负例测试。
 
 ### 正在计划
 
