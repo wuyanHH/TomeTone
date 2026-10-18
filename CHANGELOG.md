@@ -46,6 +46,16 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - `flutter test` 下用 `NativeDatabase.memory()` 跑通 13 个数据层用例
     （外键 / 唯一绑定键 / 级联 / 缺失保留 / 进度 upsert / 偏好默认值 / 时间语义）。
   - CI 增加"生成代码与提交内容一致"门禁（`build_runner build` + `git diff --exit-code`）。
+- **扫描内核**（Step 3a，`lib/domain/library/scan/`）：
+  - `MediaFormat`：8 种格式白名单；忽略非音频、隐藏文件、macOS 资源分叉
+    `._xxx.mp3`（SD 卡最常见污染）。
+  - `NaturalOrder`：阿拉伯数字与中文序数（一 / 二 / 十 / 百 / 千 / 万 / 两）统一映射为数值；
+    前缀分组 **序 → 楔子 → 正文 → 番外**；同键按原始字符串确定性兜底，保证多次扫描顺序稳定。
+  - `TopologyBuilder`：`书库根/<书>/…` 推导 书 → 卷 → 章（单卷平铺 / 多卷嵌套 /
+    根卷与子卷混排 / 卷内继续嵌套）；`chapterIndex` 为全书连续序号。
+  - 37 个扫描用例，覆盖 §2.1 验收语料（`第1章 / 第一章 / 楔子 / 序 / 番外 / 卷三`）。
+  - 自审修复：超长数字（毫秒时间戳命名）会 `FormatException` 中断扫描、
+    `万万` 类词语导致整数溢出、`bookDepth < 1` 在 release 下无保护。
 
 ### 正在计划
 
