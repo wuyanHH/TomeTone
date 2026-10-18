@@ -39,6 +39,16 @@ class _FakeLibraryRootService implements LibraryRootService {
   }
 
   @override
+  Future<String> addSafRoot({
+    required String treeUri,
+    required String displayName,
+  }) async {
+    addCalls.add((path: treeUri, name: displayName));
+    onAdd?.call(treeUri, displayName);
+    return 'root-${addCalls.length}';
+  }
+
+  @override
   Future<ScanReport> scan(String libraryRootId) {
     scannedRootIds.add(libraryRootId);
     final Object? error = scanErrors[libraryRootId];

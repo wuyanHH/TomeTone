@@ -67,6 +67,33 @@ class LibraryRootService {
     return id;
   }
 
+  /// 添加 SAF 书库根（tree URI 已由平台层持久化读权限）。
+  ///
+  /// 与 [addLocalRoot] 的差别：SAF 目录无法用 `Directory.existsSync` 校验，
+  /// 授权是否有效只能等真正列举时才知道（失败会体现在扫描报告的 `failedPaths`）。
+  Future<String> addSafRoot({
+    required String treeUri,
+    required String displayName,
+  }) async {
+    final uri = treeUri.trim();
+    if (uri.isEmpty) {
+      throw ArgumentError.value(treeUri, 'treeUri', '不能为空');
+    }
+    final id = _idGenerator.next();
+    await _database
+        .into(_database.libraryRoots)
+        .insert(
+          LibraryRootsCompanion.insert(
+            id: id,
+            type: 'saf',
+            uri: uri,
+            displayName: displayName.trim().isEmpty ? uri : displayName.trim(),
+            createdAt: _clock().toUtc(),
+          ),
+        );
+    return id;
+  }
+
   /// 扫描指定书库根（Phase 1 结构扫描）。
   ///
   /// provider 的创建与释放都在这里完成；扫描器不感知实现。
