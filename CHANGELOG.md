@@ -71,6 +71,17 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - `PathNormalizer`：NFC 归一化绑定键，NFD/NFC 混写不再产生重复书。
   - 已知规模上限（记录待办）：结构扫描把整本书的章一次性载入内存，
     十万章级数据集需要改为按书分页（M2/M3 性能专项）。
+- **封面五级继承**（Step 4，`lib/domain/library/cover/`）：
+  - `CoverSource` 枚举的 `rank` 与文档 1–5 级一一对应；Drift 转换器落库为 int，
+    未知序号回退字标（旧版本读到新档位不崩溃）。SQL 默认 = 字标兜底。
+  - `CoverResolver` 为**纯解析**（不碰文件系统 / 数据库）：
+    书 = 书根图 → 首卷反哺 → 首章内嵌 → 字标；卷 = 卷目录图 → 书根图 → 字标。
+  - 候选挑选按「名称优先级（`cover` > `folder` > `front` > `poster` > …）
+    → 自然顺序」，结果确定，不随目录返回顺序抖动。
+  - 扫描 Phase 1 落库 `books.cover_path` / `books.cover_source_type` 与
+    `volumes.cover_path`；**只索引目录直接子项**，避免把深层插图误判为封面。
+  - 四级（首章内嵌封面）只判定档位、不产出路径 —— 字节抽取属于 Phase 2，
+    待接入真实标签解析后再落盘（届时不需要迁移）。
 
 ### 正在计划
 

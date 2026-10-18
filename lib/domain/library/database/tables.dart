@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import '../cover/cover_source.dart';
+
 // 数据模型对应《架构需求文档》§8.1 / §8.2。
 //
 // 约定：
@@ -71,12 +73,18 @@ class Books extends Table {
   /// 书根相对路径（NFC 规范化，相对 `library_roots.uri`）。
   TextColumn get rootPath => text()();
 
-  /// 封面路径；无封面时为空，由 UI 走几何字标兜底。
+  /// 封面路径（**相对书库根**，与 `chapters.file_path` 同语义）；
+  /// 为空时由 UI 走几何字标兜底。
   TextColumn get coverPath => text().nullable()();
 
-  /// 封面来源档位（§2.1 五级继承）：0 卷目录图 / 1 书根图 / 2 首卷反哺 /
-  /// 3 首章内嵌 / 4 几何字标兜底。
-  IntColumn get coverSourceType => integer().withDefault(const Constant(4))();
+  /// 封面来源档位（§2.1 五级继承）。枚举顺序即优先级，见 [CoverSource]。
+  ///
+  /// SQL 默认 4 = `CoverSource.typography.rank`（字标兜底）。
+  /// 静态类型是 `IntColumn`（DSL 的 `map` 只做标记），生成器会把 Dart 侧类型
+  /// 提升为 `CoverSource`。
+  IntColumn get coverSourceType => integer()
+      .withDefault(const Constant(CoverSource.typographyRank))
+      .map(const CoverSourceConverter())();
 
   /// `local` / `saf` / `webdav`。
   TextColumn get sourceType => text()();

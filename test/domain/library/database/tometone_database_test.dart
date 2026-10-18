@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 
 /// 固定时间基准（drift 默认把 `DateTime` 存为 UTC 秒级时间戳，故不带毫秒）。
@@ -150,6 +151,25 @@ void main() {
         reason: '同一瞬时（秒级）',
       );
       expect(row.createdAt.millisecond, 0, reason: '毫秒被截断');
+    });
+
+    test('封面档位按枚举读写，默认字标兜底', () async {
+      await _seedLibraryRoot(db);
+      await _seedBook(db);
+
+      var book = await db.select(db.books).getSingle();
+      expect(book.coverSourceType, CoverSource.typography);
+
+      await (db.update(
+        db.books,
+      )..where((tbl) => tbl.id.equals('book-1'))).write(
+        const BooksCompanion(
+          coverSourceType: Value<CoverSource>(CoverSource.firstVolumeFeedback),
+        ),
+      );
+
+      book = await db.select(db.books).getSingle();
+      expect(book.coverSourceType, CoverSource.firstVolumeFeedback);
     });
 
     test('sourceUri / durationMs / sizeBytes 可为空并可读回', () async {

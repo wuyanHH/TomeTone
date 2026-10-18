@@ -21,6 +21,7 @@
 | `library/database/` | Drift schema（9 张表）、迁移策略、代码生成产物 |
 | `library/scan/` | 媒体格式白名单、自然排序、拓扑推导、NFC 路径归一化、扫描编排与两阶段回填 |
 | `library/media/` | `MediaMetadataReader` 端口（Phase 2 回填时长 / 内嵌封面） |
+| `library/cover/` | `CoverSource`（五级继承档位 + Drift 转换器）、`CoverResolver`（纯解析） |
 
 ### 为什么持久化在领域层而不是新增 `data/` 层
 

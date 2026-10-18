@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../cover/cover_source.dart';
 import 'tables.dart';
 
 part 'tometone_database.g.dart';

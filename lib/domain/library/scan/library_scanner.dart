@@ -5,6 +5,8 @@ import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/storage/storage_entry.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/id_generator.dart';
+import 'package:tometone/domain/library/cover/cover_resolver.dart';
+import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/media/media_metadata_reader.dart';
 
@@ -83,6 +85,7 @@ class LibraryScanner {
       final ignoredFiles = collection.nodes
           .where((ScanNode node) => !MediaFormat.isSupported(node.path))
           .length;
+      final images = _indexImages(collection.nodes);
 
       final snapshot = await _loadSnapshot(libraryRootId);
       final now = _clock().toUtc();
@@ -90,6 +93,7 @@ class LibraryScanner {
         libraryRootId: libraryRootId,
         topology: topology,
         snapshot: snapshot,
+        images: images,
         now: now,
         sourceType: sourceType,
       );
@@ -231,6 +235,25 @@ class LibraryScanner {
     return _Collection(nodes: nodes, failedPaths: failedPaths);
   }
 
+  /// 目录（相对书库根）→ 该目录下**直接**包含的封面候选图片路径。
+  ///
+  /// 只索引直接子项：封面继承是"就近优先"，跨目录的图片不参与本级判定。
+  Map<String, List<String>> _indexImages(List<ScanNode> nodes) {
+    final index = <String, List<String>>{};
+    for (final node in nodes) {
+      if (!CoverResolver.isCoverImage(node.path)) {
+        continue;
+      }
+      final slash = node.path.lastIndexOf('/');
+      final directory = slash < 0 ? '' : node.path.substring(0, slash);
+      index.putIfAbsent(directory, () => <String>[]).add(node.path);
+    }
+    return index;
+  }
+
+  static String _joinPath(String parent, String child) =>
+      child.isEmpty ? parent : '$parent/$child';
+
   Future<_Snapshot> _loadSnapshot(String libraryRootId) async {
     final books = await (_database.select(
       _database.books,
@@ -261,6 +284,7 @@ class LibraryScanner {
     required String libraryRootId,
     required List<BookTopology> topology,
     required _Snapshot snapshot,
+    required Map<String, List<String>> images,
     required DateTime now,
     required String sourceType,
   }) {
@@ -288,6 +312,19 @@ class LibraryScanner {
       final existingBook = booksByPath[bookTopology.rootPath];
       final bookId = existingBook?.id ?? _idGenerator.next();
 
+      final rootImages = images[bookTopology.rootPath] ?? const <String>[];
+      final firstVolume = bookTopology.volumes.isEmpty
+          ? null
+          : bookTopology.volumes.first;
+      final firstVolumeImages = firstVolume == null
+          ? const <String>[]
+          : images[_joinPath(bookTopology.rootPath, firstVolume.path)] ??
+                const <String>[];
+      final bookCover = CoverResolver.resolveBook(
+        rootImages: rootImages,
+        firstVolumeImages: firstVolumeImages,
+      );
+
       var chapterCount = 0;
       var existingMatched = 0;
       var totalDurationMs = 0;
@@ -295,6 +332,12 @@ class LibraryScanner {
       for (final volumeTopology in bookTopology.volumes) {
         final existingVolume = volumesByKey['$bookId|${volumeTopology.path}'];
         final volumeId = existingVolume?.id ?? _idGenerator.next();
+        final volumeCover = CoverResolver.resolveVolume(
+          volumeImages:
+              images[_joinPath(bookTopology.rootPath, volumeTopology.path)] ??
+              const <String>[],
+          rootImages: rootImages,
+        );
 
         if (existingVolume == null) {
           plan.volumesAdded++;
@@ -305,16 +348,19 @@ class LibraryScanner {
               title: volumeTopology.title,
               volumeIndex: volumeTopology.volumeIndex,
               path: volumeTopology.path,
+              coverPath: Value<String?>(volumeCover.relativePath),
               updatedAt: now,
             ),
           );
         } else if (existingVolume.title != volumeTopology.title ||
-            existingVolume.volumeIndex != volumeTopology.volumeIndex) {
+            existingVolume.volumeIndex != volumeTopology.volumeIndex ||
+            existingVolume.coverPath != volumeCover.relativePath) {
           plan.volumeUpdates.add((
             id: volumeId,
             data: VolumesCompanion(
               title: Value<String>(volumeTopology.title),
               volumeIndex: Value<int>(volumeTopology.volumeIndex),
+              coverPath: Value<String?>(volumeCover.relativePath),
               updatedAt: Value<DateTime>(now),
             ),
           ));
@@ -392,6 +438,8 @@ class LibraryScanner {
             title: bookTopology.title,
             rootPath: bookTopology.rootPath,
             sourceType: sourceType,
+            coverPath: Value<String?>(bookCover.relativePath),
+            coverSourceType: Value<CoverSource>(bookCover.source),
             totalChapters: Value<int>(totalChapters),
             totalDurationMs: Value<int>(totalDurationMs),
             createdAt: now,
@@ -404,13 +452,17 @@ class LibraryScanner {
       final bookChanged =
           existingBook.title != bookTopology.title ||
           existingBook.totalChapters != totalChapters ||
-          existingBook.totalDurationMs != totalDurationMs;
+          existingBook.totalDurationMs != totalDurationMs ||
+          existingBook.coverPath != bookCover.relativePath ||
+          existingBook.coverSourceType != bookCover.source;
       if (bookChanged) {
         plan.booksUpdated++;
         plan.bookUpdates.add((
           id: bookId,
           data: BooksCompanion(
             title: Value<String>(bookTopology.title),
+            coverPath: Value<String?>(bookCover.relativePath),
+            coverSourceType: Value<CoverSource>(bookCover.source),
             totalChapters: Value<int>(totalChapters),
             totalDurationMs: Value<int>(totalDurationMs),
             updatedAt: Value<DateTime>(now),

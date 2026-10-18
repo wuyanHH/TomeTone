@@ -4,6 +4,7 @@ import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/storage/fake_storage_provider.dart';
 import 'package:tometone/contracts/storage/storage_entry.dart';
 import 'package:tometone/domain/common/id_generator.dart';
+import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/media/media_metadata.dart';
 import 'package:tometone/domain/library/media/media_metadata_reader.dart';
@@ -380,6 +381,99 @@ void main() {
       );
       expect(report.updated, 1);
       expect(report.remaining, 0, reason: '坏文件已退出队列，不再计入待回填');
+    });
+  });
+
+  group('封面五级继承（落库）', () {
+    test('书根图 → bookRoot', () async {
+      await seedRoot();
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: FakeStorageProvider.fromPaths(<String, int>{
+          '三体/卷一/001.mp3': 100,
+          '三体/cover.jpg': 10,
+        }),
+      );
+
+      final book = await db.select(db.books).getSingle();
+      expect(book.coverPath, '三体/cover.jpg');
+      expect(book.coverSourceType, CoverSource.bookRoot);
+    });
+
+    test('无书根图 → 首卷反哺', () async {
+      await seedRoot();
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: FakeStorageProvider.fromPaths(<String, int>{
+          '三体/卷一/001.mp3': 100,
+          '三体/卷一/folder.png': 10,
+        }),
+      );
+
+      final book = await db.select(db.books).getSingle();
+      expect(book.coverPath, '三体/卷一/folder.png');
+      expect(book.coverSourceType, CoverSource.firstVolumeFeedback);
+    });
+
+    test('无任何封面 → 字标兜底且 coverPath 为空', () async {
+      await seedRoot();
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: FakeStorageProvider.fromPaths(<String, int>{
+          '三体/001.mp3': 100,
+        }),
+      );
+
+      final book = await db.select(db.books).getSingle();
+      expect(book.coverPath, isNull);
+      expect(book.coverSourceType, CoverSource.typography);
+    });
+
+    test('卷封面：卷目录图优先，否则回退书根图', () async {
+      await seedRoot();
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: FakeStorageProvider.fromPaths(<String, int>{
+          '三体/cover.jpg': 10,
+          '三体/卷一/001.mp3': 100,
+          '三体/卷一/poster.png': 10,
+          '三体/卷二/001.mp3': 100,
+        }),
+      );
+
+      final volumes = await db.select(db.volumes).get();
+      expect(
+        volumes.firstWhere((Volume volume) => volume.path == '卷一').coverPath,
+        '三体/卷一/poster.png',
+      );
+      expect(
+        volumes.firstWhere((Volume volume) => volume.path == '卷二').coverPath,
+        '三体/cover.jpg',
+      );
+    });
+
+    test('新增封面图会触发书更新', () async {
+      await seedRoot();
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: FakeStorageProvider.fromPaths(<String, int>{
+          '三体/001.mp3': 100,
+        }),
+      );
+
+      final report = await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: FakeStorageProvider.fromPaths(<String, int>{
+          '三体/001.mp3': 100,
+          '三体/cover.jpg': 10,
+        }),
+      );
+
+      expect(report.booksUpdated, 1);
+      expect(
+        (await db.select(db.books).getSingle()).coverSourceType,
+        CoverSource.bookRoot,
+      );
     });
   });
 

@@ -532,18 +532,16 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _coverSourceTypeMeta = const VerificationMeta(
-    'coverSourceType',
-  );
   @override
-  late final GeneratedColumn<int> coverSourceType = GeneratedColumn<int>(
+  late final GeneratedColumnWithTypeConverter<CoverSource, int>
+  coverSourceType = GeneratedColumn<int>(
     'cover_source_type',
     aliasedName,
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant(4),
-  );
+    defaultValue: const Constant(CoverSource.typographyRank),
+  ).withConverter<CoverSource>($BooksTable.$convertercoverSourceType);
   static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
     'sourceType',
   );
@@ -708,15 +706,6 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         coverPath.isAcceptableOrUnknown(data['cover_path']!, _coverPathMeta),
       );
     }
-    if (data.containsKey('cover_source_type')) {
-      context.handle(
-        _coverSourceTypeMeta,
-        coverSourceType.isAcceptableOrUnknown(
-          data['cover_source_type']!,
-          _coverSourceTypeMeta,
-        ),
-      );
-    }
     if (data.containsKey('source_type')) {
       context.handle(
         _sourceTypeMeta,
@@ -810,10 +799,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.string,
         data['${effectivePrefix}cover_path'],
       ),
-      coverSourceType: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}cover_source_type'],
-      )!,
+      coverSourceType: $BooksTable.$convertercoverSourceType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}cover_source_type'],
+        )!,
+      ),
       sourceType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_type'],
@@ -845,6 +836,9 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
   $BooksTable createAlias(String alias) {
     return $BooksTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<CoverSource, int> $convertercoverSourceType =
+      const CoverSourceConverter();
 }
 
 class Book extends DataClass implements Insertable<Book> {
@@ -872,12 +866,16 @@ class Book extends DataClass implements Insertable<Book> {
   /// 书根相对路径（NFC 规范化，相对 `library_roots.uri`）。
   final String rootPath;
 
-  /// 封面路径；无封面时为空，由 UI 走几何字标兜底。
+  /// 封面路径（**相对书库根**，与 `chapters.file_path` 同语义）；
+  /// 为空时由 UI 走几何字标兜底。
   final String? coverPath;
 
-  /// 封面来源档位（§2.1 五级继承）：0 卷目录图 / 1 书根图 / 2 首卷反哺 /
-  /// 3 首章内嵌 / 4 几何字标兜底。
-  final int coverSourceType;
+  /// 封面来源档位（§2.1 五级继承）。枚举顺序即优先级，见 [CoverSource]。
+  ///
+  /// SQL 默认 4 = `CoverSource.typography.rank`（字标兜底）。
+  /// 静态类型是 `IntColumn`（DSL 的 `map` 只做标记），生成器会把 Dart 侧类型
+  /// 提升为 `CoverSource`。
+  final CoverSource coverSourceType;
 
   /// `local` / `saf` / `webdav`。
   final String sourceType;
@@ -936,7 +934,11 @@ class Book extends DataClass implements Insertable<Book> {
     if (!nullToAbsent || coverPath != null) {
       map['cover_path'] = Variable<String>(coverPath);
     }
-    map['cover_source_type'] = Variable<int>(coverSourceType);
+    {
+      map['cover_source_type'] = Variable<int>(
+        $BooksTable.$convertercoverSourceType.toSql(coverSourceType),
+      );
+    }
     map['source_type'] = Variable<String>(sourceType);
     if (!nullToAbsent || sourceUri != null) {
       map['source_uri'] = Variable<String>(sourceUri);
@@ -996,7 +998,9 @@ class Book extends DataClass implements Insertable<Book> {
       seriesIndex: serializer.fromJson<int?>(json['seriesIndex']),
       rootPath: serializer.fromJson<String>(json['rootPath']),
       coverPath: serializer.fromJson<String?>(json['coverPath']),
-      coverSourceType: serializer.fromJson<int>(json['coverSourceType']),
+      coverSourceType: serializer.fromJson<CoverSource>(
+        json['coverSourceType'],
+      ),
       sourceType: serializer.fromJson<String>(json['sourceType']),
       sourceUri: serializer.fromJson<String?>(json['sourceUri']),
       totalChapters: serializer.fromJson<int>(json['totalChapters']),
@@ -1018,7 +1022,7 @@ class Book extends DataClass implements Insertable<Book> {
       'seriesIndex': serializer.toJson<int?>(seriesIndex),
       'rootPath': serializer.toJson<String>(rootPath),
       'coverPath': serializer.toJson<String?>(coverPath),
-      'coverSourceType': serializer.toJson<int>(coverSourceType),
+      'coverSourceType': serializer.toJson<CoverSource>(coverSourceType),
       'sourceType': serializer.toJson<String>(sourceType),
       'sourceUri': serializer.toJson<String?>(sourceUri),
       'totalChapters': serializer.toJson<int>(totalChapters),
@@ -1038,7 +1042,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<int?> seriesIndex = const Value.absent(),
     String? rootPath,
     Value<String?> coverPath = const Value.absent(),
-    int? coverSourceType,
+    CoverSource? coverSourceType,
     String? sourceType,
     Value<String?> sourceUri = const Value.absent(),
     int? totalChapters,
@@ -1172,7 +1176,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<int?> seriesIndex;
   final Value<String> rootPath;
   final Value<String?> coverPath;
-  final Value<int> coverSourceType;
+  final Value<CoverSource> coverSourceType;
   final Value<String> sourceType;
   final Value<String?> sourceUri;
   final Value<int> totalChapters;
@@ -1274,7 +1278,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<int?>? seriesIndex,
     Value<String>? rootPath,
     Value<String?>? coverPath,
-    Value<int>? coverSourceType,
+    Value<CoverSource>? coverSourceType,
     Value<String>? sourceType,
     Value<String?>? sourceUri,
     Value<int>? totalChapters,
@@ -1335,7 +1339,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
       map['cover_path'] = Variable<String>(coverPath.value);
     }
     if (coverSourceType.present) {
-      map['cover_source_type'] = Variable<int>(coverSourceType.value);
+      map['cover_source_type'] = Variable<int>(
+        $BooksTable.$convertercoverSourceType.toSql(coverSourceType.value),
+      );
     }
     if (sourceType.present) {
       map['source_type'] = Variable<String>(sourceType.value);
@@ -5463,7 +5469,7 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   Value<int?> seriesIndex,
   required String rootPath,
   Value<String?> coverPath,
-  Value<int> coverSourceType,
+  Value<CoverSource> coverSourceType,
   required String sourceType,
   Value<String?> sourceUri,
   Value<int> totalChapters,
@@ -5482,7 +5488,7 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<int?> seriesIndex,
   Value<String> rootPath,
   Value<String?> coverPath,
-  Value<int> coverSourceType,
+  Value<CoverSource> coverSourceType,
   Value<String> sourceType,
   Value<String?> sourceUri,
   Value<int> totalChapters,
@@ -5687,9 +5693,10 @@ class $$BooksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get coverSourceType => $composableBuilder(
+  ColumnWithTypeConverterFilters<CoverSource, CoverSource, int>
+  get coverSourceType => $composableBuilder(
     column: $table.coverSourceType,
-    builder: (column) => ColumnFilters(column),
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get sourceType => $composableBuilder(
@@ -6042,10 +6049,11 @@ class $$BooksTableAnnotationComposer
   GeneratedColumn<String> get coverPath =>
       $composableBuilder(column: $table.coverPath, builder: (column) => column);
 
-  GeneratedColumn<int> get coverSourceType => $composableBuilder(
-    column: $table.coverSourceType,
-    builder: (column) => column,
-  );
+  GeneratedColumnWithTypeConverter<CoverSource, int> get coverSourceType =>
+      $composableBuilder(
+        column: $table.coverSourceType,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
@@ -6291,7 +6299,7 @@ class $$BooksTableTableManager
                 Value<int?> seriesIndex = const Value.absent(),
                 Value<String> rootPath = const Value.absent(),
                 Value<String?> coverPath = const Value.absent(),
-                Value<int> coverSourceType = const Value.absent(),
+                Value<CoverSource> coverSourceType = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
                 Value<String?> sourceUri = const Value.absent(),
                 Value<int> totalChapters = const Value.absent(),
@@ -6329,7 +6337,7 @@ class $$BooksTableTableManager
                 Value<int?> seriesIndex = const Value.absent(),
                 required String rootPath,
                 Value<String?> coverPath = const Value.absent(),
-                Value<int> coverSourceType = const Value.absent(),
+                Value<CoverSource> coverSourceType = const Value.absent(),
                 required String sourceType,
                 Value<String?> sourceUri = const Value.absent(),
                 Value<int> totalChapters = const Value.absent(),
