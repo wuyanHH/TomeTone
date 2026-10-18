@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:tometone/app/app_info.dart';
 import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
 import 'package:tometone/ui/pages/settings/settings_page.dart';
@@ -20,13 +22,15 @@ import 'ui_test_harness.dart';
 class _FakeLibraryRootService implements LibraryRootService {
   final List<({String path, String? name})> addCalls =
       <({String path, String? name})>[];
+  final List<({String treeUri, String name})> safCalls =
+      <({String treeUri, String name})>[];
   final List<String> scannedRootIds = <String>[];
   final Map<String, Completer<ScanReport>> scanCompleters =
       <String, Completer<ScanReport>>{};
   final Map<String, Object> scanErrors = <String, Object>{};
 
   /// 添加成功时的回调（测试用来模拟「重新查询后多了一条根」）。
-  void Function(String path, String? name)? onAdd;
+  void Function(String uri, String? name)? onAdd;
 
   @override
   Future<String> addLocalRoot({
@@ -43,9 +47,9 @@ class _FakeLibraryRootService implements LibraryRootService {
     required String treeUri,
     required String displayName,
   }) async {
-    addCalls.add((path: treeUri, name: displayName));
+    safCalls.add((treeUri: treeUri, name: displayName));
     onAdd?.call(treeUri, displayName);
-    return 'root-${addCalls.length}';
+    return 'root-saf-${safCalls.length}';
   }
 
   @override
@@ -60,6 +64,23 @@ class _FakeLibraryRootService implements LibraryRootService {
 
   @override
   Future<DateTime?> lastScanAt(String libraryRootId) async => null;
+}
+
+/// 假的目录选择器：记录弹了几次，返回预设结果或预设异常。
+class _FakeDirectoryPicker implements DirectoryPicker {
+  int calls = 0;
+  PickedDirectory? picked;
+  Exception? failure;
+
+  @override
+  Future<PickedDirectory?> pickDirectory() async {
+    calls++;
+    final Exception? error = failure;
+    if (error != null) {
+      throw error;
+    }
+    return picked;
+  }
 }
 
 ScanReport _report({
@@ -120,13 +141,21 @@ void main() {
     WidgetTester tester, {
     required List<LibraryRootView> Function() roots,
     String? suggestedPath,
+    DirectoryPicker? picker,
+    void Function()? onRootsQuery,
   }) async {
     usePhoneViewport(tester);
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
-        libraryRootsProvider.overrideWith((Ref ref) async => roots()),
+        libraryRootsProvider.overrideWith((Ref ref) async {
+          onRootsQuery?.call();
+          return roots();
+        }),
         booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
         libraryRootServiceProvider.overrideWithValue(service),
+        directoryPickerProvider.overrideWithValue(
+          picker ?? _FakeDirectoryPicker(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -147,6 +176,9 @@ void main() {
     expect(find.text('还没有书库根'), findsOneWidget);
     expect(find.textContaining('支持 mp3'), findsOneWidget);
     expect(find.byKey(SettingsPage.addRootKey), findsOneWidget);
+    expect(find.byKey(SettingsPage.safPickKey), findsOneWidget);
+    expect(find.text('选择目录（SAF）'), findsOneWidget);
+    expect(find.text('高级：手动输入路径'), findsOneWidget);
     expect(find.text('0 个'), findsOneWidget);
     expect(find.text('系统偏好'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -269,6 +301,148 @@ void main() {
     expect(find.text('目录不存在：/definitely/not/here/books'), findsOneWidget);
     expect(service.addCalls, isEmpty);
     expect(find.byKey(SettingsPage.submitRootKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SAF：点按钮只弹一次选择器，用户取消时静默', (WidgetTester tester) async {
+    final _FakeDirectoryPicker picker = _FakeDirectoryPicker();
+    int rootsQueries = 0;
+
+    await pumpSettings(
+      tester,
+      roots: () => const <LibraryRootView>[testRoot],
+      picker: picker,
+      onRootsQuery: () => rootsQueries++,
+    );
+    expect(rootsQueries, 1);
+
+    expect(find.byKey(SettingsPage.safPickKey), findsOneWidget);
+    expect(find.text('选择目录（SAF）'), findsOneWidget);
+    expect(find.text('高级：手动输入路径'), findsOneWidget);
+
+    await tester.tap(find.byKey(SettingsPage.safPickKey));
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(service.safCalls, isEmpty, reason: '取消不应写入书库根');
+    expect(find.byKey(SettingsPage.addedNoticeKey), findsNothing);
+    expect(
+      find.byKey(SettingsPage.safErrorKey),
+      findsNothing,
+      reason: '取消不是错误',
+    );
+    expect(find.textContaining('已添加'), findsNothing);
+    expect(rootsQueries, 1, reason: '取消不应刷新列表');
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(SettingsPage.safPickKey))
+          .onPressed,
+      isNotNull,
+      reason: '取消后按钮要恢复可用',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SAF：选中目录后原样写入 tree URI 与名称，并重新查询列表', (
+    WidgetTester tester,
+  ) async {
+    const String treeUri =
+        'content://com.android.externalstorage.documents/tree/primary%3ABooks';
+    final _FakeDirectoryPicker picker = _FakeDirectoryPicker()
+      ..picked = const PickedDirectory(uri: treeUri, name: 'Books');
+    int rootsQueries = 0;
+    List<LibraryRootView> roots = <LibraryRootView>[testRoot];
+    service.onAdd = (String uri, String? name) {
+      roots = <LibraryRootView>[
+        ...roots,
+        _root(id: 'root-saf', uri: uri, displayName: name ?? 'Books'),
+      ];
+    };
+
+    final ProviderContainer container = await pumpSettings(
+      tester,
+      roots: () => roots,
+      picker: picker,
+      onRootsQuery: () => rootsQueries++,
+    );
+    expect(rootsQueries, 1);
+
+    await tester.tap(find.byKey(SettingsPage.safPickKey));
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(service.safCalls, hasLength(1));
+    expect(service.safCalls.single.treeUri, treeUri);
+    expect(service.safCalls.single.name, 'Books');
+    expect(service.addCalls, isEmpty, reason: 'SAF 不应走本地路径入口');
+
+    expect(find.byKey(SettingsPage.addedNoticeKey), findsOneWidget);
+    expect(find.textContaining('已添加「Books」'), findsOneWidget);
+    expect(find.byKey(SettingsPage.safErrorKey), findsNothing);
+    expect(find.text('2 个'), findsOneWidget);
+    expect(rootsQueries, 2, reason: '添加成功后必须重新查询书库根');
+    expect(
+      container.read(libraryRootsProvider).value,
+      hasLength(2),
+      reason: '列表以重新查询结果为准',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SAF：平台未接线时就地说明，并指向手动输入路径', (WidgetTester tester) async {
+    final _FakeDirectoryPicker picker = _FakeDirectoryPicker()
+      ..failure = MissingPluginException(
+        'No implementation found for method openDirectory on channel tometone/saf',
+      );
+    int rootsQueries = 0;
+    await pumpSettings(
+      tester,
+      roots: () => const <LibraryRootView>[testRoot],
+      picker: picker,
+      onRootsQuery: () => rootsQueries++,
+    );
+
+    await tester.tap(find.byKey(SettingsPage.safPickKey));
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(service.safCalls, isEmpty);
+    expect(find.byKey(SettingsPage.safErrorKey), findsOneWidget);
+    expect(find.text('这里没有系统目录选择器'), findsOneWidget);
+    expect(find.textContaining('当前平台没有接入目录选择'), findsOneWidget);
+    expect(find.textContaining('MissingPluginException'), findsNothing);
+    expect(find.byKey(SettingsPage.addedNoticeKey), findsNothing);
+    expect(rootsQueries, 1);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(SettingsPage.safPickKey))
+          .onPressed,
+      isNotNull,
+      reason: '失败后可以重试',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SAF：busy 时就地说明「已有选择在进行」，不暴露原始异常', (WidgetTester tester) async {
+    final _FakeDirectoryPicker picker = _FakeDirectoryPicker()
+      ..failure = PlatformException(code: 'busy', message: '已有目录选择在进行');
+    await pumpSettings(
+      tester,
+      roots: () => const <LibraryRootView>[testRoot],
+      picker: picker,
+    );
+
+    await tester.tap(find.byKey(SettingsPage.safPickKey));
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(service.safCalls, isEmpty);
+    expect(find.byKey(SettingsPage.safErrorKey), findsOneWidget);
+    expect(find.text('目录选择器正在使用'), findsOneWidget);
+    expect(find.textContaining('已经有一个目录选择在进行'), findsOneWidget);
+    expect(find.textContaining('PlatformException'), findsNothing);
+    expect(find.textContaining('busy'), findsNothing);
+    expect(find.byKey(SettingsPage.addedNoticeKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

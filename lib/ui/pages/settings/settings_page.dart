@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/app_info.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -123,8 +125,14 @@ class SettingsPage extends ConsumerStatefulWidget {
   /// 书库根空态。
   static const Key rootsEmptyKey = Key('settings-roots-empty');
 
-  /// 添加书库根入口（空态与非空态各一个，互斥出现）。
+  /// 手动添加书库根入口（空态与非空态各一个，互斥出现）。
   static const Key addRootKey = Key('settings-add-root');
+
+  /// 用系统目录选择器添加书库根（推荐路径，与 [addRootKey] 互斥出现）。
+  static const Key safPickKey = Key('settings-pick-saf');
+
+  /// SAF 选择失败的就地提示（用户取消时不出现）。
+  static const Key safErrorKey = Key('settings-saf-error');
 
   /// 添加弹层里的路径输入框。
   static const Key pathFieldKey = Key('settings-root-path');
@@ -160,6 +168,12 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// 添加成功后的一次性提示；扫描或再次添加时消失。
   String? _addedNotice;
+
+  /// 系统目录选择器是否正开着（避免连点弹出两次）。
+  bool _pickingSaf = false;
+
+  /// SAF 选择失败的原因，已转成给用户看的标题与说明；用户取消时为 null。
+  ({String title, String message})? _safError;
 
   @override
   Widget build(BuildContext context) {
@@ -244,7 +258,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         else if (!rootsAsync.hasValue)
           const _RootsLoading()
         else if (roots.isEmpty)
-          _RootsEmptyPanel(onAdd: () => unawaited(_openAddRootSheet()))
+          _RootsEmptyPanel(
+            onAdd: () => unawaited(_openAddRootSheet()),
+            onPickSaf: () => unawaited(_pickSafRoot()),
+            pickingSaf: _pickingSaf,
+            error: _safError,
+          )
         else
           Column(
             key: SettingsPage.rootsListKey,
@@ -264,16 +283,79 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const SizedBox(height: AppSpacing.md),
               ],
               const SizedBox(height: AppSpacing.xs),
-              OutlinedButton.icon(
-                key: SettingsPage.addRootKey,
-                onPressed: () => unawaited(_openAddRootSheet()),
-                icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-                label: const Text('添加书库根'),
+              _RootActions(
+                pickingSaf: _pickingSaf,
+                onPickSaf: () => unawaited(_pickSafRoot()),
+                onAddManual: () => unawaited(_openAddRootSheet()),
+                error: _safError,
               ),
             ],
           ),
       ],
     );
+  }
+
+  /// 系统目录选择器 → 落库 → 重新查询（Android 11+ 唯一可行的选目录方式）。
+  ///
+  /// 用户取消是正常操作，静默返回；失败只就地说明，不弹原始异常。
+  Future<void> _pickSafRoot() async {
+    if (_pickingSaf) {
+      return;
+    }
+    setState(() {
+      _pickingSaf = true;
+      _safError = null;
+      _addedNotice = null;
+    });
+
+    try {
+      final PickedDirectory? picked = await ref
+          .read(directoryPickerProvider)
+          .pickDirectory();
+      if (picked == null) {
+        // 用户取消：不提示、不写入、不刷新列表。
+        if (mounted) {
+          setState(() => _pickingSaf = false);
+        }
+        return;
+      }
+      await ref
+          .read(libraryRootServiceProvider)
+          .addSafRoot(treeUri: picked.uri, displayName: picked.name);
+      if (!mounted) {
+        return;
+      }
+      final String name = picked.name.trim().isEmpty ? picked.uri : picked.name;
+      setState(() {
+        _pickingSaf = false;
+        _addedNotice = name;
+      });
+      // 与手动添加一致：列表以重新查询为准，不拼一条假记录。
+      ref.invalidate(libraryRootsProvider);
+    } on MissingPluginException {
+      _failSafPick(
+        '这里没有系统目录选择器',
+        '当前平台没有接入目录选择，或应用不在 Android 上运行。请改用「高级：手动输入路径」。',
+      );
+    } on PlatformException catch (error) {
+      if (error.code == 'busy') {
+        _failSafPick('目录选择器正在使用', '已经有一个目录选择在进行，先完成那一次选择，再回来添加。');
+      } else {
+        _failSafPick('目录选择器没有打开', '系统没有返回选中的目录。稍后再试，或用「高级：手动输入路径」。');
+      }
+    } on Object {
+      _failSafPick('书库根没有添加成功', '目录已经选中，但没有保存下来。请再选一次，或改用「高级：手动输入路径」。');
+    }
+  }
+
+  void _failSafPick(String title, String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _pickingSaf = false;
+      _safError = (title: title, message: message);
+    });
   }
 
   void _scan(LibraryRootView root) {
@@ -288,6 +370,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _openAddRootSheet() async {
+    if (_safError != null) {
+      setState(() => _safError = null);
+    }
     final String suggested =
         (widget.suggestedRootPath != null &&
             widget.suggestedRootPath!.trim().isNotEmpty)
@@ -549,9 +634,17 @@ class _RootsErrorPanel extends StatelessWidget {
 
 /// 空态：直接给出下一步，而不是只说「暂无数据」。
 class _RootsEmptyPanel extends StatelessWidget {
-  const _RootsEmptyPanel({required this.onAdd});
+  const _RootsEmptyPanel({
+    required this.onAdd,
+    required this.onPickSaf,
+    required this.pickingSaf,
+    this.error,
+  });
 
   final VoidCallback onAdd;
+  final VoidCallback onPickSaf;
+  final bool pickingSaf;
+  final ({String title, String message})? error;
 
   @override
   Widget build(BuildContext context) {
@@ -599,11 +692,127 @@ class _RootsEmptyPanel extends StatelessWidget {
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.lg),
-          FilledButton.icon(
-            key: SettingsPage.addRootKey,
-            onPressed: onAdd,
-            icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-            label: const Text('添加书库根'),
+          _RootActions(
+            pickingSaf: pickingSaf,
+            onPickSaf: onPickSaf,
+            onAddManual: onAdd,
+            error: error,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 书库根的两个添加入口：SAF 是推荐路径，手动输入路径是高级兜底。
+class _RootActions extends StatelessWidget {
+  const _RootActions({
+    required this.pickingSaf,
+    required this.onPickSaf,
+    required this.onAddManual,
+    this.error,
+  });
+
+  final bool pickingSaf;
+  final VoidCallback onPickSaf;
+  final VoidCallback onAddManual;
+  final ({String title, String message})? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final bool enabled = !pickingSaf;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (error != null) ...<Widget>[
+          _SafErrorPanel(title: error!.title, message: error!.message),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        FilledButton.icon(
+          key: SettingsPage.safPickKey,
+          onPressed: enabled ? onPickSaf : null,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(AppSizes.minTouchTarget),
+          ),
+          icon: pickingSaf
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.folder_shared_outlined, size: 18),
+          label: Text(pickingSaf ? '正在打开系统选择器…' : '选择目录（SAF）'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          key: SettingsPage.addRootKey,
+          onPressed: enabled ? onAddManual : null,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(AppSizes.minTouchTarget),
+          ),
+          icon: const Icon(Icons.keyboard_alt_outlined, size: 18),
+          label: const Text('高级：手动输入路径'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          '系统选择器会授予长期读取权限。SAF 目录无法在添加时校验是否还能访问，'
+          '真正读不到会在扫描摘要里列为「目录读取失败」。',
+          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+/// SAF 选择失败：说明能做什么，不把原始异常直接摊给用户。
+class _SafErrorPanel extends StatelessWidget {
+  const _SafErrorPanel({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Container(
+      key: SettingsPage.safErrorKey,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: AppRadii.sm,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: scheme.onErrorContainer,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: text.titleSmall?.copyWith(
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  message,
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1447,7 +1656,7 @@ class _AddRootSheetState extends ConsumerState<_AddRootSheet> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '填一个本机绝对路径。扫描只读取其中的音频文件，不会改动任何内容。',
+                  '高级：手动输入绝对路径。扫描只读取其中的音频文件，不会改动任何内容。',
                   textAlign: TextAlign.center,
                   style: text.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
