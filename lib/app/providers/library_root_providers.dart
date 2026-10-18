@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
 
 /// 按根 URI 构造 provider 的工厂。**必须**在 `main.dart` 中 override ——
@@ -19,5 +20,13 @@ final Provider<LibraryRootService> libraryRootServiceProvider =
         database: ref.watch(databaseProvider),
         idGenerator: UlidIdGenerator(),
         providerFactory: ref.watch(storageProviderFactoryProvider),
+      ),
+    );
+
+/// 目录选择器（SAF）。**必须**在 `main.dart` 中 override。
+final Provider<DirectoryPicker> directoryPickerProvider =
+    Provider<DirectoryPicker>(
+      (Ref ref) => throw UnimplementedError(
+        'directoryPickerProvider 未装配：请在 ProviderScope.overrides 中注入',
       ),
     );

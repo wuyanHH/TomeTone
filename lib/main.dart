@@ -8,6 +8,7 @@ import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.
 import 'package:tometone/modules/storage_local/local_storage_provider.dart';
 import 'package:tometone/modules/storage_saf/saf_storage_provider.dart';
 import 'package:tometone/platform/database_connection.dart';
+import 'package:tometone/platform/saf/saf_bridge.dart';
 import 'package:tometone/ui/app.dart';
 
 /// TomeTone（听卷）装配入口 —— 全仓库唯一的 composition root。
@@ -28,6 +29,7 @@ void main() {
         databaseProvider.overrideWithValue(database),
         playbackEngineProvider.overrideWithValue(engine),
         storageProviderFactoryProvider.overrideWithValue(_createProvider),
+        directoryPickerProvider.overrideWithValue(const SafBridge()),
       ],
       child: const TomeToneApp(),
     ),

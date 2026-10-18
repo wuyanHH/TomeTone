@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:tometone/contracts/storage/directory_picker.dart';
 
 /// SAF 的一项（目录或文件）。
 class SafEntry {
@@ -49,7 +50,7 @@ class SafDirectory {
 ///
 /// 单独一层的原因：SAF 是平台能力，**不允许**上层直接碰 MethodChannel；
 /// 存储模块只面对 [SafBridge] 的强类型方法。
-class SafBridge {
+class SafBridge implements DirectoryPicker {
   /// 创建桥。
   const SafBridge({this._channel = _defaultChannel});
 
@@ -58,7 +59,8 @@ class SafBridge {
   final MethodChannel _channel;
 
   /// 弹出系统目录选择器。用户取消返回 `null`。
-  Future<SafDirectory?> openDirectory() async {
+  @override
+  Future<PickedDirectory?> pickDirectory() async {
     final result = await _channel.invokeMapMethod<String, Object?>(
       'openDirectory',
     );
@@ -69,7 +71,7 @@ class SafBridge {
     if (uri == null || uri.isEmpty) {
       return null;
     }
-    return SafDirectory(treeUri: uri, name: (result['name'] as String?) ?? uri);
+    return PickedDirectory(uri: uri, name: (result['name'] as String?) ?? uri);
   }
 
   /// 列出目录子项。
