@@ -1,5 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/domain/library/database/tometone_database.dart';
+import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
+import 'package:tometone/platform/database_connection.dart';
 import 'package:tometone/ui/app.dart';
 
 /// TomeTone（听卷）装配入口 —— 全仓库唯一的 composition root。
@@ -9,5 +13,18 @@ import 'package:tometone/ui/app.dart';
 /// 本文件由 `tool/ci/check_import_boundaries.dart` 显式豁免。
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: TomeToneApp()));
+
+  // 数据库与引擎是进程级单例：随进程生命周期存在，退出即由系统回收。
+  final database = TomeToneDatabase(openTomeToneDatabaseConnection());
+  final engine = JustAudioPlaybackEngine();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(database),
+        playbackEngineProvider.overrideWithValue(engine),
+      ],
+      child: const TomeToneApp(),
+    ),
+  );
 }

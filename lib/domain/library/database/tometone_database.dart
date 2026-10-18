@@ -45,11 +45,11 @@ class TomeToneDatabase extends _$TomeToneDatabase {
     },
     beforeOpen: (OpeningDetails details) async {
       // SQLite 默认不启用外键约束，必须每个连接显式开启。
+      //
+      // WAL 不在这里设置：`PRAGMA journal_mode` 必须在任何事务之外执行，
+      // 由连接工厂在 `DriftNativeOptions.setup` 中对原始句柄设置
+      // （见 `lib/platform/database_connection.dart`）。
       await customStatement('PRAGMA foreign_keys = ON');
-      if (details.wasCreated) {
-        // §2.2 进度写入可靠性依赖 WAL；模式持久化在数据库文件中，建库时设置一次即可。
-        await customStatement('PRAGMA journal_mode = WAL');
-      }
     },
   );
 }
