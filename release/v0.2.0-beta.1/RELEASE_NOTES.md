@@ -34,6 +34,6 @@
 ## 已知问题
 
 - **本包使用 debug 签名**，可以安装试用，但**不能作为正式版分发**：将来换成正式 keystore 签名的版本无法覆盖安装。
-- 仓库尚未配置 git remote，本版本只在本地留存归档与 tag，未上传 GitHub Release。
+- 本版本已上传 GitHub Release：<https://github.com/wuyanHH/TomeTone/releases/tag/v0.2.0-beta.1>（仓库在此之前只存在于本地，现已公开）。
 - 启动页首帧会切换一次底色（品牌纸白/墨蓝 → 应用色盘 surface），属设计取舍。
 - iOS / 桌面端不在本版本范围内。
