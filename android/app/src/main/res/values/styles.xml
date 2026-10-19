@@ -12,7 +12,10 @@
          running.
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <!-- 防白闪：Flutter 在 onCreate 第一句就切到本主题，所以这里的窗口底必须与
+         LaunchTheme 是同一张记印，否则会出现「记印 → 纯色 → 首屏」的可见跳变；
+         更不能退回 ?android:colorBackground（亮色下它解析为纯白，就是白闪来源）。 -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
 </resources>

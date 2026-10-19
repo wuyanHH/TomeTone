@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 昼：宣纸窗口底上的墨盘记印。
+     声明 240dp = 与 Android 12+ 系统闪屏「带 icon background：画布 240dp / 可见圆 Ø160dp」逐像素对齐；
+     墨盘 r=36 → 渲染 Ø160dp；mark 外接 27.0dp → 渲染 Ø60dp，与自适应图标上屏占比一致。
+     昼底上必须自带墨盘：否则纸白书页会落在纸白窗口底上而看不见。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M18,54 A36,36 0 1,0 90,54 A36,36 0 1,0 18,54 Z"
+        android:fillColor="#FF0E2A3B" />
+    <!-- 以下两条与 drawable/ic_launcher_foreground.xml 逐值一致 -->
+    <path
+        android:pathData="M54,57.5 C48.5,52 42,51 34,52.5 L34,69.5 C42,68 48.5,69 54,75.5 C59.5,69 66,68 74,69.5 L74,52.5 C66,51 59.5,52 54,57.5 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFF2F4E9"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M41,44.5 L41,40.5 M47.5,44.5 L47.5,33.5 M54,44.5 L54,29.5 M60.5,44.5 L60.5,35.5 M67,44.5 L67,39.5"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF58DCC1"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round" />
+</vector>

@@ -6,4 +6,6 @@
     <color name="brand_echo">#FF58DCC1</color>
     <!-- 自适应图标背景层：满幅不透明，不得有透明边。 -->
     <color name="ic_launcher_background">#FF0E2A3B</color>
+    <!-- 启动窗口底 / 记印底：昼=纸白（与默认色盘浅色 surface 同值）；夜在 values-night 覆盖为墨蓝。 -->
+    <color name="splash_window_background">#FFF2F4E9</color>
 </resources>

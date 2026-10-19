@@ -201,8 +201,97 @@ List<String> brandViolations({String root = '.'}) {
     }
   });
 
+  // ── 启动页 ──────────────────────────────────────────────────────────────
+  // 昼：宣纸窗口底上必须自带墨盘。没有墨盘，纸白书页会落在纸白底上而"消失"。
+  final lightMark = _readFile(root, '$brandResRoot/drawable/launch_mark.xml');
+  if (lightMark == null) {
+    violations.add('缺少 drawable/launch_mark.xml');
+  } else if (!lightMark.contains('fillColor="#FF0E2A3B"')) {
+    violations.add('drawable/launch_mark.xml 缺少墨盘（fillColor="#FF0E2A3B"）');
+  }
+
+  // 夜：墨底上不加墨盘，纸纹与声纹直接浮出来。
+  final darkMark = _readFile(root, '$brandResRoot/drawable-night/launch_mark.xml');
+  if (darkMark == null) {
+    violations.add('缺少 drawable-night/launch_mark.xml');
+  } else if (darkMark.toUpperCase().contains('0E2A3B')) {
+    violations.add('drawable-night/launch_mark.xml 不应带墨盘（夜：纸纹直接浮在墨底上）');
+  }
+
+  final launchBackground = _readFile(root, '$brandResRoot/drawable/launch_background.xml');
+  if (launchBackground == null) {
+    violations.add('缺少 drawable/launch_background.xml');
+  } else {
+    // 240dp = 与 Android 12+ 系统闪屏「带 icon background：画布 240dp / 可见圆 Ø160dp」对齐，
+    // 两条分支才会是同一画面而不是两个相似的设计。
+    if (!launchBackground.contains('android:width="240dp"')) {
+      violations.add('drawable/launch_background.xml 缺少 240dp 记印（与 12+ 系统闪屏对齐）');
+    }
+    if (!launchBackground.contains('@drawable/launch_mark')) {
+      violations.add('drawable/launch_background.xml 未引用 @drawable/launch_mark');
+    }
+  }
+
+  // 防白闪的核心断言：FlutterActivity 在 onCreate 第一句就切到 NormalTheme，
+  // 所以 NormalTheme 的窗口底必须与 LaunchTheme 是同一张记印，且任何一处都不能
+  // 退回 ?android:colorBackground（亮色主题下它解析为纯白，就是白闪的来源）。
+  for (final styles in <String>[
+    '$brandResRoot/values/styles.xml',
+    '$brandResRoot/values-night/styles.xml',
+    '$brandResRoot/values-v31/styles.xml',
+    '$brandResRoot/values-night-v31/styles.xml',
+  ]) {
+    final xml = _readFile(root, styles);
+    if (xml == null) {
+      violations.add('缺少 $styles');
+      continue;
+    }
+    // 只看 windowBackground 的取值，不全文搜字符串 —— 否则注释里提到这个系统色
+    // 都会被判成违规，等于禁止把这个坑写下来。
+    final windowBackgrounds = RegExp(
+      '<item name="android:windowBackground">\\s*([^<]+?)\\s*</item>',
+    ).allMatches(xml).map((match) => match.group(1)!).toList();
+    for (final value in windowBackgrounds) {
+      if (value.contains('?android:colorBackground') || value.contains('@android:color/white')) {
+        violations.add('$styles 的 windowBackground 用了 $value（亮色下为纯白 = 白闪来源）');
+      }
+    }
+    final normalTheme = RegExp(r'<style name="NormalTheme"[^>]*>(.*?)</style>', dotAll: true).firstMatch(xml);
+    if (normalTheme != null &&
+        !normalTheme.group(1)!.contains('@drawable/launch_background')) {
+      violations.add('$styles 的 NormalTheme.windowBackground 必须与 LaunchTheme 同为 @drawable/launch_background');
+    }
+  }
+
+  final dayColors = _readFile(root, '$brandResRoot/values/colors.xml');
+  final nightColors = _readFile(root, '$brandResRoot/values-night/colors.xml');
+  final daySplash = dayColors == null ? null : _colorValue(dayColors, 'splash_window_background');
+  final nightSplash = nightColors == null ? null : _colorValue(nightColors, 'splash_window_background');
+  if (nightColors == null) {
+    violations.add('缺少 values-night/colors.xml');
+  }
+  if (daySplash?.toUpperCase() != '#FFF2F4E9') {
+    violations.add('splash_window_background（昼）应为 #FFF2F4E9，实际 ${daySplash ?? '缺失'}');
+  }
+  if (nightSplash?.toUpperCase() != '#FF0E2A3B') {
+    violations.add('splash_window_background（夜）应为 #FF0E2A3B，实际 ${nightSplash ?? '缺失'}');
+  }
+  // 系统会按「窗口底 vs 图标背景层」的对比度决定是否显示图标的背景层。
+  // 昼底（纸白）必须与图标背景（墨蓝）足量对比，否则墨盘会被隐去、
+  // 纸白书页落在纸白窗口底上而看不见。
+  if (daySplash != null) {
+    final ratio = contrastRatio(daySplash, '#FF0E2A3B');
+    if (ratio < 3.0) {
+      violations.add('启动页昼底与图标背景对比度 ${ratio.toStringAsFixed(2)}:1 低于 3:1');
+    }
+  }
+
   return violations;
 }
+
+String? _colorValue(String colorsXml, String name) => RegExp(
+      '<color name="$name">\\s*([^<\\s]+)',
+    ).firstMatch(colorsXml)?.group(1);
 
 String? _readFile(String root, String relativePath) {
   final file = File('$root/$relativePath');

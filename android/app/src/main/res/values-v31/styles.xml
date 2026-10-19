@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 31+：系统闪屏。系统只给我们四样东西——窗口底单色、图标、图标底色（可选）、
+     入场动画长度（可选）。因此这里没有文字、没有插画、没有自绘动效。
+     只定义 LaunchTheme；NormalTheme 沿用 values/styles.xml（同为 @drawable/launch_background）。
+     不设 windowSplashScreenIconBackgroundColor：官方文档说明，用自适应图标时系统会按
+     「窗口底 vs 图标背景层」的对比度自动决定显隐 —— 昼纸底上显示墨盘、夜墨底上隐去墨盘，
+     两种形态由同一份图标资源得出，我们不写一行条件代码。
+     windowSplashScreenBehavior 是 API 33 引入的属性，在 31–32 上被忽略（compileSdk 36 可编译）。 -->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- 平台若忽略下面这些属性，退化成这套 layer-list -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_window_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenBehavior">icon_preferred</item>
+    </style>
+</resources>
