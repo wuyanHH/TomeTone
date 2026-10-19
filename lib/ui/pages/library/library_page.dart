@@ -1,11 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
-import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -13,11 +11,16 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 /// 书库（独立的第 4 个 tab，方案 A）。
 ///
 /// 职责边界：书架只负责「看与听」，书库只负责「来源与扫描」。
-/// 本页整块搬走了设置页原有的「书库根」分组：根列表、扫描、添加都在
-/// [library_roots.dart] 的共享件里原样复用，没有重写一份。
+///
+/// 这一页在拆出来后重排过一次交互，不再是设置页分组的搬移：
+/// - 添加收成一个入口 —— 页首右上角的 `+`（空态是面板里的主按钮），
+///   点开是底部弹层，里面再分「系统选择器（推荐）」与「手动填路径」两条路；
+/// - 管理属于单个根 —— 重命名、移除在卡片的 `⋮` 菜单里，扫描留在卡片上；
+/// - 移除只说清楚后果再动手：弹层里先给出「会影响多少册 / 多少章」，
+///   并写明不会删除文件（§9.2 数据安全铁律）。
 ///
 /// 列表永远以 [libraryRootsProvider] 的查询结果为准，不做乐观更新：
-/// 添加后重新查询，扫描成功后失效书架与根列表，界面只渲染服务端结果。
+/// 添加、移除、重命名都重新查询，界面只渲染服务端结果。
 class LibraryPage extends ConsumerStatefulWidget {
   /// 创建书库页。
   const LibraryPage({super.key, this.suggestedRootPath});
@@ -32,17 +35,11 @@ class LibraryPage extends ConsumerStatefulWidget {
 }
 
 class _LibraryPageState extends ConsumerState<LibraryPage> {
-  /// 添加成功后的一次性提示；扫描、再次添加或命中重复时消失。
-  String? _addedNotice;
+  /// 统计影响范围时的查询上限：够大，碰到它只说明这家书库不正常。
+  static const int _impactQueryLimit = 2000;
 
-  /// 选中目录已在书库时的一次性提示（没有写入任何东西）。
-  String? _duplicateNotice;
-
-  /// 系统目录选择器是否正开着（避免连点弹出两次）。
-  bool _pickingSaf = false;
-
-  /// SAF 选择失败的原因，已转成给用户看的标题与说明；用户取消时为 null。
-  SafPickFailure? _safError;
+  /// 页面级一次性提示（添加成功 / 移除成功 / 移除失败），同一时刻只留一条。
+  ({String message, LibraryNoticeTone tone})? _notice;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +47,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       libraryRootsProvider,
     );
     final Map<String, RootScanState> scans = ref.watch(libraryScanProvider);
+    final List<LibraryRootView> roots =
+        rootsAsync.value ?? const <LibraryRootView>[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
@@ -59,10 +58,29 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _LibraryHeader(countLabel: _countLabel(rootsAsync)),
+              _LibraryHeader(
+                countLabel: _countLabel(rootsAsync),
+                // 空态由空态自己的主按钮负责引导，`+` 只在有根时出现。
+                onAddRoot: rootsAsync.hasValue && roots.isNotEmpty
+                    ? () => unawaited(_openAddRootSheet())
+                    : null,
+              ),
               Padding(
                 padding: AppSpacing.pagePadding,
-                child: _buildRootsSection(context, rootsAsync, scans),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    _buildRootsSection(rootsAsync, roots, scans),
+                    if (_notice != null) ...<Widget>[
+                      const SizedBox(height: AppSpacing.md),
+                      LibraryRootNotice(
+                        key: LibraryRootsKeys.noticeKey,
+                        message: _notice!.message,
+                        tone: _notice!.tone,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -82,15 +100,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   }
 
   Widget _buildRootsSection(
-    BuildContext context,
     AsyncValue<List<LibraryRootView>> rootsAsync,
+    List<LibraryRootView> roots,
     Map<String, RootScanState> scans,
   ) {
-    final List<LibraryRootView> roots =
-        rootsAsync.value ?? const <LibraryRootView>[];
-    final bool failed = rootsAsync.hasError;
-
-    if (failed) {
+    if (rootsAsync.hasError) {
       return LibraryRootsError(
         onRetry: () {
           ref.invalidate(libraryRootsProvider);
@@ -101,12 +115,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       return const LibraryRootsLoading();
     }
     if (roots.isEmpty) {
-      return LibraryRootsEmpty(
-        onAdd: () => unawaited(_openAddRootSheet()),
-        onPickSaf: () => unawaited(_pickSafRoot()),
-        pickingSaf: _pickingSaf,
-        error: _safError,
-      );
+      return LibraryRootsEmpty(onAdd: () => unawaited(_openAddRootSheet()));
     }
     return Column(
       key: LibraryRootsKeys.rootsListKey,
@@ -119,125 +128,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               root: root,
               scan: scans[root.id] ?? const RootScanState(),
               onScan: () => _scan(root),
+              onRename: () => unawaited(_renameRoot(root)),
+              onRemove: () => unawaited(_removeRoot(root)),
             ),
           ),
-        if (_duplicateNotice != null) ...<Widget>[
-          LibraryRootDuplicateNotice(name: _duplicateNotice!),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        if (_addedNotice != null) ...<Widget>[
-          LibraryRootAddedNotice(name: _addedNotice!),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        const SizedBox(height: AppSpacing.xs),
-        LibraryRootActions(
-          pickingSaf: _pickingSaf,
-          onPickSaf: () => unawaited(_pickSafRoot()),
-          onAddManual: () => unawaited(_openAddRootSheet()),
-          error: _safError,
-        ),
       ],
     );
   }
 
-  /// 系统目录选择器 → 落库 → 重新查询（Android 11+ 唯一可行的选目录方式）。
-  ///
-  /// 用户取消是正常操作，静默返回；失败只就地说明，不弹原始异常。
-  /// 选中目录已在书库时不写入，只就地提示，避免同一目录产生重复书目。
-  Future<void> _pickSafRoot() async {
-    if (_pickingSaf) {
-      return;
-    }
-    setState(() {
-      _pickingSaf = true;
-      _safError = null;
-      _addedNotice = null;
-      _duplicateNotice = null;
-    });
-
-    try {
-      final PickedDirectory? picked = await ref
-          .read(directoryPickerProvider)
-          .pickDirectory();
-      if (picked == null) {
-        // 用户取消：不提示、不写入、不刷新列表。
-        if (mounted) {
-          setState(() => _pickingSaf = false);
-        }
-        return;
-      }
-      final String name = picked.name.trim().isEmpty ? picked.uri : picked.name;
-      final List<LibraryRootView> known =
-          ref.read(libraryRootsProvider).value ?? const <LibraryRootView>[];
-      if (hasLibraryRootWithUri(known, picked.uri)) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _pickingSaf = false;
-          _duplicateNotice = name;
-        });
-        return;
-      }
-      await ref
-          .read(libraryRootServiceProvider)
-          .addSafRoot(treeUri: picked.uri, displayName: picked.name);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _pickingSaf = false;
-        _addedNotice = name;
-      });
-      // 与手动添加一致：列表以重新查询为准，不拼一条假记录。
-      ref.invalidate(libraryRootsProvider);
-    } on MissingPluginException {
-      _failSafPick(
-        '这里没有系统目录选择器',
-        '当前平台没有接入目录选择，或应用不在 Android 上运行。请改用「高级：手动输入路径」。',
-      );
-    } on PlatformException catch (error) {
-      if (error.code == 'busy') {
-        _failSafPick('目录选择器正在使用', '已经有一个目录选择在进行，先完成那一次选择，再回来添加。');
-      } else {
-        _failSafPick('目录选择器没有打开', '系统没有返回选中的目录。稍后再试，或用「高级：手动输入路径」。');
-      }
-    } on Object {
-      _failSafPick('书库根没有添加成功', '目录已经选中，但没有保存下来。请再选一次，或改用「高级：手动输入路径」。');
-    }
-  }
-
-  void _failSafPick(String title, String message) {
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _pickingSaf = false;
-      _safError = (title: title, message: message);
-    });
-  }
-
-  void _scan(LibraryRootView root) {
-    if (ref.read(libraryScanProvider)[root.id]?.scanning ?? false) {
-      return;
-    }
-    if (_addedNotice != null || _duplicateNotice != null) {
-      setState(() {
-        _addedNotice = null;
-        _duplicateNotice = null;
-      });
-    }
-    // 扫描不阻塞点击回调，也不在 build 里启动。
-    unawaited(ref.read(libraryScanProvider.notifier).scan(root.id));
-  }
-
+  /// 打开「添加书库根」弹层：两个入口都在里面，成功后重新查询列表。
   Future<void> _openAddRootSheet() async {
-    if (_safError != null || _duplicateNotice != null) {
-      setState(() {
-        _safError = null;
-        _duplicateNotice = null;
-      });
-    }
+    _clearNotice();
     final String suggested =
         (widget.suggestedRootPath != null &&
             widget.suggestedRootPath!.trim().isNotEmpty)
@@ -256,17 +157,142 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     if (!mounted || addedName == null) {
       return;
     }
-    setState(() => _addedNotice = addedName);
+    _showNotice('已添加「$addedName」。点这一行的「扫描」开始建立书目。');
     // 列表以重新查询为准：不复用弹层里输入的路径拼一条假记录。
     ref.invalidate(libraryRootsProvider);
   }
+
+  /// 重命名：只改展示名，目录与书目都不动。
+  Future<void> _renameRoot(LibraryRootView root) async {
+    _clearNotice();
+    final String? name = await showRenameRootDialog(context, root: root);
+    if (!mounted || name == null || name == root.displayName) {
+      return;
+    }
+    try {
+      await ref.read(libraryRootServiceProvider).renameRoot(root.id, name);
+    } on Object {
+      _showNotice('重命名没有成功，请稍后再试。', tone: LibraryNoticeTone.error);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    ref.invalidate(libraryRootsProvider);
+  }
+
+  /// 移除登记：先问清楚，再动手。
+  ///
+  /// 统计与确认都在删除之前完成；数据库侧 `onDelete: cascade` 会连带清掉
+  /// 这个根下的书 / 卷 / 章（以及它们的进度），但**不会碰用户的文件**。
+  Future<void> _removeRoot(LibraryRootView root) async {
+    _clearNotice();
+    final LibraryRemovalImpact? impact = await _loadRemovalImpact(root.id);
+    if (!mounted) {
+      return;
+    }
+    final bool confirmed = await showRemoveRootDialog(
+      context,
+      root: root,
+      impact: impact,
+    );
+    if (!mounted || !confirmed) {
+      return;
+    }
+    try {
+      await ref.read(libraryRootServiceProvider).removeRoot(root.id);
+    } on Object {
+      _showNotice(
+        '「${root.displayName}」没有移除成功，请稍后再试。',
+        tone: LibraryNoticeTone.error,
+      );
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    // 这根已经不存在了，它的扫描状态没有意义。
+    ref.read(libraryScanProvider.notifier).forget(root.id);
+    ref.invalidate(libraryRootsProvider);
+    // 书架读的是同一批书：不失效的话会留下点不动的条目。
+    ref.invalidate(booksProvider);
+    _showNotice('已移除「${root.displayName}」。目录里的文件没有任何改动。');
+  }
+
+  /// 统计一个书库根下将被级联清掉的书目范围。
+  ///
+  /// 用一次针对该根的查询，而不是书架那页缓存：书架只取前 50 条，
+  /// 用户却会拿弹窗里的数字去对照。查不到就退回书架缓存，
+  /// 再不行如实说「统计不出来」，绝不编一个数字。
+  Future<LibraryRemovalImpact?> _loadRemovalImpact(String rootId) async {
+    try {
+      final List<BookSummary> books = await ref
+          .read(libraryQueriesProvider)
+          .listBooks(libraryRootId: rootId, limit: _impactQueryLimit);
+      return _summarizeImpact(books, capped: books.length >= _impactQueryLimit);
+    } on Object {
+      try {
+        final List<BookSummary> cached = await ref.read(booksProvider.future);
+        return _summarizeImpact(<BookSummary>[
+          for (final BookSummary book in cached)
+            if (book.libraryRootId == rootId) book,
+        ], capped: false);
+      } on Object {
+        return null;
+      }
+    }
+  }
+
+  LibraryRemovalImpact _summarizeImpact(
+    List<BookSummary> books, {
+    required bool capped,
+  }) {
+    int chapters = 0;
+    for (final BookSummary book in books) {
+      chapters += book.totalChapters;
+    }
+    return LibraryRemovalImpact(
+      books: books.length,
+      chapters: chapters,
+      capped: capped,
+    );
+  }
+
+  void _scan(LibraryRootView root) {
+    if (ref.read(libraryScanProvider)[root.id]?.scanning ?? false) {
+      return;
+    }
+    _clearNotice();
+    // 扫描不阻塞点击回调，也不在 build 里启动。
+    unawaited(ref.read(libraryScanProvider.notifier).scan(root.id));
+  }
+
+  void _showNotice(
+    String message, {
+    LibraryNoticeTone tone = LibraryNoticeTone.success,
+  }) {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _notice = (message: message, tone: tone));
+  }
+
+  void _clearNotice() {
+    if (_notice == null) {
+      return;
+    }
+    setState(() => _notice = null);
+  }
 }
 
-/// 页首题头：眉题 + 标题 + 根数量 + 一句说明（版式与书架一致）。
+/// 页首题头：眉题 + 标题 + 根数量 + 一个添加入口（版式与书架一致）。
 class _LibraryHeader extends StatelessWidget {
-  const _LibraryHeader({required this.countLabel});
+  const _LibraryHeader({required this.countLabel, this.onAddRoot});
 
   final String countLabel;
+
+  /// 打开添加弹层；为空时不渲染 `+`（空态/加载态/失败态都交给正文自己说）。
+  final VoidCallback? onAddRoot;
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +317,6 @@ class _LibraryHeader extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               Expanded(
                 child: Semantics(
@@ -305,6 +330,20 @@ class _LibraryHeader extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
+              if (onAddRoot != null) ...<Widget>[
+                const SizedBox(width: AppSpacing.md),
+                IconButton(
+                  key: LibraryRootsKeys.addRootButtonKey,
+                  onPressed: onAddRoot,
+                  tooltip: '添加书库根',
+                  style: IconButton.styleFrom(
+                    backgroundColor: scheme.primary,
+                    foregroundColor: scheme.onPrimary,
+                    iconSize: 24,
+                  ),
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.xs),

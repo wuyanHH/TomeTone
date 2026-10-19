@@ -86,6 +86,80 @@ void main() {
     });
   });
 
+  group('renameRoot', () {
+    test('只改展示名：URI、书目与文件都不动', () async {
+      final id = await service.addLocalRoot(absolutePath: library.path);
+      await service.scan(id);
+
+      await service.renameRoot(id, '  夜里听的书  ');
+
+      final roots = await DriftLibraryQueries(db).libraryRoots();
+      expect(roots.single.displayName, '夜里听的书');
+      expect(roots.single.uri, library.path);
+      final books = await DriftLibraryQueries(db).listBooks();
+      expect(books.single.title, '三体');
+      expect(books.single.libraryRootId, id);
+    });
+
+    test('空名字被拒绝，不写库', () async {
+      final id = await service.addLocalRoot(absolutePath: library.path);
+
+      await expectLater(service.renameRoot(id, '   '), throwsArgumentError);
+
+      final roots = await DriftLibraryQueries(db).libraryRoots();
+      expect(roots.single.displayName, 'books');
+    });
+
+    test('未知书库根抛错', () async {
+      await expectLater(service.renameRoot('missing', '新名字'), throwsStateError);
+    });
+  });
+
+  group('removeRoot', () {
+    test('只删登记：书 / 卷 / 章级联清掉，目录与文件原样保留', () async {
+      final id = await service.addLocalRoot(absolutePath: library.path);
+      await service.scan(id);
+      expect(await DriftLibraryQueries(db).listBooks(), hasLength(1));
+      expect(await db.select(db.volumes).get(), hasLength(1));
+      expect(await db.select(db.chapters).get(), hasLength(2));
+
+      await service.removeRoot(id);
+
+      expect(await DriftLibraryQueries(db).libraryRoots(), isEmpty);
+      expect(await DriftLibraryQueries(db).listBooks(), isEmpty);
+      expect(await db.select(db.volumes).get(), isEmpty);
+      expect(await db.select(db.chapters).get(), isEmpty);
+
+      // 数据安全铁律（§9.2）：用户目录与文件一个都不能少。
+      expect(library.existsSync(), isTrue);
+      final chapter = File(
+        '${library.path}${Platform.pathSeparator}三体'
+        '${Platform.pathSeparator}卷一${Platform.pathSeparator}001.mp3',
+      );
+      expect(chapter.existsSync(), isTrue);
+    });
+
+    test('移除之后重新添加同一目录仍然可扫描（登记可以重建）', () async {
+      final id = await service.addLocalRoot(absolutePath: library.path);
+      await service.scan(id);
+      await service.removeRoot(id);
+
+      final again = await service.addLocalRoot(absolutePath: library.path);
+      final report = await service.scan(again);
+
+      expect(report.booksAdded, 1);
+      expect(await DriftLibraryQueries(db).listBooks(), hasLength(1));
+    });
+
+    test('未知书库根抛错，重复移除第二次也抛错', () async {
+      await expectLater(service.removeRoot('missing'), throwsStateError);
+
+      final id = await service.addLocalRoot(absolutePath: library.path);
+      await service.removeRoot(id);
+      await expectLater(service.removeRoot(id), throwsStateError);
+    });
+  });
+
   group('scan', () {
     test('通过真实目录扫描建库（书 / 卷 / 章 + 封面继承）', () async {
       final id = await service.addLocalRoot(absolutePath: library.path);

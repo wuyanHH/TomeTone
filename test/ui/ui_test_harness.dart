@@ -30,6 +30,7 @@ BookSummary testSummary({
   String id = 'book-1',
   String title = '山海夜航',
   String? author = '沈砚',
+  String libraryRootId = testRootId,
   String? coverPath,
   int totalChapters = 4,
   int missingChapters = 0,
@@ -42,7 +43,7 @@ BookSummary testSummary({
     id: id,
     title: title,
     author: author,
-    libraryRootId: testRootId,
+    libraryRootId: libraryRootId,
     rootPath: 'books/$id',
     coverSource: coverPath == null
         ? CoverSource.typography

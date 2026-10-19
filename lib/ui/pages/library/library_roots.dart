@@ -2,18 +2,24 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 书库根区块的共享件（书库页使用）。
 ///
-/// 方案 A：书库根从设置页拆到独立的第 4 个 tab。这些 widget、扫描编排与
-/// 测试键整体从 `settings_page.dart` 迁出，逻辑原样复用、没有重写；
-/// 设置页不再引用它们。
+/// 这里是「来源与扫描」的交互主场，不是设置项的搬家终点：
+/// - 添加是一个入口（页首 `+`，空态是主按钮），弹层里再分两条路；
+/// - 删除、重命名属于单个根的管理动作，收进卡片的 `⋮` 菜单；
+/// - 扫描是这一页的主要动作，留在卡片上一等公民的位置。
+///
+/// 所有写操作都只动数据库登记：**不移动、不重命名、不删除用户的任何文件**
+/// （《架构需求文档》§9.2）。
 
 /// 单个书库根的一次扫描状态（瞬时 UI 状态，不落库）。
 @immutable
@@ -86,6 +92,14 @@ class LibraryScanController extends Notifier<Map<String, RootScanState>> {
     }
   }
 
+  /// 丢掉某个书库根的扫描状态（根被移除后，这一条再也不会被渲染）。
+  void forget(String libraryRootId) {
+    if (!state.containsKey(libraryRootId)) {
+      return;
+    }
+    state = <String, RootScanState>{...state}..remove(libraryRootId);
+  }
+
   void _put(String libraryRootId, RootScanState value) {
     state = <String, RootScanState>{...state, libraryRootId: value};
   }
@@ -98,7 +112,7 @@ libraryScanProvider =
       LibraryScanController.new,
     );
 
-/// 书库根区块的测试键（自设置页迁移，键名前缀改为 `library-`）。
+/// 书库根区块的测试键。
 abstract final class LibraryRootsKeys {
   /// 书库根列表。
   static const Key rootsListKey = Key('library-roots-list');
@@ -112,11 +126,20 @@ abstract final class LibraryRootsKeys {
   /// 书库根空态。
   static const Key rootsEmptyKey = Key('library-roots-empty');
 
-  /// 手动添加书库根入口（空态与非空态各一个，互斥出现）。
+  /// 页首右上角的 `+`（有书库根时才出现）。
+  static const Key addRootButtonKey = Key('library-add-button');
+
+  /// 空态里的主按钮（空态没有 `+` 可点，这里是唯一入口）。
   static const Key addRootKey = Key('library-add-root');
 
-  /// 用系统目录选择器添加书库根（推荐路径，与 [addRootKey] 互斥出现）。
+  /// 添加弹层里的「选择目录（SAF）」入口（推荐路径）。
   static const Key safPickKey = Key('library-pick-saf');
+
+  /// 添加弹层里的「手动输入绝对路径」入口（高级兜底）。
+  static const Key manualPathKey = Key('library-manual-path');
+
+  /// 手动输入表单里返回入口列表。
+  static const Key addSheetBackKey = Key('library-add-back');
 
   /// SAF 选择失败的就地提示（用户取消时不出现）。
   static const Key safErrorKey = Key('library-saf-error');
@@ -133,8 +156,8 @@ abstract final class LibraryRootsKeys {
   /// 添加弹层里的提交按钮。
   static const Key submitRootKey = Key('library-root-submit');
 
-  /// 添加成功后的就地提示。
-  static const Key addedNoticeKey = Key('library-root-added');
+  /// 页面上的一次性提示（添加成功 / 移除结果）。
+  static const Key noticeKey = Key('library-root-notice');
 
   /// 某个书库根的扫描按钮。
   static Key scanKey(String rootId) => Key('library-scan-$rootId');
@@ -144,6 +167,30 @@ abstract final class LibraryRootsKeys {
 
   /// 某个书库根的扫描失败提示。
   static Key scanErrorKey(String rootId) => Key('library-root-error-$rootId');
+
+  /// 某个书库根的管理菜单（`⋮`）。
+  static Key rootMenuKey(String rootId) => Key('library-root-menu-$rootId');
+
+  /// 管理菜单里的「重命名」。
+  static Key renameRootKey(String rootId) => Key('library-root-rename-$rootId');
+
+  /// 管理菜单里的「移除书库根」。
+  static Key removeRootKey(String rootId) => Key('library-root-remove-$rootId');
+
+  /// 重命名弹窗里的名字输入框。
+  static const Key renameFieldKey = Key('library-rename-field');
+
+  /// 重命名弹窗里的保存按钮。
+  static const Key renameSubmitKey = Key('library-rename-submit');
+
+  /// 移除确认弹窗。
+  static const Key removeDialogKey = Key('library-remove-dialog');
+
+  /// 移除确认弹窗里的确认按钮。
+  static const Key removeConfirmKey = Key('library-remove-confirm');
+
+  /// 移除确认弹窗里的取消按钮。
+  static const Key removeCancelKey = Key('library-remove-cancel');
 }
 
 /// SAF 选择失败的就地提示：标题 + 说明。用户取消不是失败，不会用到它。
@@ -190,6 +237,77 @@ String _normalizeRootUri(String uri) {
     return trimmed;
   }
   return trimmed.replaceFirst(RegExp(r'[/\\]+$'), '');
+}
+
+/// 提示条的语气：成功、说明、失败。
+enum LibraryNoticeTone {
+  /// 成功（添加完成、移除完成）。
+  success,
+
+  /// 说明（例如「这个目录已经在书库里」）。
+  info,
+
+  /// 失败（写入没成功）。
+  error,
+}
+
+/// 一次性提示条：书库页里所有「刚才发生了什么」都用同一种版式。
+class LibraryRootNotice extends StatelessWidget {
+  /// 创建提示条。
+  const LibraryRootNotice({
+    required this.message,
+    required this.tone,
+    super.key,
+  });
+
+  /// 提示内容。
+  final String message;
+
+  /// 语气（决定底色与图标）。
+  final LibraryNoticeTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final (Color background, Color foreground, IconData icon) = switch (tone) {
+      LibraryNoticeTone.success => (
+        scheme.primaryContainer,
+        scheme.onPrimaryContainer,
+        Icons.check_rounded,
+      ),
+      LibraryNoticeTone.info => (
+        scheme.secondaryContainer,
+        scheme.onSecondaryContainer,
+        Icons.info_outline_rounded,
+      ),
+      LibraryNoticeTone.error => (
+        scheme.errorContainer,
+        scheme.onErrorContainer,
+        Icons.error_outline_rounded,
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(color: background, borderRadius: AppRadii.sm),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 16, color: foreground),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: foreground),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 读列表时的行内加载提示。
@@ -288,28 +406,13 @@ class LibraryRootsError extends StatelessWidget {
   }
 }
 
-/// 空态：直接给出下一步，而不是只说「暂无数据」。
+/// 空态：没有根的时候没有 `+` 可点，所以这里直接给一个主按钮。
 class LibraryRootsEmpty extends StatelessWidget {
   /// 创建空态面板。
-  const LibraryRootsEmpty({
-    required this.onAdd,
-    required this.onPickSaf,
-    required this.pickingSaf,
-    this.error,
-    super.key,
-  });
+  const LibraryRootsEmpty({required this.onAdd, super.key});
 
-  /// 打开「高级：手动输入路径」弹层。
+  /// 打开「添加书库根」弹层。
   final VoidCallback onAdd;
-
-  /// 打开系统目录选择器。
-  final VoidCallback onPickSaf;
-
-  /// 系统目录选择器是否正开着。
-  final bool pickingSaf;
-
-  /// SAF 选择失败的原因；用户取消时为 null。
-  final SafPickFailure? error;
 
   @override
   Widget build(BuildContext context) {
@@ -357,216 +460,17 @@ class LibraryRootsEmpty extends StatelessWidget {
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.lg),
-          LibraryRootActions(
-            pickingSaf: pickingSaf,
-            onPickSaf: onPickSaf,
-            onAddManual: onAdd,
-            error: error,
+          FilledButton.icon(
+            key: LibraryRootsKeys.addRootKey,
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: const Text('添加书库根'),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 书库根的两个添加入口：SAF 是推荐路径，手动输入路径是高级兜底。
-class LibraryRootActions extends StatelessWidget {
-  /// 创建添加入口。
-  const LibraryRootActions({
-    required this.pickingSaf,
-    required this.onPickSaf,
-    required this.onAddManual,
-    this.error,
-    super.key,
-  });
-
-  /// 系统目录选择器是否正开着。
-  final bool pickingSaf;
-
-  /// 打开系统目录选择器。
-  final VoidCallback onPickSaf;
-
-  /// 打开「高级：手动输入路径」弹层。
-  final VoidCallback onAddManual;
-
-  /// SAF 选择失败的原因；用户取消时为 null。
-  final SafPickFailure? error;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    final bool enabled = !pickingSaf;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        if (error != null) ...<Widget>[
-          _SafErrorPanel(title: error!.title, message: error!.message),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        FilledButton.icon(
-          key: LibraryRootsKeys.safPickKey,
-          onPressed: enabled ? onPickSaf : null,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(AppSizes.minTouchTarget),
-          ),
-          icon: pickingSaf
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.folder_shared_outlined, size: 18),
-          label: Text(pickingSaf ? '正在打开系统选择器…' : '选择目录（SAF）'),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        OutlinedButton.icon(
-          key: LibraryRootsKeys.addRootKey,
-          onPressed: enabled ? onAddManual : null,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(AppSizes.minTouchTarget),
-          ),
-          icon: const Icon(Icons.keyboard_alt_outlined, size: 18),
-          label: const Text('高级：手动输入路径'),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          '系统选择器会授予长期读取权限。SAF 目录无法在添加时校验是否还能访问，'
-          '真正读不到会在扫描摘要里列为「目录读取失败」。',
-          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-}
-
-/// SAF 选择失败：说明能做什么，不把原始异常直接摊给用户。
-class _SafErrorPanel extends StatelessWidget {
-  const _SafErrorPanel({required this.title, required this.message});
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Container(
-      key: LibraryRootsKeys.safErrorKey,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: AppRadii.sm,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(
-            Icons.error_outline_rounded,
-            size: 18,
-            color: scheme.onErrorContainer,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: text.titleSmall?.copyWith(
-                    color: scheme.onErrorContainer,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  message,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onErrorContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 添加成功后的就地提示：新增的根还没有书目，需要再点一次扫描。
-class LibraryRootAddedNotice extends StatelessWidget {
-  /// 创建添加成功提示。
-  const LibraryRootAddedNotice({required this.name, super.key});
-
-  /// 新增书库根的显示名。
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Container(
-      key: LibraryRootsKeys.addedNoticeKey,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: AppRadii.sm,
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(Icons.check_rounded, size: 16, color: scheme.onPrimaryContainer),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              '已添加「$name」。点这一行的「扫描」开始建立书目。',
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(color: scheme.onPrimaryContainer),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 重复添加同一目录时的就地提示：没有写入任何东西，指回已有那条根。
-class LibraryRootDuplicateNotice extends StatelessWidget {
-  /// 创建重复提示。
-  const LibraryRootDuplicateNotice({required this.name, super.key});
-
-  /// 被重复选择的那条根的显示名。
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Container(
-      key: LibraryRootsKeys.duplicateNoticeKey,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.secondaryContainer,
-        borderRadius: AppRadii.sm,
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: scheme.onSecondaryContainer,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              '这个目录已经在书库里：「$name」，没有重复添加。',
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(color: scheme.onSecondaryContainer),
-            ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '点开后可以选系统目录（推荐），也可以手动填绝对路径。',
+            textAlign: TextAlign.center,
+            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -581,6 +485,8 @@ class LibraryRootCard extends StatelessWidget {
     required this.root,
     required this.scan,
     required this.onScan,
+    required this.onRename,
+    required this.onRemove,
     super.key,
   });
 
@@ -590,8 +496,14 @@ class LibraryRootCard extends StatelessWidget {
   /// 这条根的扫描状态。
   final RootScanState scan;
 
-  /// 触发扫描。
+  /// 触发扫描（一等操作，带进度与禁用状态）。
   final VoidCallback onScan;
+
+  /// 打开重命名弹窗。
+  final VoidCallback onRename;
+
+  /// 打开移除确认弹窗。
+  final VoidCallback onRemove;
 
   static const double _badgeSize = 44;
   static const double _detailIndent = _badgeSize + AppSpacing.md;
@@ -659,11 +571,16 @@ class LibraryRootCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.xs),
                   _ScanButton(
                     root: root,
                     scanning: scan.scanning,
                     onScan: onScan,
+                  ),
+                  _RootMenuButton(
+                    root: root,
+                    onRename: onRename,
+                    onRemove: onRemove,
                   ),
                 ],
               ),
@@ -751,6 +668,91 @@ class LibraryRootCard extends StatelessWidget {
       );
     }
     return const SizedBox(width: double.infinity);
+  }
+}
+
+/// 单个根的管理动作。
+enum _RootMenuAction {
+  /// 重命名（只改展示名）。
+  rename,
+
+  /// 移除登记（不动文件）。
+  remove,
+}
+
+/// 根卡片上的 `⋮`：管理动作收在这里，卡片上只留扫描。
+class _RootMenuButton extends StatelessWidget {
+  const _RootMenuButton({
+    required this.root,
+    required this.onRename,
+    required this.onRemove,
+  });
+
+  final LibraryRootView root;
+  final VoidCallback onRename;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
+    return PopupMenuButton<_RootMenuAction>(
+      key: LibraryRootsKeys.rootMenuKey(root.id),
+      tooltip: '「${root.displayName}」的管理',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (_RootMenuAction action) {
+        switch (action) {
+          case _RootMenuAction.rename:
+            onRename();
+          case _RootMenuAction.remove:
+            onRemove();
+        }
+      },
+      itemBuilder: (BuildContext context) {
+        return <PopupMenuEntry<_RootMenuAction>>[
+          PopupMenuItem<_RootMenuAction>(
+            key: LibraryRootsKeys.renameRootKey(root.id),
+            value: _RootMenuAction.rename,
+            child: const _MenuRow(icon: Icons.edit_outlined, label: '重命名'),
+          ),
+          const PopupMenuDivider(),
+          PopupMenuItem<_RootMenuAction>(
+            key: LibraryRootsKeys.removeRootKey(root.id),
+            value: _RootMenuAction.remove,
+            child: _MenuRow(
+              icon: Icons.delete_outline_rounded,
+              label: '移除书库根',
+              color: scheme.error,
+            ),
+          ),
+        ];
+      },
+    );
+  }
+}
+
+/// 菜单项内容：图标 + 文字（比 ListTile 更紧凑，且颜色可控）。
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label, this.color});
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color effective = color ?? Theme.of(context).colorScheme.onSurface;
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 20, color: effective),
+        const SizedBox(width: AppSpacing.md),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(color: effective),
+        ),
+      ],
+    );
   }
 }
 
@@ -1010,12 +1012,279 @@ class _ScanErrorPanel extends StatelessWidget {
   }
 }
 
+/// SAF 选择失败：说明能做什么，不把原始异常直接摊给用户。
+class _SafErrorPanel extends StatelessWidget {
+  const _SafErrorPanel({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Container(
+      key: LibraryRootsKeys.safErrorKey,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: AppRadii.sm,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: scheme.onErrorContainer,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: text.titleSmall?.copyWith(
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  message,
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 移除一个书库根会连带清掉的书目范围（`onDelete: cascade` 的后果）。
+@immutable
+class LibraryRemovalImpact {
+  /// 创建影响范围。
+  const LibraryRemovalImpact({
+    required this.books,
+    required this.chapters,
+    this.capped = false,
+  });
+
+  /// 该书库根下的书目数。
+  final int books;
+
+  /// 这些书目下的章节总数。
+  final int chapters;
+
+  /// 统计是否已经碰到查询上限（碰上了就只报「以上」）。
+  final bool capped;
+
+  /// 是否还没有任何书目。
+  bool get isEmpty => books == 0;
+
+  /// 界面文案：`3 册 · 12 章`。
+  String get label {
+    final String booksLabel = capped ? '$books 册以上' : '$books 册';
+    final String chaptersLabel = capped ? '$chapters 章以上' : '$chapters 章';
+    return '$booksLabel · $chaptersLabel';
+  }
+}
+
+/// 移除书库根前的确认弹窗。
+///
+/// 两件事必须写在按钮上面：**影响多少册 / 多少章**，以及
+/// **不会删除文件**（《架构需求文档》§9.2：不静默删数据）。
+/// 返回 true 表示用户确认。
+Future<bool> showRemoveRootDialog(
+  BuildContext context, {
+  required LibraryRootView root,
+  LibraryRemovalImpact? impact,
+}) async {
+  final bool? confirmed = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext context) {
+      final ColorScheme scheme = Theme.of(context).colorScheme;
+      final TextTheme text = Theme.of(context).textTheme;
+      final String impactLine = switch (impact) {
+        null => '这本书库根下的书目数量暂时统计不出来；移除后，已经扫描出的书也会从书架一起消失。',
+        LibraryRemovalImpact(isEmpty: true) => '这里还没有扫描出书目，移除只会清掉这条来源登记。',
+        LibraryRemovalImpact() => '将移除 ${impact.label}的书目记录，这些书也会从书架消失。',
+      };
+
+      return AlertDialog(
+        key: LibraryRootsKeys.removeDialogKey,
+        title: const Text('移除书库根？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text('「${root.displayName}」', style: text.titleMedium),
+            const SizedBox(height: AppSpacing.xxs),
+            // 弹窗要算固有宽度，不能用 LayoutBuilder 版的中省略路径；
+            // 这里退成两行截断，路径短就直接完整显示。
+            Text(
+              root.uri,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(impactLine, style: text.bodyMedium),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: AppRadii.sm,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(Icons.shield_outlined, size: 18, color: scheme.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      '只会从听卷里移除这个来源：不会删除文件，也不会改动目录里的任何内容。',
+                      style: text.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '重新添加同一个目录再扫描，书目可以重建；但已有的收听进度会一起清掉。',
+              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: LibraryRootsKeys.removeCancelKey,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: LibraryRootsKeys.removeConfirmKey,
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('移除'),
+          ),
+        ],
+      );
+    },
+  );
+  return confirmed ?? false;
+}
+
+/// 重命名书库根的弹窗：只改展示名。保存返回新名字，取消返回 null。
+Future<String?> showRenameRootDialog(
+  BuildContext context, {
+  required LibraryRootView root,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (BuildContext context) => _RenameRootDialog(root: root),
+  );
+}
+
+class _RenameRootDialog extends StatefulWidget {
+  const _RenameRootDialog({required this.root});
+
+  final LibraryRootView root;
+
+  @override
+  State<_RenameRootDialog> createState() => _RenameRootDialogState();
+}
+
+class _RenameRootDialogState extends State<_RenameRootDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.root.displayName,
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String name = _controller.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = '名字不能为空');
+      return;
+    }
+    Navigator.of(context).pop<String>(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return AlertDialog(
+      title: const Text('重命名书库根'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          TextField(
+            key: LibraryRootsKeys.renameFieldKey,
+            controller: _controller,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            onChanged: _error == null
+                ? null
+                : (_) => setState(() => _error = null),
+            decoration: InputDecoration(
+              labelText: '显示名',
+              hintText: '例如：本机书库',
+              errorText: _error,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '只改这里显示的名字：目录、书目和收听进度都不变。',
+            style: text.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: LibraryRootsKeys.renameSubmitKey,
+          onPressed: _submit,
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
 /// 添加书库根的底部弹层。
+///
+/// 两个入口（推荐用系统选择器、手动填路径是高级兜底）都从 [LibraryRootsKeys.addRootButtonKey]
+/// 或空态主按钮进来；SAF 的失败与重复提示留在弹层里，用户不用来回切换页面。
+/// 添加成功时 `pop` 出显示名，由页面负责重新查询列表。
 class LibraryAddRootSheet extends ConsumerStatefulWidget {
   /// 创建添加弹层。
   const LibraryAddRootSheet({required this.suggestedPath, super.key});
 
-  /// 预填的绝对路径。
+  /// 手动输入时预填的绝对路径。
   final String suggestedPath;
 
   @override
@@ -1023,7 +1292,27 @@ class LibraryAddRootSheet extends ConsumerStatefulWidget {
       _LibraryAddRootSheetState();
 }
 
+/// 弹层内的两步：先选方式，再按方式展开。
+enum _AddRootStep {
+  /// 两个入口。
+  entries,
+
+  /// 手动输入绝对路径。
+  manualPath,
+}
+
 class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
+  _AddRootStep _step = _AddRootStep.entries;
+
+  /// 系统目录选择器是否正开着（避免连点弹出两次）。
+  bool _pickingSaf = false;
+
+  /// SAF 选择失败的原因，已转成给用户看的标题与说明；用户取消时为 null。
+  SafPickFailure? _safError;
+
+  /// 选中目录已在书库时的提示；没有写入任何东西。
+  String? _duplicateName;
+
   late final TextEditingController _pathController = TextEditingController(
     text: widget.suggestedPath,
   );
@@ -1038,6 +1327,75 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
     _pathController.dispose();
     _nameController.dispose();
     super.dispose();
+  }
+
+  /// 系统目录选择器 → 落库 → 关掉弹层（页面负责重新查询）。
+  ///
+  /// 用户取消是正常操作，静默返回；失败只就地说明，不弹原始异常。
+  /// 选中目录已在书库时不写入，只就地提示，避免同一目录产生重复书目。
+  Future<void> _pickSafRoot() async {
+    if (_pickingSaf) {
+      return;
+    }
+    setState(() {
+      _pickingSaf = true;
+      _safError = null;
+      _duplicateName = null;
+    });
+
+    try {
+      final PickedDirectory? picked = await ref
+          .read(directoryPickerProvider)
+          .pickDirectory();
+      if (!mounted) {
+        return;
+      }
+      if (picked == null) {
+        // 用户取消：不提示、不写入、不刷新列表，直接回到两个入口。
+        setState(() => _pickingSaf = false);
+        return;
+      }
+      final String name = picked.name.trim().isEmpty ? picked.uri : picked.name;
+      final List<LibraryRootView> known =
+          ref.read(libraryRootsProvider).value ?? const <LibraryRootView>[];
+      if (hasLibraryRootWithUri(known, picked.uri)) {
+        setState(() {
+          _pickingSaf = false;
+          _duplicateName = name;
+        });
+        return;
+      }
+      await ref
+          .read(libraryRootServiceProvider)
+          .addSafRoot(treeUri: picked.uri, displayName: picked.name);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop<String>(name);
+    } on MissingPluginException {
+      _failSafPick(
+        '这里没有系统目录选择器',
+        '当前平台没有接入目录选择，或应用不在 Android 上运行。请改用「手动输入绝对路径」。',
+      );
+    } on PlatformException catch (error) {
+      if (error.code == 'busy') {
+        _failSafPick('目录选择器正在使用', '已经有一个目录选择在进行，先完成那一次选择，再回来添加。');
+      } else {
+        _failSafPick('目录选择器没有打开', '系统没有返回选中的目录。稍后再试，或用「手动输入绝对路径」。');
+      }
+    } on Object {
+      _failSafPick('书库根没有添加成功', '目录已经选中，但没有保存下来。请再选一次，或改用「手动输入绝对路径」。');
+    }
+  }
+
+  void _failSafPick(String title, String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _pickingSaf = false;
+      _safError = (title: title, message: message);
+    });
   }
 
   String? _validatePath(String? value) {
@@ -1057,7 +1415,7 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
     return null;
   }
 
-  Future<void> _submit() async {
+  Future<void> _submitManualPath() async {
     if (_submitting) {
       return;
     }
@@ -1123,14 +1481,20 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    final bool isWindows = Platform.isWindows;
+    // 写入 / 选目录进行中不允许下滑关闭：否则页面收不到结果，
+    // 用户会以为没添加上。
+    final bool busy = _submitting || _pickingSaf;
 
     return PopScope(
-      // 写入过程中不允许下滑关闭：否则 page 收不到成功结果，
-      // 也不会触发列表重新查询，用户会以为没添加上。
-      canPop: !_submitting,
+      canPop: !busy && _step == _AddRootStep.entries,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop || busy || _step == _AddRootStep.entries) {
+          return;
+        }
+        // 手动输入时按返回：退回两个入口，而不是直接关掉弹层。
+        setState(() => _validateOnChange = false);
+        setState(() => _step = _AddRootStep.entries);
+      },
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           AppSpacing.xl,
@@ -1139,137 +1503,346 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
           AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Semantics(
+          child: AnimatedSize(
+            duration: AppMotion.resolve(context, AppDurations.standard),
+            curve: AppDurations.standardCurve,
+            alignment: Alignment.topCenter,
+            child: _step == _AddRootStep.entries
+                ? _buildEntries(context)
+                : _buildManualForm(context),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 第一步：两条路摆明，推荐的那条在上。
+  Widget _buildEntries(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final bool enabled = !_pickingSaf;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Semantics(
+          header: true,
+          child: Text(
+            '添加书库根',
+            textAlign: TextAlign.center,
+            style: text.titleLarge,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '扫描只读取目录里的音频文件，不会移动、重命名或删除任何内容。',
+          textAlign: TextAlign.center,
+          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _AddEntryTile(
+          key: LibraryRootsKeys.safPickKey,
+          icon: Icons.folder_shared_outlined,
+          title: '选择目录（SAF）',
+          subtitle: '用系统文件选择器挑一个目录，并授予长期读取权限。',
+          badge: '推荐',
+          prominent: true,
+          busy: _pickingSaf,
+          busyLabel: '正在打开系统选择器…',
+          onTap: enabled ? () => unawaited(_pickSafRoot()) : null,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _AddEntryTile(
+          key: LibraryRootsKeys.manualPathKey,
+          icon: Icons.keyboard_alt_outlined,
+          title: '手动输入绝对路径',
+          subtitle: Platform.isWindows
+              ? r'手边有完整路径时用这个，例如 D:\Books。'
+              : '手边有完整路径时用这个，例如 /sdcard/Books。',
+          onTap: enabled
+              ? () => setState(() => _step = _AddRootStep.manualPath)
+              : null,
+        ),
+        if (_duplicateName != null) ...<Widget>[
+          const SizedBox(height: AppSpacing.md),
+          LibraryRootNotice(
+            key: LibraryRootsKeys.duplicateNoticeKey,
+            tone: LibraryNoticeTone.info,
+            message: '这个目录已经在书库里：「$_duplicateName」，没有重复添加。',
+          ),
+        ],
+        if (_safError != null) ...<Widget>[
+          const SizedBox(height: AppSpacing.md),
+          _SafErrorPanel(title: _safError!.title, message: _safError!.message),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          '系统选择器会授予长期读取权限。SAF 目录无法在添加时校验是否还能访问，'
+          '真正读不到会在扫描摘要里列为「目录读取失败」。',
+          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  /// 第二步：手动输入绝对路径（原来的表单，入口从通栏按钮换成弹层里的第二个选项）。
+  Widget _buildManualForm(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final bool isWindows = Platform.isWindows;
+
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              IconButton(
+                key: LibraryRootsKeys.addSheetBackKey,
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() => _step = _AddRootStep.entries),
+                tooltip: '返回上一步',
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              Expanded(
+                child: Semantics(
                   header: true,
-                  child: Text(
-                    '添加书库根',
-                    textAlign: TextAlign.center,
-                    style: text.titleLarge,
-                  ),
+                  child: Text('手动输入绝对路径', style: text.titleLarge),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '高级：手动输入绝对路径。扫描只读取其中的音频文件，不会改动任何内容。',
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(width: AppSpacing.lg),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '路径要写得完整、准确。扫描只读取其中的音频文件，不会改动任何内容。',
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          TextFormField(
+            key: LibraryRootsKeys.pathFieldKey,
+            controller: _pathController,
+            enabled: !_submitting,
+            autofocus: false,
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
+            enableSuggestions: false,
+            autovalidateMode: _validateOnChange
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
+            validator: _validatePath,
+            decoration: InputDecoration(
+              labelText: '绝对路径',
+              hintText: isWindows ? r'D:\Books' : '/storage/emulated/0/Books',
+              prefixIcon: const Icon(Icons.folder_open_rounded, size: 20),
+              errorMaxLines: 3,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            key: LibraryRootsKeys.nameFieldKey,
+            controller: _nameController,
+            enabled: !_submitting,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => unawaited(_submitManualPath()),
+            decoration: const InputDecoration(
+              labelText: '显示名（可选）',
+              hintText: '例如：本机书库',
+              prefixIcon: Icon(Icons.label_outline_rounded, size: 20),
+            ),
+          ),
+          if (_submitError != null) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            LibraryRootNotice(
+              tone: LibraryNoticeTone.error,
+              message: _submitError!,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '提示：应用私有目录会随卸载一起删除；长期书架建议选一个独立目录。',
+            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                TextFormField(
-                  key: LibraryRootsKeys.pathFieldKey,
-                  controller: _pathController,
-                  enabled: !_submitting,
-                  autofocus: false,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  autovalidateMode: _validateOnChange
-                      ? AutovalidateMode.onUserInteraction
-                      : AutovalidateMode.disabled,
-                  validator: _validatePath,
-                  decoration: InputDecoration(
-                    labelText: '绝对路径',
-                    hintText: isWindows
-                        ? r'D:\Books'
-                        : '/storage/emulated/0/Books',
-                    prefixIcon: const Icon(Icons.folder_open_rounded, size: 20),
-                    errorMaxLines: 3,
-                  ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: FilledButton(
+                  key: LibraryRootsKeys.submitRootKey,
+                  onPressed: _submitting
+                      ? null
+                      : () => unawaited(_submitManualPath()),
+                  child: _submitting
+                      // 大字号下按钮会变窄，只留转圈；「正在添加」交给语义标签。
+                      ? Semantics(
+                          label: '正在添加书库根',
+                          child: const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : const Text('添加'),
                 ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  key: LibraryRootsKeys.nameFieldKey,
-                  controller: _nameController,
-                  enabled: !_submitting,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => unawaited(_submit()),
-                  decoration: const InputDecoration(
-                    labelText: '显示名（可选）',
-                    hintText: '例如：本机书库',
-                    prefixIcon: Icon(Icons.label_outline_rounded, size: 20),
-                  ),
-                ),
-                if (_submitError != null) ...<Widget>[
-                  const SizedBox(height: AppSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: scheme.errorContainer,
-                      borderRadius: AppRadii.sm,
-                    ),
-                    child: Row(
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 添加弹层里的一个入口：图标 + 标题 + 说明，可选「推荐」角标。
+class _AddEntryTile extends StatelessWidget {
+  const _AddEntryTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.badge,
+    this.prominent = false,
+    this.busy = false,
+    this.busyLabel,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final String? badge;
+
+  /// 推荐路径：用主色容器打底，视觉上压过兜底入口。
+  final bool prominent;
+  final bool busy;
+  final String? busyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final Color background = prominent
+        ? scheme.primaryContainer
+        : scheme.surfaceContainerHigh;
+    final Color foreground = prominent
+        ? scheme.onPrimaryContainer
+        : scheme.onSurface;
+    final Color muted = prominent
+        ? scheme.onPrimaryContainer
+        : scheme.onSurfaceVariant;
+    final Color border = prominent
+        ? scheme.primary.withValues(alpha: 0.35)
+        : scheme.outlineVariant.withValues(alpha: 0.7);
+
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: busy ? '$title，正在进行' : '$title：$subtitle',
+      child: ExcludeSemantics(
+        child: Material(
+          color: background,
+          borderRadius: AppRadii.md,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: AppSizes.minTouchTarget,
+              ),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                borderRadius: AppRadii.md,
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(icon, size: 22, color: foreground),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: 18,
-                          color: scheme.onErrorContainer,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            _submitError!,
-                            style: text.bodySmall?.copyWith(
-                              color: scheme.onErrorContainer,
+                        Row(
+                          children: <Widget>[
+                            Flexible(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: text.titleMedium?.copyWith(
+                                  color: foreground,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (badge != null) ...<Widget>[
+                              const SizedBox(width: AppSpacing.sm),
+                              _Badge(label: badge!, color: foreground),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          busy ? (busyLabel ?? subtitle) : subtitle,
+                          style: text.bodySmall?.copyWith(color: muted),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.sm),
+                  if (busy)
+                    SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: foreground,
+                      ),
+                    )
+                  else
+                    Icon(Icons.chevron_right_rounded, color: muted),
                 ],
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  '提示：应用私有目录会随卸载一起删除；长期书架建议选一个独立目录。',
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _submitting
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: const Text('取消'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: FilledButton(
-                        key: LibraryRootsKeys.submitRootKey,
-                        onPressed: _submitting
-                            ? null
-                            : () => unawaited(_submit()),
-                        child: _submitting
-                            // 大字号下按钮会变窄，只留转圈；「正在添加」交给语义标签。
-                            ? Semantics(
-                                label: '正在添加书库根',
-                                child: const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              )
-                            : const Text('添加'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 小角标（「推荐」）。
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: AppRadii.pill,
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
       ),
     );
   }

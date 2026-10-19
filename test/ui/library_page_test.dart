@@ -10,6 +10,7 @@ import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/contracts/storage/directory_picker.dart';
+import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
 import 'package:tometone/ui/pages/library/library_page.dart';
@@ -25,12 +26,27 @@ class _FakeLibraryRootService implements LibraryRootService {
   final List<({String treeUri, String name})> safCalls =
       <({String treeUri, String name})>[];
   final List<String> scannedRootIds = <String>[];
+  final List<({String id, String name})> renameCalls =
+      <({String id, String name})>[];
+  final List<String> removedRootIds = <String>[];
   final Map<String, Completer<ScanReport>> scanCompleters =
       <String, Completer<ScanReport>>{};
   final Map<String, Object> scanErrors = <String, Object>{};
 
+  /// 移除时的失败注入。
+  Exception? removeFailure;
+
+  /// 重命名时的失败注入。
+  Exception? renameFailure;
+
   /// 添加成功时的回调（测试用来模拟「重新查询后多了一条根」）。
   void Function(String uri, String? name)? onAdd;
+
+  /// 重命名成功时的回调（测试用来模拟写入后的那条根）。
+  void Function(String id, String name)? onRename;
+
+  /// 移除成功时的回调（测试用来模拟级联删掉之后剩下的根）。
+  void Function(String id)? onRemove;
 
   @override
   Future<String> addLocalRoot({
@@ -63,6 +79,26 @@ class _FakeLibraryRootService implements LibraryRootService {
   }
 
   @override
+  Future<void> renameRoot(String id, String displayName) async {
+    renameCalls.add((id: id, name: displayName));
+    final Exception? failure = renameFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    onRename?.call(id, displayName);
+  }
+
+  @override
+  Future<void> removeRoot(String id) async {
+    removedRootIds.add(id);
+    final Exception? failure = removeFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    onRemove?.call(id);
+  }
+
+  @override
   Future<DateTime?> lastScanAt(String libraryRootId) async => null;
 }
 
@@ -81,6 +117,58 @@ class _FakeDirectoryPicker implements DirectoryPicker {
     }
     return picked;
   }
+}
+
+/// 假的只读书库查询：移除前的「影响范围」统计走这里。
+class _FakeLibraryQueries implements LibraryQueries {
+  _FakeLibraryQueries({this.booksByRoot = const {}});
+
+  /// 每个书库根下的书目。
+  final Map<String, List<BookSummary>> booksByRoot;
+
+  /// 查询失败注入（用来验证退回书架缓存的分支）。
+  Exception? failure;
+
+  /// 每次统计问过的书库根。
+  final List<String> queriedRootIds = <String>[];
+
+  @override
+  Future<List<BookSummary>> listBooks({
+    String? libraryRootId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final Exception? error = failure;
+    if (error != null) {
+      throw error;
+    }
+    queriedRootIds.add(libraryRootId ?? '');
+    final List<BookSummary> all =
+        booksByRoot[libraryRootId] ?? const <BookSummary>[];
+    return all.skip(offset).take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<List<LibraryRootView>> libraryRoots() async =>
+      const <LibraryRootView>[];
+
+  @override
+  Future<BookDetail?> bookDetail(String bookId) async => null;
+
+  @override
+  Future<void> saveProgress({
+    required String bookId,
+    required String chapterId,
+    required Duration position,
+    DateTime? updatedAt,
+  }) async {}
+
+  @override
+  Future<void> savePreferences(
+    String bookId,
+    PerBookPrefsSnapshot preferences, {
+    DateTime? updatedAt,
+  }) async {}
 }
 
 ScanReport _report({
@@ -143,6 +231,7 @@ void main() {
     required List<LibraryRootView> Function() roots,
     String? suggestedPath,
     DirectoryPicker? picker,
+    LibraryQueries? queries,
     void Function()? onRootsQuery,
   }) async {
     usePhoneViewport(tester);
@@ -154,6 +243,9 @@ void main() {
         }),
         booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
         libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(
+          queries ?? _FakeLibraryQueries(),
+        ),
         directoryPickerProvider.overrideWithValue(
           picker ?? _FakeDirectoryPicker(),
         ),
@@ -170,20 +262,71 @@ void main() {
     return container;
   }
 
-  testWidgets('空态：说明支持格式并直接给出添加入口', (WidgetTester tester) async {
+  /// 打开「添加书库根」弹层（有根时点页首 `+`，空态点主按钮）。
+  Future<void> openAddSheet(WidgetTester tester, {required Key entry}) async {
+    await tester.tap(find.byKey(entry));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('空态：说明支持格式，只给一个主按钮，弹层里才分两个入口', (WidgetTester tester) async {
     await pumpLibrary(tester, roots: () => const <LibraryRootView>[]);
 
     expect(find.byKey(LibraryRootsKeys.rootsEmptyKey), findsOneWidget);
     expect(find.text('还没有书库根'), findsOneWidget);
     expect(find.textContaining('支持 mp3'), findsOneWidget);
     expect(find.byKey(LibraryRootsKeys.addRootKey), findsOneWidget);
-    expect(find.byKey(LibraryRootsKeys.safPickKey), findsOneWidget);
-    expect(find.text('选择目录（SAF）'), findsOneWidget);
-    expect(find.text('高级：手动输入路径'), findsOneWidget);
+    expect(
+      find.byKey(LibraryRootsKeys.addRootButtonKey),
+      findsNothing,
+      reason: '空态没有 `+` 可点，引导在面板里',
+    );
+    expect(
+      find.byKey(LibraryRootsKeys.safPickKey),
+      findsNothing,
+      reason: '两个入口都收进弹层，不再常驻页面',
+    );
+    expect(find.text('高级：手动输入路径'), findsNothing);
     expect(find.text('0 个'), findsOneWidget);
-    // 独立成页后的页首：眉题 + 标题都在，说明来源职责只属于这里。
     expect(find.text('书库 · LIBRARY'), findsOneWidget);
     expect(find.text('书库根'), findsOneWidget);
+
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootKey);
+
+    expect(find.byKey(LibraryRootsKeys.safPickKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.manualPathKey), findsOneWidget);
+    expect(find.text('选择目录（SAF）'), findsOneWidget);
+    expect(find.text('手动输入绝对路径'), findsOneWidget);
+    expect(find.text('推荐'), findsOneWidget);
+    // 原来挂在两个大按钮下面的说明段落，现在并进弹层。
+    expect(find.textContaining('SAF 目录无法在添加时校验是否还能访问'), findsOneWidget);
+    expect(find.textContaining('扫描只读取目录里的音频文件'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('列表：`+` 在页首右上角，两个入口都在弹层里', (WidgetTester tester) async {
+    await pumpLibrary(tester, roots: () => <LibraryRootView>[testRoot]);
+
+    expect(find.byKey(LibraryRootsKeys.rootsListKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.addRootButtonKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.addRootKey), findsNothing);
+    expect(find.text('选择目录（SAF）'), findsNothing);
+    expect(find.text('高级：手动输入路径'), findsNothing);
+    expect(find.text('1 个'), findsOneWidget);
+
+    // `+` 的触控目标 ≥48dp，且在标题行的右侧。
+    final Size size = tester.getSize(
+      find.byKey(LibraryRootsKeys.addRootButtonKey),
+    );
+    expect(size.height, greaterThanOrEqualTo(AppSizes.minTouchTarget));
+    expect(
+      tester.getCenter(find.byKey(LibraryRootsKeys.addRootButtonKey)).dx,
+      closeTo(400 - AppSpacing.lg - size.width / 2, 0.5),
+    );
+
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
+
+    expect(find.byKey(LibraryRootsKeys.safPickKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.manualPathKey), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -222,7 +365,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('添加根成功：预填建议路径、写入后重新查询列表', (WidgetTester tester) async {
+  testWidgets('手动输入：从弹层第二个入口进表单，写入后重新查询列表', (WidgetTester tester) async {
     final Directory temp = Directory.systemTemp.createTempSync(
       'tometone-library-',
     );
@@ -248,7 +391,8 @@ void main() {
     );
     expect(container.read(libraryRootsProvider).value, hasLength(1));
 
-    await tester.tap(find.byKey(LibraryRootsKeys.addRootKey));
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
+    await tester.tap(find.byKey(LibraryRootsKeys.manualPathKey));
     await tester.pumpAndSettle();
 
     final TextFormField pathField = tester.widget<TextFormField>(
@@ -256,6 +400,14 @@ void main() {
     );
     expect(pathField.controller?.text, temp.path);
 
+    // 返回上一步：两个入口还在。
+    await tester.tap(find.byKey(LibraryRootsKeys.addSheetBackKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(LibraryRootsKeys.manualPathKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.pathFieldKey), findsNothing);
+
+    await tester.tap(find.byKey(LibraryRootsKeys.manualPathKey));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(LibraryRootsKeys.nameFieldKey), '我的书库');
     await tester.tap(find.byKey(LibraryRootsKeys.submitRootKey));
     await tester.pumpAndSettle();
@@ -264,7 +416,7 @@ void main() {
     expect(service.addCalls.single.path, temp.path);
     expect(service.addCalls.single.name, '我的书库');
     expect(find.byKey(LibraryRootsKeys.submitRootKey), findsNothing);
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsOneWidget);
     expect(find.textContaining('已添加「我的书库」'), findsOneWidget);
     expect(find.text('我的书库'), findsOneWidget);
     expect(find.text('2 个'), findsOneWidget);
@@ -276,7 +428,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('添加根失败：空路径与不存在目录都用表单 errorText 就地提示', (
+  testWidgets('手动输入失败：空路径与不存在目录都用表单 errorText 就地提示', (
     WidgetTester tester,
   ) async {
     await pumpLibrary(
@@ -285,7 +437,8 @@ void main() {
       suggestedPath: '/definitely/not/here/books',
     );
 
-    await tester.tap(find.byKey(LibraryRootsKeys.addRootKey));
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
+    await tester.tap(find.byKey(LibraryRootsKeys.manualPathKey));
     await tester.pumpAndSettle();
     expect(find.byKey(LibraryRootsKeys.submitRootKey), findsOneWidget);
 
@@ -307,7 +460,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('添加根重复：同一路径已在书库时就地提示，不调用写入', (WidgetTester tester) async {
+  testWidgets('手动输入重复：同一路径已在书库时就地提示，不调用写入', (WidgetTester tester) async {
     final Directory temp = Directory.systemTemp.createTempSync(
       'tometone-library-dup-',
     );
@@ -325,7 +478,8 @@ void main() {
       suggestedPath: temp.path,
     );
 
-    await tester.tap(find.byKey(LibraryRootsKeys.addRootKey));
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
+    await tester.tap(find.byKey(LibraryRootsKeys.manualPathKey));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(LibraryRootsKeys.submitRootKey));
     await tester.pumpAndSettle();
@@ -337,11 +491,11 @@ void main() {
       findsOneWidget,
       reason: '弹层保持打开，用户可以改路径',
     );
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsNothing);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('SAF：点按钮只弹一次选择器，用户取消时静默', (WidgetTester tester) async {
+  testWidgets('SAF：点入口只弹一次选择器，用户取消时静默', (WidgetTester tester) async {
     final _FakeDirectoryPicker picker = _FakeDirectoryPicker();
     int rootsQueries = 0;
 
@@ -353,16 +507,13 @@ void main() {
     );
     expect(rootsQueries, 1);
 
-    expect(find.byKey(LibraryRootsKeys.safPickKey), findsOneWidget);
-    expect(find.text('选择目录（SAF）'), findsOneWidget);
-    expect(find.text('高级：手动输入路径'), findsOneWidget);
-
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
     await tester.tap(find.byKey(LibraryRootsKeys.safPickKey));
     await tester.pumpAndSettle();
 
     expect(picker.calls, 1);
     expect(service.safCalls, isEmpty, reason: '取消不应写入书库根');
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsNothing);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsNothing);
     expect(
       find.byKey(LibraryRootsKeys.safErrorKey),
       findsNothing,
@@ -370,13 +521,9 @@ void main() {
     );
     expect(find.textContaining('已添加'), findsNothing);
     expect(rootsQueries, 1, reason: '取消不应刷新列表');
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(LibraryRootsKeys.safPickKey))
-          .onPressed,
-      isNotNull,
-      reason: '取消后按钮要恢复可用',
-    );
+    // 取消后回到两个入口，按钮仍然可以再点。
+    expect(find.byKey(LibraryRootsKeys.safPickKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.manualPathKey), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -409,6 +556,7 @@ void main() {
     );
     expect(rootsQueries, 1);
 
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
     await tester.tap(find.byKey(LibraryRootsKeys.safPickKey));
     await tester.pumpAndSettle();
 
@@ -418,7 +566,7 @@ void main() {
     expect(service.safCalls.single.name, 'Books');
     expect(service.addCalls, isEmpty, reason: 'SAF 不应走本地路径入口');
 
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsOneWidget);
     expect(find.textContaining('已添加「Books」'), findsOneWidget);
     expect(find.byKey(LibraryRootsKeys.safErrorKey), findsNothing);
     expect(find.text('2 个'), findsOneWidget);
@@ -431,7 +579,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('SAF 重复：同一 tree URI 已在书库时不写入，就地提示', (WidgetTester tester) async {
+  testWidgets('SAF 重复：同一 tree URI 已在书库时不写入，弹层里就地提示', (
+    WidgetTester tester,
+  ) async {
     const String treeUri =
         'content://com.android.externalstorage.documents/tree/primary%3ABooks';
     final _FakeDirectoryPicker picker = _FakeDirectoryPicker()
@@ -448,6 +598,7 @@ void main() {
     );
     expect(rootsQueries, 1);
 
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
     await tester.tap(find.byKey(LibraryRootsKeys.safPickKey));
     await tester.pumpAndSettle();
 
@@ -455,17 +606,11 @@ void main() {
     expect(service.safCalls, isEmpty, reason: '同 tree URI 已存在时不应写入');
     expect(find.byKey(LibraryRootsKeys.duplicateNoticeKey), findsOneWidget);
     expect(find.textContaining('这个目录已经在书库里'), findsOneWidget);
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsNothing);
     expect(find.byKey(LibraryRootsKeys.safErrorKey), findsNothing);
     expect(rootsQueries, 1, reason: '没有写入就不该刷新列表');
     expect(container.read(libraryRootsProvider).value, hasLength(1));
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(LibraryRootsKeys.safPickKey))
-          .onPressed,
-      isNotNull,
-      reason: '重复提示后按钮要恢复可用',
-    );
+    // 弹层还开着，用户可以改用手动输入。
+    expect(find.byKey(LibraryRootsKeys.manualPathKey), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -482,6 +627,7 @@ void main() {
       onRootsQuery: () => rootsQueries++,
     );
 
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
     await tester.tap(find.byKey(LibraryRootsKeys.safPickKey));
     await tester.pumpAndSettle();
 
@@ -491,13 +637,11 @@ void main() {
     expect(find.text('这里没有系统目录选择器'), findsOneWidget);
     expect(find.textContaining('当前平台没有接入目录选择'), findsOneWidget);
     expect(find.textContaining('MissingPluginException'), findsNothing);
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsNothing);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsNothing);
     expect(rootsQueries, 1);
     expect(
-      tester
-          .widget<FilledButton>(find.byKey(LibraryRootsKeys.safPickKey))
-          .onPressed,
-      isNotNull,
+      find.byKey(LibraryRootsKeys.safPickKey),
+      findsOneWidget,
       reason: '失败后可以重试',
     );
     expect(tester.takeException(), isNull);
@@ -512,6 +656,7 @@ void main() {
       picker: picker,
     );
 
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
     await tester.tap(find.byKey(LibraryRootsKeys.safPickKey));
     await tester.pumpAndSettle();
 
@@ -522,7 +667,7 @@ void main() {
     expect(find.textContaining('已经有一个目录选择在进行'), findsOneWidget);
     expect(find.textContaining('PlatformException'), findsNothing);
     expect(find.textContaining('busy'), findsNothing);
-    expect(find.byKey(LibraryRootsKeys.addedNoticeKey), findsNothing);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -543,6 +688,7 @@ void main() {
           return const <BookSummary>[];
         }),
         libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
       ],
     );
     addTearDown(container.dispose);
@@ -618,6 +764,7 @@ void main() {
           return const <BookSummary>[];
         }),
         libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
       ],
     );
     addTearDown(container.dispose);
@@ -652,6 +799,311 @@ void main() {
           .onPressed,
       isNotNull,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移除：先给出影响范围与「不会删除文件」，确认后才级联清理', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    int rootsQueries = 0;
+    int booksQueries = 0;
+    List<LibraryRootView> roots = <LibraryRootView>[testRoot];
+    final _FakeLibraryQueries queries = _FakeLibraryQueries(
+      booksByRoot: <String, List<BookSummary>>{
+        testRootId: <BookSummary>[
+          testSummary(id: 'b1', totalChapters: 4),
+          testSummary(id: 'b2', totalChapters: 6),
+          testSummary(id: 'b3', totalChapters: 2),
+        ],
+        'root-other': <BookSummary>[testSummary(id: 'b9', totalChapters: 99)],
+      },
+    );
+    service.onRemove = (String id) {
+      roots = roots.where((LibraryRootView root) => root.id != id).toList();
+    };
+
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith((Ref ref) async {
+          rootsQueries++;
+          return roots;
+        }),
+        booksProvider.overrideWith((Ref ref) async {
+          booksQueries++;
+          return const <BookSummary>[];
+        }),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(queries),
+      ],
+    );
+    addTearDown(container.dispose);
+    final ProviderSubscription<AsyncValue<List<BookSummary>>> booksSub =
+        container.listen(booksProvider, (_, _) {}, fireImmediately: true);
+    addTearDown(booksSub.close);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+    expect(rootsQueries, 1);
+
+    // 卡片的 `⋮` 里同时有重命名与移除；扫描留在卡片上，不在菜单里重复。
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(LibraryRootsKeys.renameRootKey(testRootId)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(LibraryRootsKeys.removeRootKey(testRootId)),
+      findsOneWidget,
+    );
+    expect(find.text('重命名'), findsOneWidget);
+    expect(find.text('移除书库根'), findsOneWidget);
+    expect(find.text('重新扫描'), findsNothing);
+
+    await tester.tap(find.byKey(LibraryRootsKeys.removeRootKey(testRootId)));
+    await tester.pumpAndSettle();
+
+    // 影响范围来自「移除前查一次」，只算这一条根。
+    expect(queries.queriedRootIds, <String>[testRootId]);
+    expect(find.byKey(LibraryRootsKeys.removeDialogKey), findsOneWidget);
+    expect(find.textContaining('将移除 3 册 · 12 章的书目记录'), findsOneWidget);
+    expect(find.textContaining('不会删除文件'), findsOneWidget);
+    expect(find.textContaining('也不会改动目录里的任何内容'), findsOneWidget);
+    expect(service.removedRootIds, isEmpty, reason: '确认之前不能动手');
+
+    await tester.tap(find.byKey(LibraryRootsKeys.removeConfirmKey));
+    await tester.pumpAndSettle();
+
+    expect(service.removedRootIds, <String>[testRootId]);
+    expect(rootsQueries, 2, reason: '移除后列表必须重新查询');
+    expect(booksQueries, 2, reason: '级联删掉了书目，书架必须一起失效');
+    expect(find.byKey(LibraryRootsKeys.rootsEmptyKey), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsOneWidget);
+    expect(find.textContaining('已移除「本机书库」'), findsOneWidget);
+    expect(find.textContaining('目录里的文件没有任何改动'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移除：取消就什么都不做；统计不出来时也不拦着用户', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    int rootsQueries = 0;
+    final _FakeLibraryQueries queries = _FakeLibraryQueries(
+      booksByRoot: <String, List<BookSummary>>{
+        testRootId: <BookSummary>[testSummary(id: 'b1', totalChapters: 4)],
+      },
+    );
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith((Ref ref) async {
+          rootsQueries++;
+          return const <LibraryRootView>[testRoot];
+        }),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(queries),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.removeRootKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.removeCancelKey));
+    await tester.pumpAndSettle();
+
+    expect(service.removedRootIds, isEmpty, reason: '取消不应移除');
+    expect(rootsQueries, 1, reason: '取消不应刷新列表');
+    expect(find.byKey(LibraryRootsKeys.noticeKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移除：统计查询失败时退回书架缓存，数字照样给出来', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final _FakeLibraryQueries queries = _FakeLibraryQueries()
+      ..failure = Exception('查询挂了');
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith(
+          (Ref ref) async => const <LibraryRootView>[testRoot],
+        ),
+        booksProvider.overrideWith(
+          (Ref ref) async => <BookSummary>[
+            testSummary(id: 'b1', totalChapters: 3),
+            testSummary(id: 'b2', totalChapters: 4),
+            testSummary(
+              id: 'b9',
+              libraryRootId: 'root-other',
+              totalChapters: 99,
+            ),
+          ],
+        ),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(queries),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.removeRootKey(testRootId)));
+    await tester.pumpAndSettle();
+
+    // testSummary 默认挂在 testRootId 下，第三条是别的根，不该算进来。
+    expect(find.textContaining('将移除 2 册 · 7 章的书目记录'), findsOneWidget);
+    expect(find.textContaining('不会删除文件'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移除：服务失败时就地提示，不刷新列表', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    int rootsQueries = 0;
+    service.removeFailure = Exception('数据库忙');
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith((Ref ref) async {
+          rootsQueries++;
+          return const <LibraryRootView>[testRoot];
+        }),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.removeRootKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.removeConfirmKey));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('没有移除成功'), findsOneWidget);
+    expect(rootsQueries, 1, reason: '没删成功就不该当作列表变了');
+    expect(find.text('本机书库'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重命名：弹窗预填当前名字，保存后列表出现新名字', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    int rootsQueries = 0;
+    List<LibraryRootView> roots = <LibraryRootView>[testRoot];
+    service.onRename = (String id, String name) {
+      roots = <LibraryRootView>[
+        for (final LibraryRootView root in roots)
+          if (root.id == id) _root(displayName: name) else root,
+      ];
+    };
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith((Ref ref) async {
+          rootsQueries++;
+          return roots;
+        }),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.renameRootKey(testRootId)));
+    await tester.pumpAndSettle();
+
+    final TextField field = tester.widget<TextField>(
+      find.byKey(LibraryRootsKeys.renameFieldKey),
+    );
+    expect(field.controller?.text, '本机书库');
+    expect(find.textContaining('只改这里显示的名字'), findsOneWidget);
+
+    // 空名字不提交。
+    await tester.enterText(find.byKey(LibraryRootsKeys.renameFieldKey), '   ');
+    await tester.tap(find.byKey(LibraryRootsKeys.renameSubmitKey));
+    await tester.pumpAndSettle();
+    expect(find.text('名字不能为空'), findsOneWidget);
+    expect(service.renameCalls, isEmpty);
+
+    // 名字没变也不写库。
+    await tester.enterText(find.byKey(LibraryRootsKeys.renameFieldKey), '本机书库');
+    await tester.tap(find.byKey(LibraryRootsKeys.renameSubmitKey));
+    await tester.pumpAndSettle();
+    expect(service.renameCalls, isEmpty, reason: '名字没变就不该写库');
+    expect(find.byKey(LibraryRootsKeys.renameFieldKey), findsNothing);
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.renameRootKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(LibraryRootsKeys.renameFieldKey), ' 书房 ');
+    await tester.tap(find.byKey(LibraryRootsKeys.renameSubmitKey));
+    await tester.pumpAndSettle();
+
+    expect(service.renameCalls, <({String id, String name})>[
+      (id: testRootId, name: '书房'),
+    ]);
+    expect(find.text('书房'), findsOneWidget, reason: '列表以重新查询为准');
+    expect(find.text('本机书库'), findsNothing);
+    expect(rootsQueries, 2, reason: '重命名后必须重新查询列表');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重命名：服务失败时就地提示，不刷新列表', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    int rootsQueries = 0;
+    service.renameFailure = Exception('数据库忙');
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith((Ref ref) async {
+          rootsQueries++;
+          return const <LibraryRootView>[testRoot];
+        }),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.renameRootKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(LibraryRootsKeys.renameFieldKey), '书房');
+    await tester.tap(find.byKey(LibraryRootsKeys.renameSubmitKey));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('重命名没有成功'), findsOneWidget);
+    expect(find.text('本机书库'), findsOneWidget);
+    expect(rootsQueries, 1);
     expect(tester.takeException(), isNull);
   });
 
