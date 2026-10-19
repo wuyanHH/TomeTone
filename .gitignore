@@ -19,3 +19,8 @@ desktop.ini
 # Env / local
 .env
 *.local
+
+# 设计过程的探索稿（图标方向探索，已被 icon-v3 取代；保留在本地不入库）
+docs/design-preview/icon-concepts/
+docs/design-preview/icon-concepts-r2/
+docs/design-preview/icon-splash/

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #E9E6DC; font-family: "Microsoft YaHei", "Segoe UI", sans-serif; width: 1000px; height: 640px; box-sizing: border-box; padding: 40px 48px; display: flex; gap: 40px; align-items: center; justify-content: center; }
+  .screen { width: 300px; height: 560px; border-radius: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; padding: 0 28px; }
+  .dark { background: #0E2A3B; color: #F2F4E9; }
+  .light { background: #F2F4E9; color: #0E2A3B; border: 1px solid #D9D5C7; }
+  .name { font-size: 30px; letter-spacing: 6px; margin-top: 26px; }
+  .en-name { font-size: 11px; letter-spacing: 4px; margin-top: 8px; }
+  .dark .en-name { color: #58DCC1; }
+  .light .en-name { color: #0F7A68; }
+  .zh { font-size: 15px; letter-spacing: 1.5px; margin-top: 44px; line-height: 1.7; }
+  .en { font-size: 12px; letter-spacing: .4px; margin-top: 8px; opacity: .78; line-height: 1.5; }
+  .dark .en { color: #A9C4C6; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="mark-dark">
+      <g transform="translate(0 7.5)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M54 50C48.5 44.5 42 43.5 34 45V62C42 60.5 48.5 61.5 54 68C59.5 61.5 66 60.5 74 62V45C66 43.5 59.5 44.5 54 50Z" stroke="#F2F4E9" stroke-width="3"/>
+        <path d="M41 37V33M47.5 37V26M54 37V22M60.5 37V28M67 37V32" stroke="#58DCC1" stroke-width="3.4"/>
+      </g>
+    </g>
+    <g id="mark-light">
+      <g transform="translate(0 7.5)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M54 50C48.5 44.5 42 43.5 34 45V62C42 60.5 48.5 61.5 54 68C59.5 61.5 66 60.5 74 62V45C66 43.5 59.5 44.5 54 50Z" stroke="#0E2A3B" stroke-width="3"/>
+        <path d="M41 37V33M47.5 37V26M54 37V22M60.5 37V28M67 37V32" stroke="#0F7A68" stroke-width="3.4"/>
+      </g>
+    </g>
+  </defs>
+</svg>
+
+<div class="screen dark">
+  <svg viewBox="14 14 80 80" width="112" height="112"><use href="#mark-dark"/></svg>
+  <div class="name">听卷</div>
+  <div class="en-name">TOMETONE</div>
+  <div class="zh">听见故事，看见文字。</div>
+  <div class="en">Listen to the story. Follow every word.</div>
+</div>
+
+<div class="screen light">
+  <svg viewBox="14 14 80 80" width="112" height="112"><use href="#mark-light"/></svg>
+  <div class="name">听卷</div>
+  <div class="en-name">TOMETONE</div>
+  <div class="zh">听见故事，看见文字。</div>
+  <div class="en">Listen to the story. Follow every word.</div>
+</div>
+
+</body>
+</html>
