@@ -1,4 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/library/cover_art.dart';
+import 'package:tometone/app/library/cover_paths.dart';
+import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/playback/playback_engine.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
@@ -45,3 +50,80 @@ final FutureProvider<List<LibraryRootView>> libraryRootsProvider =
     FutureProvider<List<LibraryRootView>>(
       (Ref ref) => ref.watch(libraryQueriesProvider).libraryRoots(),
     );
+
+/// 媒体源 resolver 工厂。**必须**在 `main.dart` 中 override ——
+/// 应用层不允许直接依赖 `lib/modules/` 里的具体实现。
+final Provider<MediaSourceResolverFactory> mediaSourceResolverFactoryProvider =
+    Provider<MediaSourceResolverFactory>(
+      (Ref ref) => throw UnimplementedError(
+        'mediaSourceResolverFactoryProvider 未装配：请在 ProviderScope.overrides 中注入',
+      ),
+    );
+
+/// 按书库根 ID 构造媒体源 resolver；根还没加载出来 / 找不到时返回 `null`。
+///
+/// 根元数据来自 [libraryRootsProvider]，类型经 [libraryRootKindOf] 归一化；
+/// 具体实现（本地 / SAF）由 [mediaSourceResolverFactoryProvider] 注入。
+/// 根尚未加载完成时返回 `null`，调用方据此走「根缺失」文案而不是崩溃。
+final mediaSourceResolverForRootProvider =
+    Provider.family<MediaSourceResolver?, String>((Ref ref, String rootId) {
+      final List<LibraryRootView>? roots = ref
+          .watch(libraryRootsProvider)
+          .value;
+      if (roots == null) {
+        return null;
+      }
+      for (final LibraryRootView root in roots) {
+        if (root.id == rootId) {
+          final MediaSourceResolverFactory factory = ref.watch(
+            mediaSourceResolverFactoryProvider,
+          );
+          return factory(
+            libraryRootUri: root.uri,
+            kind: libraryRootKindOf(root.type),
+          );
+        }
+      }
+      return null;
+    });
+
+/// 封面来源：本地根走绝对路径（省内存），SAF 根读字节；取不到返回 `null`。
+///
+/// 无封面（`coverPath` 为空）/ 根缺失 / SAF 读不出字节都返回 `null`，
+/// UI 据此只画字标兜底，绝不留空白或闪烁占位。
+final coverArtProvider = FutureProvider.autoDispose
+    .family<CoverArt?, CoverArtKey>((Ref ref, CoverArtKey key) async {
+      final String? relative = key.coverPath;
+      if (relative == null || relative.isEmpty) {
+        return null;
+      }
+      final List<LibraryRootView> roots =
+          ref.watch(libraryRootsProvider).value ?? const <LibraryRootView>[];
+      LibraryRootView? root;
+      for (final LibraryRootView candidate in roots) {
+        if (candidate.id == key.rootId) {
+          root = candidate;
+          break;
+        }
+      }
+      if (root == null) {
+        return null;
+      }
+      if (libraryRootKindOf(root.type) == LibraryRootKind.saf) {
+        final MediaSourceResolver? resolver = ref.watch(
+          mediaSourceResolverForRootProvider(key.rootId),
+        );
+        if (resolver == null) {
+          return null;
+        }
+        final Uint8List? bytes = await resolver.readBytes(
+          relativePath: relative,
+        );
+        return bytes == null ? null : CoverArtBytes(bytes);
+      }
+      final String? absolute = absoluteCoverPath(
+        relativePath: relative,
+        libraryRootUri: root.uri,
+      );
+      return absolute == null ? null : CoverArtFile(absolute);
+    });

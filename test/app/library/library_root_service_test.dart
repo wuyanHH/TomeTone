@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/library/library_root_service.dart';
+import 'package:tometone/contracts/storage/directory_authorization.dart';
 import 'package:tometone/domain/common/id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
@@ -13,6 +14,28 @@ class _SeqIdGenerator implements IdGenerator {
 
   @override
   String next() => 'ID${(_next++).toString().padLeft(6, '0')}';
+}
+
+/// 记录调用并可控返回 / 抛错的授权替身（不用 mock 框架）。
+class _FakeAuthorization implements DirectoryAuthorization {
+  _FakeAuthorization({this.result = true, this.throwOnRelease = false});
+
+  final List<String> released = <String>[];
+
+  /// [release] 的返回值。
+  bool result;
+
+  /// 为 true 时 [release] 抛异常，用来验证「放弃失败不影响移除」。
+  bool throwOnRelease;
+
+  @override
+  Future<bool> release(String rootUri) async {
+    released.add(rootUri);
+    if (throwOnRelease) {
+      throw StateError('release 失败（测试注入）');
+    }
+    return result;
+  }
 }
 
 void main() {
@@ -157,6 +180,84 @@ void main() {
       final id = await service.addLocalRoot(absolutePath: library.path);
       await service.removeRoot(id);
       await expectLater(service.removeRoot(id), throwsStateError);
+    });
+  });
+
+  group('removeRoot 与目录授权（DirectoryAuthorization）', () {
+    const String safUri =
+        'content://com.android.externalstorage.documents/tree/primary%3AAudiobooks';
+
+    LibraryRootService serviceWith(DirectoryAuthorization? authorization) {
+      return LibraryRootService(
+        database: db,
+        idGenerator: _SeqIdGenerator(),
+        providerFactory: LocalStorageProvider.new,
+        authorization: authorization,
+      );
+    }
+
+    test('移除 SAF 根：以该根的 uri 调用 release 一次，登记行随后消失', () async {
+      final fake = _FakeAuthorization();
+      final withAuth = serviceWith(fake);
+      final id = await withAuth.addSafRoot(
+        treeUri: safUri,
+        displayName: 'Audiobooks',
+      );
+
+      await withAuth.removeRoot(id);
+
+      expect(fake.released, <String>[safUri], reason: '恰好放弃这一次的根 URI');
+      expect(await DriftLibraryQueries(db).libraryRoots(), isEmpty);
+    });
+
+    test('移除本地根：不调用 release', () async {
+      final fake = _FakeAuthorization();
+      final withAuth = serviceWith(fake);
+      final id = await withAuth.addLocalRoot(absolutePath: library.path);
+
+      await withAuth.removeRoot(id);
+
+      expect(fake.released, isEmpty, reason: '本地根没有系统授权可放弃');
+      expect(await DriftLibraryQueries(db).libraryRoots(), isEmpty);
+    });
+
+    test('release 返回 false：移除照样成功', () async {
+      final fake = _FakeAuthorization(result: false);
+      final withAuth = serviceWith(fake);
+      final id = await withAuth.addSafRoot(
+        treeUri: safUri,
+        displayName: 'Audiobooks',
+      );
+
+      await withAuth.removeRoot(id);
+
+      expect(fake.released, hasLength(1));
+      expect(await DriftLibraryQueries(db).libraryRoots(), isEmpty);
+    });
+
+    test('release 抛异常：不向上抛，移除照样成功', () async {
+      final fake = _FakeAuthorization(throwOnRelease: true);
+      final withAuth = serviceWith(fake);
+      final id = await withAuth.addSafRoot(
+        treeUri: safUri,
+        displayName: 'Audiobooks',
+      );
+
+      await expectLater(withAuth.removeRoot(id), completes);
+
+      expect(fake.released, hasLength(1));
+      expect(await DriftLibraryQueries(db).libraryRoots(), isEmpty);
+    });
+
+    test('未注入 authorization（null）：移除仍然成功', () async {
+      final id = await service.addSafRoot(
+        treeUri: safUri,
+        displayName: 'Audiobooks',
+      );
+
+      await service.removeRoot(id);
+
+      expect(await DriftLibraryQueries(db).libraryRoots(), isEmpty);
     });
   });
 

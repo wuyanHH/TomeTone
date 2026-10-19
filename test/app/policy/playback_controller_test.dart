@@ -4,6 +4,7 @@ import 'package:tometone/app/policy/per_book_preferences.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/policy/sleep_timer.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
+import 'package:tometone/contracts/playback/engine_error.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 
@@ -438,6 +439,110 @@ void main() {
 
       expect(controller.current?.chapterId, 'c1', reason: '不续播');
       expect(controller.state, EnginePlaybackState.completed);
+    });
+  });
+
+  group('切章加载失败的最小加固', () {
+    /// 造一个「c2 加载失败」的独立控制器（setUp 里的引擎不支持故障注入）。
+    ({PlaybackController controller, FakePlaybackEngine engine})
+    failingController() {
+      final failingEngine = FakePlaybackEngine(
+        durations: <String, Duration>{'file:///library/c1.mp3': _chapterLength},
+        loadFailures: <String, EngineErrorCode>{
+          'file:///library/c2.mp3': EngineErrorCode.sourceNotFound,
+        },
+      );
+      final c = PlaybackController(
+        engine: failingEngine,
+        writeProgress: (String bookId, String chapterId, Duration position) {},
+      );
+      addTearDown(c.dispose);
+      return (controller: c, engine: failingEngine);
+    }
+
+    test('下一章 load 抛错：不抛给调用方，置位 lastError 并退出播放态', () async {
+      final (:controller, :engine) = failingController();
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+      await controller.play();
+
+      // 旧实现会在此把 load 异常抛出来（即未捕获异步错误）。
+      await controller.skipToNext();
+      // 引擎状态事件经广播流异步投递，先排空再断言状态。
+      await pumpEventQueue();
+
+      expect(controller.lastError, isNotNull);
+      expect(controller.lastError!.code, EngineErrorCode.sourceNotFound);
+      expect(
+        controller.state,
+        isNot(EnginePlaybackState.playing),
+        reason: '加载失败后必须退出播放态',
+      );
+    });
+
+    test('章末自动续播时下一章 load 抛错：不产生未捕获异步错误', () async {
+      final (:controller, :engine) = failingController();
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+      await controller.play();
+
+      // 章末自动续播走 unawaited(_onChapterCompleted()) —— 失败必须被收敛。
+      engine.advance(_chapterLength);
+      await pumpEventQueue();
+
+      expect(controller.lastError, isNotNull);
+      expect(controller.state, isNot(EnginePlaybackState.playing));
+    });
+
+    test('目录跳章 load 抛错：返回 false 且置位 lastError，不抛错', () async {
+      final (:controller, :engine) = failingController();
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+
+      final bool moved = await controller.seekToChapter('c2');
+
+      expect(moved, isFalse);
+      expect(controller.lastError, isNotNull);
+    });
+
+    test('失败后再跳到可播放章：加载成功必须清掉 lastError（错误残留不得挂在 UI 上）', () async {
+      final (:controller, :engine) = failingController();
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+
+      // 先制造一次失败残留。
+      expect(await controller.seekToChapter('c2'), isFalse);
+      await pumpEventQueue();
+      expect(controller.lastError, isNotNull);
+
+      // c3 可播放：加载成功应把残留清掉。
+      expect(await controller.seekToChapter('c3'), isTrue);
+      await pumpEventQueue();
+      expect(
+        controller.lastError,
+        isNull,
+        reason: '下一次成功加载即清 lastError，否则提示会一直挂着',
+      );
     });
   });
 }

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tometone/app/library/cover_paths.dart';
+import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/policy/chapter_sequencer.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/policy/sleep_timer.dart';
@@ -103,6 +103,9 @@ class PlayerPage extends ConsumerStatefulWidget {
   /// 章节进度条。
   static const Key chapterSliderKey = Key('player-chapter-slider');
 
+  /// 「这一章打不开」失败提示（切章加载失败的可见出口）。
+  static const Key playbackErrorKey = Key('player-playback-error');
+
   @override
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
 }
@@ -116,8 +119,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Widget build(BuildContext context) {
     final PlaybackController controller = ref.watch(playbackControllerProvider);
     final BookDetail? book = ref.watch(currentBookProvider);
-    final List<LibraryRootView> roots =
-        ref.watch(libraryRootsProvider).value ?? const <LibraryRootView>[];
 
     return ListenableBuilder(
       listenable: controller.listenable,
@@ -127,7 +128,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           return _buildEmpty(context);
         }
 
-        final String? rootUri = _rootUriOf(roots, book);
         final ColorScheme scheme = Theme.of(context).colorScheme;
         // OLED 形态（surface 为纯黑）保持纯黑底：只让封面光晕提供层次，
         // 不再铺渐变，避免把"纯黑省电"换成一层近黑。
@@ -177,15 +177,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: <Widget>[
-                                    _buildCover(
-                                      context,
-                                      book,
-                                      chapter,
-                                      rootUri,
-                                    ),
+                                    _buildCover(context, book, chapter),
                                     const SizedBox(height: AppSpacing.lg),
                                     _buildChapterHeading(
                                       context,
+                                      controller,
                                       book,
                                       chapter,
                                     ),
@@ -308,15 +304,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     BuildContext context,
     BookDetail? book,
     QueueChapter? chapter,
-    String? rootUri,
   ) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final double width = MediaQuery.sizeOf(context).width;
     final double size = math.min(width - AppSpacing.xxxl * 2, 300);
-    final String? coverPath = absoluteCoverPath(
-      relativePath: book?.summary.coverPath,
-      libraryRootUri: rootUri,
-    );
+    final CoverArt? coverArt = book == null
+        ? null
+        : ref
+              .watch(
+                coverArtProvider(
+                  CoverArtKey(
+                    rootId: book.summary.libraryRootId,
+                    coverPath: book.summary.coverPath,
+                  ),
+                ),
+              )
+              .value;
     final String title = book?.summary.title ?? chapter?.title ?? '听卷';
 
     return Padding(
@@ -337,7 +340,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           child: BookCover(
             title: title,
             size: size,
-            coverPath: coverPath,
+            coverPath: coverArt is CoverArtFile ? coverArt.absolutePath : null,
+            coverImage: coverArt is CoverArtBytes
+                ? MemoryImage(coverArt.bytes)
+                : null,
             borderRadius: AppRadii.lg,
           ),
         ),
@@ -347,6 +353,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   Widget _buildChapterHeading(
     BuildContext context,
+    PlaybackController controller,
     BookDetail? book,
     QueueChapter? chapter,
   ) {
@@ -358,6 +365,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ?volumeTitle,
       if (author != null && author.trim().isNotEmpty) author.trim(),
     ].join(' · ');
+    // 切章加载失败时给出可见出口，不静默卡住（见 PlaybackController 的切章加固）。
+    final bool loadFailed = controller.lastError != null;
 
     return Column(
       children: <Widget>[
@@ -379,6 +388,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+        if (loadFailed) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '这一章打不开：文件可能已移动，或这个书库根的授权已失效',
+            key: PlayerPage.playbackErrorKey,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: text.bodySmall?.copyWith(color: scheme.error),
           ),
         ],
       ],
@@ -965,19 +985,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         );
       },
     );
-  }
-
-  static String? _rootUriOf(List<LibraryRootView> roots, BookDetail? book) {
-    final String? id = book?.summary.libraryRootId;
-    if (id == null) {
-      return null;
-    }
-    for (final LibraryRootView root in roots) {
-      if (root.id == id) {
-        return root.uri;
-      }
-    }
-    return null;
   }
 
   static String? _volumeTitleOf(BookDetail? book, String? volumeId) {

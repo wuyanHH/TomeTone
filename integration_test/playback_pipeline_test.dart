@@ -12,6 +12,7 @@ import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
+import 'package:tometone/modules/storage_local/local_media_source_resolver.dart';
 import 'package:tometone/modules/storage_local/local_storage_provider.dart';
 
 /// 设备端端到端：**真实文件系统 + 真实扫描器 + 真实 ExoPlayer + 真实 SQLite**。
@@ -64,9 +65,9 @@ void main() {
     expect(detail, isNotNull);
     expect(detail!.chapters, hasLength(2));
 
-    final queue = buildPlaybackQueue(
+    final queue = await buildPlaybackQueue(
       detail: detail,
-      libraryRootUri: workDir.path,
+      resolver: LocalMediaSourceResolver(workDir.path),
     );
     expect(queue.chapters, hasLength(2));
 

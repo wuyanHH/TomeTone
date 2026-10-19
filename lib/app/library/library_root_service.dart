@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:tometone/contracts/storage/directory_authorization.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
@@ -18,10 +19,14 @@ typedef StorageProviderFactory = StorageProvider Function(String rootUri);
 /// 扫描规则本身在 `LibraryScanner`，这里不再重复。
 class LibraryRootService {
   /// 创建服务。
+  ///
+  /// [authorization] 可选：只有需要「移除 SAF 根时一并放弃系统授权」的装配
+  /// （`main.dart`）才注入；未注入时移除照常工作，只是不放弃授权。
   LibraryRootService({
     required this._database,
     required IdGenerator idGenerator,
     required this._providerFactory,
+    this._authorization,
     DateTime Function()? clock,
   }) : _idGenerator = idGenerator,
        _clock = clock ?? DateTime.now,
@@ -34,6 +39,7 @@ class LibraryRootService {
   final TomeToneDatabase _database;
   final IdGenerator _idGenerator;
   final StorageProviderFactory _providerFactory;
+  final DirectoryAuthorization? _authorization;
   final DateTime Function() _clock;
   final LibraryScanner _scanner;
 
@@ -140,12 +146,38 @@ class LibraryRootService {
   /// 数据安全（§9.2）：这里只有一条 `DELETE`，不调用 provider 的任何
   /// 写方法、不传任何路径 —— 用户目录里的文件不会被移动、改名或删除。
   /// 移除前应当由界面把「将影响多少册 / 多少章」说清楚。
+  ///
+  /// 若根是 SAF（`type == 'saf'`），删除登记后还会尽力放弃它的持久化读授权
+  /// （[DirectoryAuthorization.release]），与界面文案「会一并放弃系统授权」对齐。
+  ///
+  /// 顺序与理由：**先删登记，再放弃授权**。授权放弃是不可逆的，若反过来先放弃、
+  /// 再删登记失败，用户会看到「移除失败」却已经丢了授权 —— 无法解释。删登记成功
+  /// 之后才放弃，即使放弃失败，最坏也只是系统里多留一条暂无引用的读授权。
+  ///
+  /// 容错：放弃授权是 best-effort —— 抛异常或返回 `false` 都不影响移除结果，
+  /// 绝不把异常抛给 UI（授权放弃失败不该让用户觉得「移除没成功」）。
   Future<void> removeRoot(String id) async {
+    // 先查出 uri / type：删除后就查不到了。
+    final root = await (_database.select(
+      _database.libraryRoots,
+    )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    if (root == null) {
+      throw StateError('书库根不存在：$id');
+    }
+
     final int removed = await (_database.delete(
       _database.libraryRoots,
     )..where((tbl) => tbl.id.equals(id))).go();
     if (removed == 0) {
       throw StateError('书库根不存在：$id');
+    }
+
+    if (root.type == 'saf') {
+      try {
+        await _authorization?.release(root.uri);
+      } catch (_) {
+        // best-effort：授权放弃失败与「移除登记」无关，登记已删，结果即成功。
+      }
     }
   }
 

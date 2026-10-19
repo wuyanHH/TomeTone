@@ -6,6 +6,7 @@ import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/policy/sleep_timer.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
+import 'package:tometone/contracts/playback/engine_error.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
@@ -233,6 +234,56 @@ void main() {
       reason: '目录条目应真正跳章，而不是弹一条"只读"提示',
     );
     expect(controller.current?.chapterId, isNot('c1'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('切章加载失败：播放台显示「这一章打不开」，不静默卡住', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final FakePlaybackEngine failingEngine = FakePlaybackEngine(
+      durations: <String, Duration>{
+        'file:///library/books/book-1/chapter-1.mp3': const Duration(
+          minutes: 10,
+        ),
+      },
+      loadFailures: <String, EngineErrorCode>{
+        'file:///library/books/book-1/chapter-2.mp3':
+            EngineErrorCode.sourceNotFound,
+      },
+    );
+    final PlaybackController failingController = testController(failingEngine);
+    addTearDown(failingController.dispose);
+    final BookSummary errorSummary = testSummary();
+    final BookDetail errorDetail = testDetail(
+      summary: errorSummary,
+      volumes: testVolumes(secondChapterMissing: false),
+    );
+    final ProviderContainer errorContainer = ProviderContainer(
+      overrides: testOverrides(
+        controller: failingController,
+        books: <BookSummary>[errorSummary],
+        detail: errorDetail,
+      ),
+    );
+    addTearDown(errorContainer.dispose);
+    errorContainer.read(currentBookProvider.notifier).set(errorDetail);
+
+    await failingController.open(
+      testRequest(errorDetail, startChapterId: 'c1'),
+    );
+    await failingController.play();
+    await failingController.skipToNext();
+
+    await tester.pumpWidget(testApp(errorContainer, const PlayerPage()));
+    await tester.pump();
+
+    expect(find.byKey(PlayerPage.playbackErrorKey), findsOneWidget);
+    expect(find.textContaining('这一章打不开'), findsOneWidget);
+
+    // 跳到可播放的 c3 后，失败提示必须消失（不留错误状态残留）。
+    expect(await failingController.seekToChapter('c3'), isTrue);
+    await tester.pump();
+    expect(find.byKey(PlayerPage.playbackErrorKey), findsNothing);
+    expect(find.textContaining('这一章打不开'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

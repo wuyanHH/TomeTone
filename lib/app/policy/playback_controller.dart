@@ -122,7 +122,14 @@ class PlaybackController {
   /// 全书是否已播放完毕（完毕态应归零，§2.2）。
   bool get isBookFinished => _finished;
 
-  /// 最近一次引擎错误。
+  /// 最近一次加载 / 播放失败的**残留**。
+  ///
+  /// 语义：只要是「此后没有成功加载过」的失败就仍为可见状态。下列任一发生即清：
+  /// - 下一次章节加载成功（[_loadChapter] 成功尾部，覆盖 [open] 与所有切章路径）；
+  /// - 新会话开始（[open] 开头 / [clearSession]）。
+  ///
+  /// 但它**不**在 [pause] / [play] 时清 —— 引擎失败（[EngineFailed]）依然置位，
+  /// 让 UI 能持续表达「这一章打不开」直到真正恢复。
   EngineError? get lastError => _lastError;
 
   /// 现在是否可以撤销微回退。
@@ -223,8 +230,8 @@ class PlaybackController {
       await _engine.pause();
       return;
     }
-    await _loadChapter(next);
-    if (shouldPlay) {
+    final bool loaded = await _loadChapterSafely(next);
+    if (loaded && shouldPlay) {
       await _engine.play();
     }
   }
@@ -250,8 +257,8 @@ class PlaybackController {
       _position = _range.start;
       return;
     }
-    await _loadChapter(resolution.chapter);
-    if (shouldPlay) {
+    final bool loaded = await _loadChapterSafely(resolution.chapter);
+    if (loaded && shouldPlay) {
       await _engine.play();
     }
   }
@@ -274,11 +281,11 @@ class PlaybackController {
 
     final shouldPlay = _autoPlayIntent;
     _flushProgress();
-    await _loadChapter(target, seekTo: position);
-    if (shouldPlay) {
+    final bool loaded = await _loadChapterSafely(target, seekTo: position);
+    if (loaded && shouldPlay) {
       await _engine.play();
     }
-    return true;
+    return loaded;
   }
 
   /// 撤销微回退（恢复后 [rewindUndoWindow] 内有效）。返回是否成功。
@@ -303,6 +310,25 @@ class PlaybackController {
     await _engine.dispose();
   }
 
+  /// 清空当前会话状态（**仅用于「打开失败回滚」**）。
+  ///
+  /// 只把控制器退回「未打开」的初始态，让 UI（迷你播放器 / 播放台）立刻
+  /// 不再显示一条假的「正在播放」：**不写进度、不碰引擎、不 dispose**。
+  /// 不要拿它当「停止」用 —— 正常停止 / 暂停一律走 [pause] / [dispose]。
+  void clearSession() {
+    _request = null;
+    _queue = null;
+    _current = null;
+    _range = (start: Duration.zero, end: null);
+    _state = EnginePlaybackState.idle;
+    _position = Duration.zero;
+    _autoPlayIntent = false;
+    _finished = false;
+    _lastError = null;
+    _rewindUndo = null;
+    _notifier.notify();
+  }
+
   // ---------------------------------------------------------------------------
 
   Future<void> _loadChapter(QueueChapter chapter, {Duration? seekTo}) async {
@@ -315,8 +341,49 @@ class PlaybackController {
     final target = _clamp(seekTo ?? _range.start);
     await _engine.seek(target);
     _position = target;
+    // 加载成功即清掉上一次的失败残留（见 [lastError] 语义）：这样用户跳到
+    // 可播放的章后，迷你播放器 / 播放台不会一直挂着「这一章打不开」。
+    // 放在成功尾部（而非方法开头）是为了让失败尝试继续由 catch 置位错误。
+    _lastError = null;
     _notifier.notify();
   }
+
+  /// 切章加载的**最小加固**（不是完整错误体系）。
+  ///
+  /// [skipToNext] / [skipToPrevious] / [seekToChapter] / 章末自动续播
+  /// 都会切章加载；其中章末续播走 `unawaited(_onChapterCompleted())`，
+  /// 一旦 [_loadChapter] 抛错就会变成**未捕获异步错误**，UI 只会静默卡住。
+  /// 这里把异常收敛在控制器内：置位 [lastError]、退出播放态（尽力 [pause]
+  /// 一次）、[notify] 让 UI 能表达「这一章打不开」。返回是否加载成功，
+  /// 调用方据此决定要不要继续 `play()`（避免在失败章上再次 play 抛错）。
+  ///
+  /// 注意：打开整本书仍走 [open]，其 [_loadChapter] 失败继续向上抛，
+  /// 由 `openBook` 回滚整本书 —— 本方法**不**改变那条语义。
+  Future<bool> _loadChapterSafely(
+    QueueChapter chapter, {
+    Duration? seekTo,
+  }) async {
+    try {
+      await _loadChapter(chapter, seekTo: seekTo);
+      return true;
+    } on Object catch (error) {
+      _lastError = _toEngineError(error);
+      _autoPlayIntent = false;
+      try {
+        await _engine.pause();
+      } on Object {
+        // 引擎可能已在失败中进入不可用态；pause 的失败不再外溢，
+        // 失败状态由 _lastError + notify 表达。
+      }
+      _notifier.notify();
+      return false;
+    }
+  }
+
+  /// 把任意异常折叠成结构化 [EngineError]（已是则原样返回）。
+  static EngineError _toEngineError(Object error) => error is EngineError
+      ? error
+      : EngineError(code: EngineErrorCode.unknown, cause: error);
 
   void _onEngineEvent(EngineEvent event) {
     switch (event) {
@@ -381,8 +448,8 @@ class PlaybackController {
     }
 
     final shouldPlay = _autoPlayIntent;
-    await _loadChapter(next);
-    if (shouldPlay) {
+    final bool loaded = await _loadChapterSafely(next);
+    if (loaded && shouldPlay) {
       await _engine.play();
     }
   }

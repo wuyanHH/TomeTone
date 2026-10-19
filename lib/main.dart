@@ -1,11 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
+import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
+import 'package:tometone/modules/storage_local/local_media_source_resolver.dart';
 import 'package:tometone/modules/storage_local/local_storage_provider.dart';
+import 'package:tometone/modules/storage_saf/saf_media_source_resolver.dart';
 import 'package:tometone/modules/storage_saf/saf_storage_provider.dart';
 import 'package:tometone/platform/database_connection.dart';
 import 'package:tometone/platform/saf/saf_bridge.dart';
@@ -23,13 +28,28 @@ void main() {
   final database = TomeToneDatabase(openTomeToneDatabaseConnection());
   final engine = JustAudioPlaybackEngine();
 
+  // 平台桥同时承担「目录选择」与「放弃授权」两种能力（接口见契约层），
+  // 复用同一份 const 实例：两处共用一条 MethodChannel，不必 new 第二份。
+  const safBridge = SafBridge();
+
   runApp(
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(database),
         playbackEngineProvider.overrideWithValue(engine),
         storageProviderFactoryProvider.overrideWithValue(_createProvider),
-        directoryPickerProvider.overrideWithValue(const SafBridge()),
+        mediaSourceResolverFactoryProvider.overrideWithValue(_createResolver),
+        directoryPickerProvider.overrideWithValue(safBridge),
+        // 书库根服务默认装配（`lib/app/providers/` 内）拿不到平台桥，
+        // 因此在装配入口 override，注入 authorization 让「移除 SAF 根」能放弃授权。
+        libraryRootServiceProvider.overrideWithValue(
+          LibraryRootService(
+            database: database,
+            idGenerator: UlidIdGenerator(),
+            providerFactory: _createProvider,
+            authorization: safBridge,
+          ),
+        ),
       ],
       child: const TomeToneApp(),
     ),
@@ -45,4 +65,18 @@ StorageProvider _createProvider(String rootUri) {
     return SafStorageProvider(rootUri);
   }
   return LocalStorageProvider(rootUri);
+}
+
+/// 按根类型选媒体源 resolver：SAF 走 document URI，其余按本地绝对路径处理。
+///
+/// WebDAV 等尚未适配的类型暂时回落本地实现 —— 未知类型至少不会让播放
+/// 直接失效（与 `libraryRootKindOf` 的宽容口径一致）。
+MediaSourceResolver _createResolver({
+  required String libraryRootUri,
+  required LibraryRootKind kind,
+}) {
+  return switch (kind) {
+    LibraryRootKind.saf => SafMediaSourceResolver(libraryRootUri),
+    _ => LocalMediaSourceResolver(libraryRootUri),
+  };
 }

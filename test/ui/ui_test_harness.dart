@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/policy/chapter_sequencer.dart';
 import 'package:tometone/app/policy/per_book_preferences.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
+import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
+
+import '../app/playback/fake_media_source_resolver.dart';
 
 /// UI 测试共用的假数据与小工具。
 const String testRootId = 'root-1';
@@ -125,6 +129,25 @@ PlaybackController testController(FakePlaybackEngine engine) {
   );
 }
 
+/// resolver 工厂：本地根按「根 + 相对路径」拼本地文件源。
+///
+/// UI 测试默认注入它，免得 `mediaSourceResolverFactoryProvider` 未装配就抛错；
+/// 需要 SAF 行为时传入自定义 [resolver]。
+MediaSourceResolverFactory testResolverFactory({
+  MediaSourceResolver? resolver,
+}) {
+  return ({required String libraryRootUri, required LibraryRootKind kind}) =>
+      resolver ??
+      FakeMediaSourceResolver(
+        resolve: (String path, bool _) =>
+            LocalFileSource.fromPath('$libraryRootUri/$path'),
+      );
+}
+
+/// 为某个封面键注入固定 [CoverArt]（SAF 走 `coverImage` 的断言用）。
+Override coverArtOverride(CoverArtKey key, CoverArt? art) =>
+    coverArtProvider(key).overrideWith((Ref ref) async => art);
+
 /// 由书详情构建播放请求（与 `buildPlaybackQueue` 同口径：缺失章跳过）。
 PlaybackRequest testRequest(
   BookDetail detail, {
@@ -162,14 +185,19 @@ PlaybackRequest testRequest(
   );
 }
 
-/// 常用 overrides：书架 / 书库根 / 控制器 / 书详情。
+/// 常用 overrides：书架 / 书库根 / 控制器 / 书详情 / 媒体源 resolver 工厂。
 List<Override> testOverrides({
   required PlaybackController controller,
   List<BookSummary> books = const <BookSummary>[],
   List<LibraryRootView> roots = const <LibraryRootView>[testRoot],
   BookDetail? detail,
+  MediaSourceResolverFactory? resolverFactory,
+  List<Override> extra = const <Override>[],
 }) {
   return <Override>[
+    mediaSourceResolverFactoryProvider.overrideWithValue(
+      resolverFactory ?? testResolverFactory(),
+    ),
     booksProvider.overrideWith((Ref ref) async => books),
     libraryRootsProvider.overrideWith((Ref ref) async => roots),
     playbackControllerProvider.overrideWithValue(controller),
@@ -177,6 +205,7 @@ List<Override> testOverrides({
       bookDetailProvider.overrideWith(
         (Ref ref, String id) async => id == detail.summary.id ? detail : null,
       ),
+    ...extra,
   ];
 }
 

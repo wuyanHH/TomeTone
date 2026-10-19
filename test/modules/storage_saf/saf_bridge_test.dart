@@ -70,6 +70,24 @@ class _RecordingBridge implements SafBridge {
   @override
   Future<PickedDirectory?> pickDirectory() async => null;
 
+  @override
+  Future<String?> documentUri({
+    required String treeUri,
+    required String relativePath,
+  }) async => null;
+
+  @override
+  Future<Uint8List?> readBytes(String documentUri) async => null;
+
+  @override
+  Future<String?> copyToCache({
+    required String documentUri,
+    required String name,
+  }) async => null;
+
+  @override
+  Future<bool> release(String rootUri) async => false;
+
   static List<SafEntry> _entries(List<Map<String, Object?>> payload) {
     return <SafEntry>[
       for (final item in payload)
@@ -142,6 +160,173 @@ void main() {
       expect(bridge.listed, hasLength(3), reason: '每层只列举一次');
       expect(bridge.listed[1], endsWith('%2FSanti'));
       expect(bridge.listed[2], endsWith('%2FVol1'));
+    });
+  });
+
+  group('SafBridge 媒体解析（伪造通道）', () {
+    const channel = MethodChannel('tometone/saf');
+    final List<MethodCall> calls = <MethodCall>[];
+
+    const String documentUri =
+        'content://com.android.externalstorage.documents/tree/primary%3AAudiobooks/document/primary%3AAudiobooks%2FSanti%2F001.wav';
+
+    setUp(() {
+      calls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall call) async {
+            calls.add(call);
+            final args = call.arguments as Map<Object?, Object?>;
+            switch (call.method) {
+              case 'documentUri':
+                final relativePath = args['relativePath'] as String;
+                if (relativePath.contains('missing')) {
+                  return null;
+                }
+                if (relativePath.isEmpty) {
+                  return args['treeUri'];
+                }
+                return documentUri;
+              case 'readBytes':
+                final target = args['documentUri'] as String;
+                if (target.contains('missing')) {
+                  return null;
+                }
+                return Uint8List.fromList(<int>[1, 2, 3]);
+              case 'copyToCache':
+                final name = args['name'] as String;
+                if (name.contains('fail')) {
+                  return null;
+                }
+                return '/data/user/0/tometone/cache/tometone-media/$name';
+            }
+            return null;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test('空相对路径解析为 tree URI 本身', () async {
+      final resolved = await const SafBridge().documentUri(
+        treeUri: _rootUri,
+        relativePath: '',
+      );
+
+      expect(resolved, _rootUri);
+      final call = calls.singleWhere((c) => c.method == 'documentUri');
+      expect((call.arguments as Map<Object?, Object?>)['treeUri'], _rootUri);
+    });
+
+    test('多层中文 / 空格 / % / # 路径原样透传，不做编解码', () async {
+      const relativePath = '三体/第一卷 上/001 章 100% #1.wav';
+
+      final resolved = await const SafBridge().documentUri(
+        treeUri: _rootUri,
+        relativePath: relativePath,
+      );
+
+      expect(resolved, documentUri);
+      final call = calls.singleWhere((c) => c.method == 'documentUri');
+      expect(
+        (call.arguments as Map<Object?, Object?>)['relativePath'],
+        relativePath,
+        reason: '上层不得对相对路径做 URL 编解码',
+      );
+    });
+
+    test('找不到的路径返回 null', () async {
+      final resolved = await const SafBridge().documentUri(
+        treeUri: _rootUri,
+        relativePath: 'Santi/missing.wav',
+      );
+
+      expect(resolved, isNull);
+    });
+
+    test('readBytes 成功返回字节', () async {
+      final bytes = await const SafBridge().readBytes(documentUri);
+
+      expect(bytes, <int>[1, 2, 3]);
+      final call = calls.singleWhere((c) => c.method == 'readBytes');
+      expect(
+        (call.arguments as Map<Object?, Object?>)['documentUri'],
+        documentUri,
+      );
+    });
+
+    test('readBytes 平台返回 null 时回落 null', () async {
+      final bytes = await const SafBridge().readBytes(
+        'content://com.android.externalstorage.documents/document/missing',
+      );
+
+      expect(bytes, isNull);
+    });
+
+    test('copyToCache 成功返回本地绝对路径', () async {
+      final path = await const SafBridge().copyToCache(
+        documentUri: documentUri,
+        name: 'Santi__001.wav',
+      );
+
+      expect(path, '/data/user/0/tometone/cache/tometone-media/Santi__001.wav');
+      final call = calls.singleWhere((c) => c.method == 'copyToCache');
+      expect(
+        (call.arguments as Map<Object?, Object?>)['name'],
+        'Santi__001.wav',
+      );
+    });
+
+    test('copyToCache 平台失败时回落 null', () async {
+      final path = await const SafBridge().copyToCache(
+        documentUri: documentUri,
+        name: 'fail.wav',
+      );
+
+      expect(path, isNull);
+    });
+  });
+
+  group('SafBridge.release（放弃持久化读授权，best-effort）', () {
+    const channel = MethodChannel('tometone/saf');
+    final List<MethodCall> calls = <MethodCall>[];
+
+    setUp(calls.clear);
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    void mockHandler(Future<Object?> Function(MethodCall call) handler) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall call) async {
+            calls.add(call);
+            return handler(call);
+          });
+    }
+
+    test('平台放弃成功返回 true，且透传 tree URI', () async {
+      mockHandler((call) async => true);
+
+      final released = await const SafBridge().release(_rootUri);
+
+      expect(released, isTrue);
+      final call = calls.singleWhere((c) => c.method == 'releasePermission');
+      expect((call.arguments as Map<Object?, Object?>)['treeUri'], _rootUri);
+    });
+
+    test('平台返回 false 时回落到 false', () async {
+      mockHandler((call) async => false);
+
+      expect(await const SafBridge().release(_rootUri), isFalse);
+    });
+
+    test('平台抛 PlatformException 时回落 false，不向上抛', () async {
+      mockHandler((call) async => throw PlatformException(code: 'denied'));
+
+      expect(await const SafBridge().release(_rootUri), isFalse);
     });
   });
 }

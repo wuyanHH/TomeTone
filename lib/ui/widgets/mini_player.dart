@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tometone/app/library/cover_paths.dart';
+import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/policy/chapter_sequencer.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/providers/app_providers.dart';
@@ -28,12 +28,25 @@ class MiniPlayer extends ConsumerWidget {
   /// 播放 / 暂停按钮。
   static const Key playPauseKey = Key('mini-player-play-pause');
 
+  /// 「这一章打不开」失败提示（切章加载失败的可见出口）。
+  static const Key errorKey = Key('mini-player-error');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final PlaybackController controller = ref.watch(playbackControllerProvider);
     final BookDetail? book = ref.watch(currentBookProvider);
-    final List<LibraryRootView> roots =
-        ref.watch(libraryRootsProvider).value ?? const <LibraryRootView>[];
+    final CoverArt? coverArt = book == null
+        ? null
+        : ref
+              .watch(
+                coverArtProvider(
+                  CoverArtKey(
+                    rootId: book.summary.libraryRootId,
+                    coverPath: book.summary.coverPath,
+                  ),
+                ),
+              )
+              .value;
 
     return ListenableBuilder(
       listenable: controller.listenable,
@@ -45,14 +58,12 @@ class MiniPlayer extends ConsumerWidget {
 
         final MiniPlayerTheme theme = MiniPlayerTheme.of(context);
         final TextTheme text = Theme.of(context).textTheme;
+        final ColorScheme scheme = Theme.of(context).colorScheme;
+        // 切章加载失败时给出可见出口，不静默卡住（见 PlaybackController 的切章加固）。
+        final bool loadFailed = controller.lastError != null;
         final bool playing =
             controller.state == EnginePlaybackState.playing ||
             controller.state == EnginePlaybackState.buffering;
-        final String? rootUri = _rootUriOf(roots, book);
-        final String? coverPath = absoluteCoverPath(
-          relativePath: book?.summary.coverPath,
-          libraryRootUri: rootUri,
-        );
         final Duration? end = controller.range.end ?? chapter.duration;
         final double? progress = end == null || end <= Duration.zero
             ? null
@@ -105,7 +116,12 @@ class MiniPlayer extends ConsumerWidget {
                                             book?.summary.title ??
                                             chapter.title,
                                         size: AppSizes.coverMedium,
-                                        coverPath: coverPath,
+                                        coverPath: coverArt is CoverArtFile
+                                            ? coverArt.absolutePath
+                                            : null,
+                                        coverImage: coverArt is CoverArtBytes
+                                            ? MemoryImage(coverArt.bytes)
+                                            : null,
                                       ),
                                     ),
                                     const SizedBox(width: AppSpacing.md),
@@ -129,11 +145,18 @@ class MiniPlayer extends ConsumerWidget {
                                             height: AppSpacing.xxs,
                                           ),
                                           Text(
-                                            _subtitle(book, chapter),
+                                            loadFailed
+                                                ? '这一章打不开，请检查文件或书库授权'
+                                                : _subtitle(book, chapter),
+                                            key: loadFailed
+                                                ? MiniPlayer.errorKey
+                                                : null,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: text.labelSmall?.copyWith(
-                                              color: theme.subtitleColor,
+                                              color: loadFailed
+                                                  ? scheme.error
+                                                  : theme.subtitleColor,
                                             ),
                                           ),
                                         ],
@@ -173,7 +196,7 @@ class MiniPlayer extends ConsumerWidget {
                       : LinearProgressIndicator(
                           value: progress,
                           minHeight: 2,
-                          color: theme.progressFill,
+                          color: loadFailed ? scheme.error : theme.progressFill,
                           backgroundColor: theme.progressTrack,
                         ),
                 ),
@@ -195,18 +218,5 @@ class MiniPlayer extends ConsumerWidget {
       return title;
     }
     return '$title · ${author.trim()}';
-  }
-
-  static String? _rootUriOf(List<LibraryRootView> roots, BookDetail? book) {
-    final String? id = book?.summary.libraryRootId;
-    if (id == null) {
-      return null;
-    }
-    for (final LibraryRootView root in roots) {
-      if (root.id == id) {
-        return root.uri;
-      }
-    }
-    return null;
   }
 }

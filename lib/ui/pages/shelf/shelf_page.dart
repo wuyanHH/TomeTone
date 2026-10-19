@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tometone/app/library/cover_paths.dart';
+import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
@@ -154,7 +154,6 @@ class ShelfPage extends ConsumerWidget {
                     final BookSummary book = books[index];
                     return _ShelfTile(
                       book: book,
-                      rootUri: rootUriById[book.libraryRootId],
                       onTap: () => unawaited(
                         _openBook(
                           context,
@@ -180,37 +179,45 @@ class ShelfPage extends ConsumerWidget {
     String? rootUri,
   ) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    if (rootUri == null || rootUri.isEmpty) {
+    // 根缺失（或根还没加载出来）：走可区分的「根已移除」文案。
+    final resolver = ref.read(
+      mediaSourceResolverForRootProvider(book.libraryRootId),
+    );
+    if (rootUri == null || rootUri.isEmpty || resolver == null) {
       messenger.showSnackBar(
         const SnackBar(content: Text('找不到这本书的书库根目录，可能已被移除')),
       );
       return;
     }
 
-    try {
-      final BookDetail? detail = await ref.read(
-        bookDetailProvider(book.id).future,
+    final BookDetail? detail = await ref.read(
+      bookDetailProvider(book.id).future,
+    );
+    if (detail == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('《${book.title}》的书目信息不完整，无法打开')),
       );
-      if (detail == null) {
+      return;
+    }
+
+    final OpenBookResult result = await openBook(
+      controller: ref.read(playbackControllerProvider),
+      currentBook: ref.read(currentBookProvider.notifier),
+      resolver: resolver,
+      detail: detail,
+    );
+
+    switch (result.status) {
+      case OpenBookStatus.failed:
         messenger.showSnackBar(
-          SnackBar(content: Text('《${book.title}》的书目信息不完整，无法打开')),
+          SnackBar(content: Text(result.message ?? '打不开《${book.title}》，请稍后再试')),
         );
-        return;
-      }
-      await startBook(
-        controller: ref.read(playbackControllerProvider),
-        currentBook: ref.read(currentBookProvider.notifier),
-        detail: detail,
-        libraryRootUri: rootUri,
-      );
-      if (!context.mounted) {
-        return;
-      }
-      await showPlayerPage(context);
-    } on StateError catch (error) {
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
-    } on Object {
-      messenger.showSnackBar(const SnackBar(content: Text('这本书暂时打不开，请稍后再试')));
+      case OpenBookStatus.alreadyOpen:
+      case OpenBookStatus.opened:
+        if (!context.mounted) {
+          return;
+        }
+        await showPlayerPage(context);
     }
   }
 }
@@ -472,26 +479,24 @@ class _ShelfError extends StatelessWidget {
 }
 
 /// 一本书的网格项。
-class _ShelfTile extends StatelessWidget {
-  const _ShelfTile({
-    required this.book,
-    required this.rootUri,
-    required this.onTap,
-  });
+class _ShelfTile extends ConsumerWidget {
+  const _ShelfTile({required this.book, required this.onTap});
 
   final BookSummary book;
-  final String? rootUri;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
     final String meta = _progressLabel(book);
-    final String? coverPath = absoluteCoverPath(
-      relativePath: book.coverPath,
-      libraryRootUri: rootUri,
-    );
+    final CoverArt? coverArt = ref
+        .watch(
+          coverArtProvider(
+            CoverArtKey(rootId: book.libraryRootId, coverPath: book.coverPath),
+          ),
+        )
+        .value;
     final String missing = book.missingChapters > 0
         ? '${book.missingChapters} 章缺失'
         : '';
@@ -520,7 +525,12 @@ class _ShelfTile extends StatelessWidget {
                     return BookCover(
                       title: book.title,
                       size: constraints.maxWidth,
-                      coverPath: coverPath,
+                      coverPath: coverArt is CoverArtFile
+                          ? coverArt.absolutePath
+                          : null,
+                      coverImage: coverArt is CoverArtBytes
+                          ? MemoryImage(coverArt.bytes)
+                          : null,
                     );
                   },
                 ),
