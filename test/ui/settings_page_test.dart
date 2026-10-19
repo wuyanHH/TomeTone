@@ -42,8 +42,10 @@ void main() {
   testWidgets('关于：版本与通道来自 AppInfo，更新源未配置时如实说明', (WidgetTester tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('0.1.0-beta.1'), findsOneWidget);
-    expect(find.text('发布通道 · beta'), findsOneWidget);
+    // 版本号来自 AppInfo（唯一来源），不在这里写死具体值：
+    // 否则每次发版都要改测试，而这条用例的意图是"页面读的是 AppInfo"。
+    expect(find.text(AppInfo.version), findsOneWidget);
+    expect(find.text('发布通道 · ${AppInfo.channel.label}'), findsOneWidget);
 
     if (!AppInfo.hasUpdateSource) {
       expect(find.text('更新源未配置，暂时无法检查更新'), findsOneWidget);

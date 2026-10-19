@@ -6,10 +6,31 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ## [未发布]
 
-> 当前开发版本：`0.1.0-beta.1`（首个测试版本，尚未发布）
+暂无。
+
+## [0.2.0-beta.1] - 2026-10-19
+
+首个对外测试版本：包含 0.1.x 开发期的全部内容，以及本轮的品牌图标与启动页。
+
+> 版本号三处一致：`pubspec.yaml` / `AppInfo.version` / 本节标题（由 `test/app_info_test.dart` 守门）。
 
 ### 新增
 
+- **品牌图标与启动页**（本轮）：
+  - 图标：线描展开书 + 书口升起的五根声纹；墨蓝 `#0E2A3B` / 纸白 `#F2F4E9` / 青绿 `#58DCC1`，
+    **不跟随**应用内 5 套色盘（图标是系统层固定标识）。
+  - 自适应图标三层全用 VectorDrawable（前景 / 背景 / 单色），内容外接 Ø54.0dp、
+    距 Ø66dp 安全圆 6.0dp；单色层加粗笔宽以在系统 tint 下仍可辨认；
+    API 24–25 回落 5 档 legacy 位图（从画布中央 72dp 区域导出）。
+  - 启动页：Android 12+ 走系统闪屏（宣纸底 + 墨盘记印；深色下墨盘由系统按对比度自动隐去），
+    API 24–30 走 288dp 记印的 layer-list，两分支同几何。
+  - **防白闪**：`NormalTheme.windowBackground` 与 `LaunchTheme` 共用同一张记印
+    （Flutter 在 `onCreate` 第一句就切主题，此前该处会露一帧纯白）。
+  - **资源门禁** `dart run tool/ci/check_brand_assets.dart`：以精确值校验三层图标、
+    位图尺寸与色彩类型、启动页主题、三份 pathData 同构；另有 8 条反向用例
+    （`test/ci/brand_asset_gate_test.dart`）防止门禁假绿。
+  - 设计稿与验收：`docs/design-preview/icon-v3/`（含 API 36 实测截图）、
+    `docs/tometone_icon_splash_verification.md`。
 - **工程骨架**：Flutter 应用（Android-only，`com.tometone.app`），分层目录
   `ui / app / domain / contracts / modules / platform`。
 - **依赖方向门禁**：`dart run tool/ci/check_import_boundaries.dart`
@@ -223,6 +244,16 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - 回归盲区（待补）：`test/modules/storage_saf/saf_bridge_test.dart` 用**伪造
     MethodChannel** 跑，绕过了 Android 侧的 URI 构造，因此覆盖不到这个 bug；
     平台通道需要有真机/仪器化层或 URI 构造的纯函数化测试。
+
+### 已知问题
+
+- **release APK 目前用 debug 签名**（`android/app/build.gradle.kts`：
+  `signingConfig = signingConfigs.getByName("debug")`）。可安装试玩，但**不能用于正式分发**：
+  用 debug key 签名的包，将来换正式 keystore 后无法覆盖升级（签名不一致）。正式发布前必须配置 release keystore。
+- **仓库尚未配置 git remote**：本版本只有本地提交与 tag，未上传 GitHub Release。
+- 启动页首帧会切换一次底色：启动页用品牌色（纸白 / 墨蓝），首屏用色盘 surface
+  （默认 `amberScroll` 昼 `#FBF6EC` / 夜 `#191510`）。属设计取舍，见 `docs/tometone_icon_splash_verification.md` §4.1。
+- iOS / 桌面端不在本版本范围内。
 
 ### 正在计划
 
