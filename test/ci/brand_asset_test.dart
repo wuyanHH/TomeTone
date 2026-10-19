@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/ci/brand_asset_rules.dart';
@@ -9,5 +11,23 @@ void main() {
   // 「图标被切」「闪白」「老机器上仍是默认图标」。
   test('品牌资源门禁：当前仓库无违规', () {
     expect(brandViolations(), isEmpty);
+  });
+
+  test('legacy 位图存在、尺寸精确、且不是 Flutter 默认图', () {
+    const expected = <String, int>{
+      'mipmap-mdpi': 48,
+      'mipmap-hdpi': 72,
+      'mipmap-xhdpi': 96,
+      'mipmap-xxhdpi': 144,
+      'mipmap-xxxhdpi': 192,
+    };
+    expected.forEach((density, size) {
+      final file = File('android/app/src/main/res/$density/ic_launcher.png');
+      expect(file.existsSync(), isTrue, reason: '缺少 $density/ic_launcher.png');
+      final bytes = file.readAsBytesSync();
+      expect(pngSize(bytes), (size, size), reason: '$density 尺寸不对');
+      // Flutter 默认图标是调色板型（3）；我们的 Chrome 截图是真彩型（2/6）。
+      expect(pngColorType(bytes), isNot(3), reason: '$density 仍是 Flutter 默认位图');
+    });
   });
 }

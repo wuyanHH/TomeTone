@@ -173,6 +173,34 @@ List<String> brandViolations({String root = '.'}) {
     }
   }
 
+  // API 24–25 没有自适应图标，回落 5 档位图。位图必须是「从矢量源生成的那一套」：
+  // 尺寸错会让启动器缩放模糊；仍是 Flutter 默认图则说明生成步骤整个被跳过。
+  const legacyDensities = <String, String>{
+    'mipmap-mdpi': '48',
+    'mipmap-hdpi': '72',
+    'mipmap-xhdpi': '96',
+    'mipmap-xxhdpi': '144',
+    'mipmap-xxxhdpi': '192',
+  };
+  legacyDensities.forEach((density, expectedSize) {
+    final path = '$brandResRoot/$density/ic_launcher.png';
+    final file = File('$root/$path');
+    if (!file.existsSync()) {
+      violations.add('缺少 $path');
+      return;
+    }
+    final bytes = file.readAsBytesSync();
+    final size = pngSize(bytes);
+    if (size == null) {
+      violations.add('$path 不是可解析的 PNG');
+    } else if (size.$1.toString() != expectedSize) {
+      violations.add('$path 尺寸应为 ${expectedSize}×$expectedSize，实际 ${size.$1}×${size.$2}');
+    }
+    if (pngColorType(bytes) == 3) {
+      violations.add('$path 仍是 Flutter 默认位图（调色板型）；请运行 tool/brand/generate_legacy_icons.ps1');
+    }
+  });
+
   return violations;
 }
 
