@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 26+ 自适应图标：背景满幅墨蓝、前景线描书与声纹、单色层供主题图标。
+     monochrome 是 API 33 引入的属性，放在 -v26 里对 26–32 无害（系统忽略未知子元素）。
+     API 24–25 不支持自适应图标，回落 mipmap-*/ic_launcher.png。 -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>

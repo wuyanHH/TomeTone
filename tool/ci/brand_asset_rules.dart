@@ -95,12 +95,90 @@ double contrastRatio(String argbA, String argbB) {
 List<String> brandViolations({String root = '.'}) {
   final violations = <String>[];
 
-  final foreground = File('$root/$foregroundAsset');
-  if (!foreground.existsSync()) {
+  final foreground = _readFile(root, foregroundAsset);
+  final monochrome = _readFile(root, monochromeAsset);
+
+  if (foreground == null) {
     violations.add('缺少前景层 drawable/ic_launcher_foreground.xml');
+  } else {
+    // 前景层不得自带底色：一旦带上底色，自适应图标的 background 层就白设了，
+    // 系统在深色/主题图标下也无法按对比度自动显隐。
+    if (foreground.toUpperCase().contains('0E2A3B')) {
+      violations.add('前景层不得自带底色（出现 0E2A3B）');
+    }
+    for (final stroke in <String>['#FFF2F4E9', '#FF58DCC1']) {
+      if (!foreground.contains('strokeColor="$stroke"')) {
+        violations.add('前景层缺少 strokeColor="$stroke"');
+      }
+    }
+  }
+
+  if (monochrome == null) {
+    violations.add('缺少单色层 drawable/ic_launcher_monochrome.xml');
+  } else {
+    // 单色层只允许 alpha：带任何品牌色都会在系统 tint 下变成"脏色块"。
+    for (final banned in <String>['58DCC1', 'F2F4E9', '0E2A3B']) {
+      if (monochrome.toUpperCase().contains(banned)) {
+        violations.add('单色层只能用 alpha，不得出现品牌色 $banned');
+      }
+    }
+    // 3dp 细线在剪影 + 系统 tint 下会糊；单色层必须加粗（结构不变、笔宽变）。
+    for (final width in <String>['4', '4.4']) {
+      if (!monochrome.contains('strokeWidth="$width"')) {
+        violations.add('单色层缺少加粗笔宽 strokeWidth="$width"');
+      }
+    }
+  }
+
+  for (final asset in <String, String?>{foregroundAsset: foreground, monochromeAsset: monochrome}.entries) {
+    final xml = asset.value;
+    if (xml == null) {
+      continue;
+    }
+    final radius = contentRadius(xml);
+    if (radius > maxContentRadius) {
+      violations.add(
+        '${asset.key} 外接 Ø${(radius * 2).toStringAsFixed(1)}dp 超出上限 '
+        'Ø${(maxContentRadius * 2).toStringAsFixed(0)}dp（距 Ø66 安全圆不足 5dp）',
+      );
+    }
+  }
+
+  final colors = _readFile(root, '$brandResRoot/values/colors.xml');
+  if (colors == null) {
+    violations.add('缺少 values/colors.xml');
+  } else {
+    final background = RegExp(r'<color name="ic_launcher_background">\s*([^<\s]+)')
+        .firstMatch(colors)
+        ?.group(1);
+    if (background == null) {
+      violations.add('values/colors.xml 缺少 ic_launcher_background');
+    } else if (background.toUpperCase() != '#FF0E2A3B') {
+      violations.add('ic_launcher_background 应为 #FF0E2A3B，实际 $background');
+    }
+  }
+
+  final adaptive = _readFile(root, '$brandResRoot/mipmap-anydpi-v26/ic_launcher.xml');
+  if (adaptive == null) {
+    violations.add('缺少 mipmap-anydpi-v26/ic_launcher.xml');
+  } else {
+    for (final reference in <String>[
+      '@color/ic_launcher_background',
+      '@drawable/ic_launcher_foreground',
+      '@drawable/ic_launcher_monochrome',
+    ]) {
+      if (!adaptive.contains(reference)) {
+        violations.add('mipmap-anydpi-v26/ic_launcher.xml 缺少 $reference');
+      }
+    }
   }
 
   return violations;
+}
+
+String? _readFile(String root, String relativePath) {
+  final file = File('$root/$relativePath');
+  return file.existsSync() ? file.readAsStringSync() : null;
 }
 
 bool _isPng(List<int> bytes) {

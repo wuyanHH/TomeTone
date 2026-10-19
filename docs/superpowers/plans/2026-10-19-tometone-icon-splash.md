@@ -42,7 +42,9 @@
 **Interfaces:**
 - Consumes: 无。
 - Produces:
-  - `double conservativeRadius(List<double> pathNumbers)` —— 把 pathData 里按顺序出现的数字两两当作 (x,y)，返回相对画布中心 `(54,54)` 的**保守**外接半径（取所有点距离的最大值）。
+  - `double maxVertexDistance(List<double> pathNumbers)` —— 把 pathData 里按顺序出现的数字两两当作 (x,y)，返回相对画布中心 `(54,54)` 的**最大顶点距离**。
+  - `double maxStrokeWidth(String xml)` —— 文件里最大的 `strokeWidth` 值；没有则返回 `0`。**含描边的实际外接 = `maxVertexDistance(...) + maxStrokeWidth(...) / 2`**（圆头/圆角连接下，顶点外扩最多为半个笔宽，这是外接的保守上界）。
+  - `double contrastRatio(String argbA, String argbB)` —— WCAG 2.1 相对亮度对比度；入参接受 `#AARRGGBB` 或 `#RRGGBB`。
   - `(int width, int height)? pngSize(List<int> bytes)` —— 读 PNG 的 IHDR 宽高（大端）；不是 PNG 或长度 < 24 时返回 `null`。
   - `int? pngColorType(List<int> bytes)` —— 读 IHDR 的颜色类型字节（偏移 25）。**用于区分我们的位图与 Flutter 默认图**：默认图是调色板型 `3`，Chrome 截图是真彩型 `2`/`6`。
   - `List<String> pathDataOf(String xml)` —— 取出 XML 里所有 `android:pathData="…"` / `d="…"` 的内容。
@@ -80,9 +82,21 @@ void main() {
     expect(pngColorType(bytes), 6);
   });
 
-  test('conservativeRadius 取最远点', () {
+  test('maxVertexDistance 取最远顶点', () {
     // (54,54) 中心；(66,66) 距离 = sqrt(144+144) ≈ 16.97
-    expect(conservativeRadius(<double>[54, 54, 66, 66]), closeTo(16.97, 0.01));
+    expect(maxVertexDistance(<double>[54, 54, 66, 66]), closeTo(16.97, 0.01));
+  });
+
+  test('maxStrokeWidth 取最大笔宽，缺失为 0', () {
+    expect(maxStrokeWidth('<path android:strokeWidth="3"/><path android:strokeWidth="3.4"/>'), 3.4);
+    expect(maxStrokeWidth('<path android:fillColor="#000"/>'), 0);
+  });
+
+  test('contrastRatio 符合 WCAG 2.1', () {
+    // 纸白 #F2F4E9 vs 墨蓝 #0E2A3B ≈ 13.4:1（文档 §2 实测 13.37）
+    expect(contrastRatio('#FFF2F4E9', '#FF0E2A3B'), closeTo(13.37, 0.01));
+    // 同色为 1:1
+    expect(contrastRatio('#FF0E2A3B', '#FF0E2A3B'), closeTo(1.0, 0.001));
   });
 
   test('pathDataOf 取出所有 pathData', () {
@@ -142,11 +156,11 @@ git commit -m "test(ci): 品牌资源门禁骨架（规则 + CLI + 单元测试�
 
 | 元素 | 值 |
 | :-- | :-- |
-| 书页路径（一条闭合路径，描边不填充） | `M54,55 C50,51.5 44.5,50.6 39,52 L39,74 C44.5,72.6 50,73.4 54,77.5 C58,73.4 63.5,72.6 69,74 L69,52 C63.5,50.6 58,51.5 54,55 Z` |
-| 声纹（一条路径，5 段竖线） | `M43,54.5 L43,41.5 M48.5,54.5 L48.5,37.5 M54,54.5 L54,34.2 M59.5,54.5 L59.5,37.5 M65,54.5 L65,41.5` |
+| 书页路径（一条闭合路径，描边不填充） | `M54,57.5 C48.5,52 42,51 34,52.5 L34,69.5 C42,68 48.5,69 54,75.5 C59.5,69 66,68 74,69.5 L74,52.5 C66,51 59.5,52 54,57.5 Z`（= 方向稿坐标整体下移 7.5dp 后烘焙进 pathData） |
+| 声纹（一条路径，5 段竖线） | `M41,44.5 L41,40.5 M47.5,44.5 L47.5,33.5 M54,44.5 L54,29.5 M60.5,44.5 L60.5,35.5 M67,44.5 L67,39.5` |
 | 描边宽度 | 前景：书 3dp / 声纹 3.4dp；**单色层加粗**：书 4.0dp / 声纹 4.4dp |
 | 端头 | `strokeLineCap="round"`、`strokeLineJoin="round"`；书页 `fillColor="#00000000"` |
-| 保守外接半径 | 前景 27.1dp（Ø54.2）、单色 27.8dp（Ø55.6）→ 距 Ø66 余量 5.9 / 5.2dp |
+| 保守外接半径（顶点距离 + 半个笔宽） | 前景 27.0dp（Ø54.0）、单色 27.5dp（Ø55.0）→ 距 Ø66 余量 6.0 / 5.5dp |
 
 - [ ] **Step 1: 写失败的集成测试**
 
@@ -172,7 +186,7 @@ Expected: FAIL，`["缺少前景层 drawable/ic_launcher_foreground.xml"]`
 逐条实现（每条都返回一句可读的违规说明，含实际值与期望值）：
 1. `values/colors.xml` 存在，且 `ic_launcher_background` 的值恰为 `#FF0E2A3B`。
 2. `mipmap-anydpi-v26/ic_launcher.xml` 同时含 `@color/ic_launcher_background`、`@drawable/ic_launcher_foreground`、`@drawable/ic_launcher_monochrome`。
-3. 前景层与单色层：`conservativeRadius(pathDataOf(...))` ≤ `28.0`。
+3. 前景层与单色层：`maxVertexDistance(pathDataOf(...)) + maxStrokeWidth(...) / 2` ≤ `28.0`（实测前景 27.0、单色 27.5）。
 4. 单色层：不含 `58DCC1` 与 `F2F4E9`；且 `strokeWidth="4"`（书）与 `strokeWidth="4.4"`（声纹）都在。
 5. 前景层：不含 `0E2A3B`（不得自带底色），且含 `strokeColor="#FFF2F4E9"` 与 `strokeColor="#FF58DCC1"`。
 
@@ -363,7 +377,7 @@ git commit -m "feat(icon): legacy 五档位图（中央 72dp 裁切）+ 生成�
 
 **Interfaces:**
 - Consumes: `@drawable/ic_launcher_foreground` 的两条 `pathData`、`brand_ink` / `brand_paper` / `brand_echo`。
-- Produces: `@drawable/launch_background`（同时被 `LaunchTheme` 与 `NormalTheme` 引用，这是防白闪的关键）、`@drawable/launch_mark`（240dp）、`@color/splash_window_background`；以及新纯函数 `double contrastRatio(String argbA, String argbB)`（WCAG 2.1 相对亮度），放在 `tool/ci/brand_asset_rules.dart`。
+- Produces: `@drawable/launch_background`（同时被 `LaunchTheme` 与 `NormalTheme` 引用，这是防白闪的关键）、`@drawable/launch_mark`（240dp）、`@color/splash_window_background`。
 
 **几何对齐**：`launch_mark.xml` 声明 **240dp**、viewport 108，墨盘 `r=36` → 渲染 Ø160dp，与 Android 12+ 系统闪屏「带 icon background：画布 240dp / 可见圆 Ø160dp」逐像素对齐；mark 外接 27.1dp → 渲染 Ø60.2dp，与图标上屏占比一致。
 
@@ -374,21 +388,14 @@ git commit -m "feat(icon): legacy 五档位图（中央 72dp 裁切）+ 生成�
 2. `drawable/launch_background.xml` 含 `android:width="240dp"` 与 `@drawable/launch_mark`。
 3. `values/styles.xml`、`values-night/styles.xml`、`values-v31/styles.xml`、`values-night-v31/styles.xml` 四个文件里，`NormalTheme` 的 `windowBackground` 都是 `@drawable/launch_background`；且**任何** styles 文件里都不再出现 `?android:colorBackground`。
 4. `values/colors.xml` 的 `splash_window_background` = `#FFF2F4E9`；`values-night/colors.xml` 的 = `#FF0E2A3B`。
-5. 对比度：`splash_window_background`（昼）与 `ic_launcher_background` 的 WCAG 比值 ≥ 3.0（实现一个纯函数 `contrastRatio(String argbA, String argbB)`，用 WCAG 2.1 相对亮度公式；实测 13.37:1）。
+5. 对比度：`splash_window_background`（昼）与 `ic_launcher_background` 的 WCAG 比值 ≥ 3.0（用 Task 1 已实现的 `contrastRatio`；实测 13.37:1）。
 
 - [ ] **Step 2: 运行，确认失败**
 
 Run: `flutter test test/ci/brand_asset_test.dart`
 Expected: FAIL，列出启动页相关违规
 
-- [ ] **Step 3: 新增 `contrastRatio` 并改 `values/colors.xml`、新建 `values-night/colors.xml`**
-
-在 `tool/ci/brand_asset_rules.dart` 新增：
-
-```dart
-/// WCAG 2.1 对比度：入参为 `#AARRGGBB` 或 `#RRGGBB`，返回 (L亮+0.05)/(L暗+0.05)。
-double contrastRatio(String argbA, String argbB);
-```
+- [ ] **Step 3: 改 `values/colors.xml`、新建 `values-night/colors.xml`**
 
 `values/colors.xml` 追加：
 
