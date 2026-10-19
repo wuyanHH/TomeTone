@@ -25,9 +25,10 @@ class LibraryPage extends ConsumerStatefulWidget {
   /// 创建书库页。
   const LibraryPage({super.key, this.suggestedRootPath});
 
-  /// 添加书库根时预填的路径；为空时由 [defaultRootPathSuggestion] 推导。
+  /// 添加书库根时预填的路径。
   ///
-  /// 只用于测试与特殊端形态注入，正常运行时无需传值。
+  /// 为 null 时由 [defaultRootPathSuggestion] 推导（移动端不预填、桌面端预填
+  /// 主目录）；显式传空串表示「明确不预填」，只用于测试与特殊端形态注入。
   final String? suggestedRootPath;
 
   @override
@@ -130,6 +131,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               onScan: () => _scan(root),
               onRename: () => unawaited(_renameRoot(root)),
               onRemove: () => unawaited(_removeRoot(root)),
+              onDismissResult: () =>
+                  ref.read(libraryScanProvider.notifier).collapse(root.id),
             ),
           ),
       ],
@@ -140,10 +143,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   Future<void> _openAddRootSheet() async {
     _clearNotice();
     final String suggested =
-        (widget.suggestedRootPath != null &&
-            widget.suggestedRootPath!.trim().isNotEmpty)
-        ? widget.suggestedRootPath!.trim()
-        : defaultRootPathSuggestion();
+        widget.suggestedRootPath ?? defaultRootPathSuggestion();
     final String? addedName = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,

@@ -25,7 +25,12 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 @immutable
 class RootScanState {
   /// 创建扫描状态。
-  const RootScanState({this.scanning = false, this.report, this.error});
+  const RootScanState({
+    this.scanning = false,
+    this.report,
+    this.error,
+    this.collapsed = false,
+  });
 
   /// 是否正在扫描。
   final bool scanning;
@@ -35,12 +40,19 @@ class RootScanState {
 
   /// 最近一次扫描的失败原因（失败时）。
   final String? error;
+
+  /// 结果面板是否已被收起。
+  ///
+  /// 成功结果只短暂停留（到点自动收起），失败结果常驻到用户手动收起；
+  /// 两者都靠这个标记让面板不再铺在卡片上；下次扫描会带上新的状态覆盖它。
+  final bool collapsed;
 }
 
 /// 书库根扫描编排（书库页专用）。
 ///
 /// 扫描可能持续数十秒，且用户随时会切到书架看结果，所以扫描状态放在
-/// provider 而不是页面 `State` 里：切走再回来，进度与摘要都还在；
+/// provider 而不是页面 `State` 里：切走再回来，进度还在；结果面板的
+/// 「已收起」标记也一起留在这里，切 tab 回来不会让收起过的结果又冒出来。
 /// 扫描成功后的 `invalidate` 也不会因为页面被销毁而漏掉。
 ///
 /// 这里只做「调用服务 + 转成界面状态 + 失效缓存」，扫描规则本身在
@@ -98,6 +110,25 @@ class LibraryScanController extends Notifier<Map<String, RootScanState>> {
       return;
     }
     state = <String, RootScanState>{...state}..remove(libraryRootId);
+  }
+
+  /// 收起某个书库根的结果面板（成功面板到点自动收，失败面板由用户收）。
+  ///
+  /// 只标记收起，不丢结果：下次扫描会用新状态整体覆盖它，形态也就自然复位。
+  void collapse(String libraryRootId) {
+    final RootScanState? current = state[libraryRootId];
+    if (current == null || current.collapsed) {
+      return;
+    }
+    state = <String, RootScanState>{
+      ...state,
+      libraryRootId: RootScanState(
+        scanning: current.scanning,
+        report: current.report,
+        error: current.error,
+        collapsed: true,
+      ),
+    };
   }
 
   void _put(String libraryRootId, RootScanState value) {
@@ -168,8 +199,22 @@ abstract final class LibraryRootsKeys {
   /// 某个书库根的扫描失败提示。
   static Key scanErrorKey(String rootId) => Key('library-root-error-$rootId');
 
+  /// 某个书库根结果面板右上角的收起按钮（成功/失败共用）。
+  static Key dismissResultKey(String rootId) =>
+      Key('library-dismiss-result-$rootId');
+
   /// 某个书库根的管理菜单（`⋮`）。
   static Key rootMenuKey(String rootId) => Key('library-root-menu-$rootId');
+
+  /// 管理菜单里的「查看位置」（完整来源 + 复制）。
+  static Key viewLocationRootKey(String rootId) =>
+      Key('library-root-location-$rootId');
+
+  /// 「查看位置」弹层。
+  static const Key locationDialogKey = Key('library-location-dialog');
+
+  /// 「查看位置」弹层里的复制按钮。
+  static const Key copyLocationKey = Key('library-location-copy');
 
   /// 管理菜单里的「重命名」。
   static Key renameRootKey(String rootId) => Key('library-root-rename-$rootId');
@@ -196,18 +241,17 @@ abstract final class LibraryRootsKeys {
 /// SAF 选择失败的就地提示：标题 + 说明。用户取消不是失败，不会用到它。
 typedef SafPickFailure = ({String title, String message});
 
-/// 推荐路径：移动端取应用私有目录，桌面端取用户主目录。
+/// 手动输入时的预填路径。
 ///
-/// 不预填 `/sdcard`：Android 11+ 的分区存储会直接拒绝这种路径，
-/// 预填一个必然失败的值只会制造一次无效报错。
+/// 移动端返回空串（不预填）：在移动端能预填的只有应用私有目录，里面不会
+/// 有音频，预填它只会制造一条扫不出东西的废根（用户反馈过）。手填入口本
+/// 就只服务「确知完整路径」的特殊目录，推荐路径是系统选择器，所以这里留空
+/// 并给出可读的示例提示。
+///
+/// 桌面端照旧预填用户主目录。
 String defaultRootPathSuggestion() {
   if (Platform.isAndroid || Platform.isIOS) {
-    final Directory temp = Directory.systemTemp;
-    final Directory privateDir = temp.parent;
-    if (privateDir.path != temp.path && privateDir.existsSync()) {
-      return privateDir.path;
-    }
-    return temp.path;
+    return '';
   }
   final String? home =
       Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'];
@@ -478,8 +522,12 @@ class LibraryRootsEmpty extends StatelessWidget {
   }
 }
 
-/// 一个书库根：名称与操作在上，路径与扫描时间在下，摘要再往下展开。
-class LibraryRootCard extends StatelessWidget {
+/// 一个书库根：名称与操作在上，最近扫描时间在下，扫描进度与结果按需出现。
+///
+/// 列表上只留「名字 + 最近扫描」：类型标签（`saf` / `本地目录`）与原始来源
+/// 都不再铺在这里 —— 用户不需要在列表上区分两种根，排障用的完整来源收进
+/// `⋮` 的「查看位置」（`showRootLocationDialog`）。
+class LibraryRootCard extends StatefulWidget {
   /// 创建根卡片。
   const LibraryRootCard({
     required this.root,
@@ -487,6 +535,7 @@ class LibraryRootCard extends StatelessWidget {
     required this.onScan,
     required this.onRename,
     required this.onRemove,
+    required this.onDismissResult,
     super.key,
   });
 
@@ -505,13 +554,79 @@ class LibraryRootCard extends StatelessWidget {
   /// 打开移除确认弹窗。
   final VoidCallback onRemove;
 
+  /// 收起扫描结果面板（成功面板到点自动收，失败面板由用户收起）。
+  final VoidCallback onDismissResult;
+
+  @override
+  State<LibraryRootCard> createState() => _LibraryRootCardState();
+}
+
+class _LibraryRootCardState extends State<LibraryRootCard> {
+  /// 成功结果停留多久后自动收起。
+  ///
+  /// 失败结果不设时限：它常驻在卡片上，直到用户收起或下一次扫描
+  /// —— 出错原因需要一直看得见，成功只是一次「刚才发生了什么」。
+  static const Duration _successLinger = Duration(seconds: 6);
+
   static const double _badgeSize = 44;
   static const double _detailIndent = _badgeSize + AppSpacing.md;
+
+  Timer? _autoDismiss;
+
+  /// 已经排过自动收起的那一份成功结果（同一份不重复排）。
+  ScanReport? _scheduledReport;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleAutoDismiss();
+  }
+
+  @override
+  void didUpdateWidget(LibraryRootCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleAutoDismiss();
+  }
+
+  @override
+  void dispose() {
+    _autoDismiss?.cancel();
+    super.dispose();
+  }
+
+  /// 成功结果可见时排一次自动收起；扫描中 / 失败 / 已收起都会取消排队。
+  void _scheduleAutoDismiss() {
+    final ScanReport? report = widget.scan.report;
+    final bool visible = report != null && !widget.scan.collapsed;
+    if (!visible) {
+      _cancelAutoDismiss();
+      return;
+    }
+    if (identical(_scheduledReport, report)) {
+      return;
+    }
+    _scheduledReport = report;
+    _autoDismiss?.cancel();
+    _autoDismiss = Timer(_successLinger, _dismissResult);
+  }
+
+  void _cancelAutoDismiss() {
+    _autoDismiss?.cancel();
+    _autoDismiss = null;
+    _scheduledReport = null;
+  }
+
+  void _dismissResult() {
+    _cancelAutoDismiss();
+    widget.onDismissResult();
+  }
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
+    final LibraryRootView root = widget.root;
+    final RootScanState scan = widget.scan;
     final String lastScan = root.lastScanAt == null
         ? '从未扫描'
         : '上次扫描 · ${_formatTimestamp(root.lastScanAt!)}';
@@ -552,35 +667,23 @@ class LibraryRootCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          root.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.titleMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.xxs),
-                        Text(
-                          root.type == 'local' ? '本地目录' : root.type,
-                          style: text.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      root.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleMedium,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   _ScanButton(
                     root: root,
                     scanning: scan.scanning,
-                    onScan: onScan,
+                    onScan: widget.onScan,
                   ),
                   _RootMenuButton(
                     root: root,
-                    onRename: onRename,
-                    onRemove: onRemove,
+                    onRename: widget.onRename,
+                    onRemove: widget.onRemove,
                   ),
                 ],
               ),
@@ -590,33 +693,23 @@ class LibraryRootCard extends StatelessWidget {
                   left: _detailIndent,
                   right: AppSpacing.sm,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: <Widget>[
-                    _SingleLinePath(
-                      path: root.uri,
-                      style: text.labelSmall?.copyWith(color: scheme.onSurface),
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: scheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 12,
+                    const SizedBox(width: AppSpacing.xxs),
+                    Expanded(
+                      child: Text(
+                        lastScan,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: AppSpacing.xxs),
-                        Expanded(
-                          child: Text(
-                            lastScan,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: text.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -639,7 +732,7 @@ class LibraryRootCard extends StatelessWidget {
                 duration: AppMotion.resolve(context, AppDurations.standard),
                 curve: AppDurations.standardCurve,
                 alignment: Alignment.topCenter,
-                child: _buildResult(context),
+                child: _buildResult(),
               ),
             ],
           ),
@@ -648,31 +741,50 @@ class LibraryRootCard extends StatelessWidget {
     );
   }
 
-  Widget _buildResult(BuildContext context) {
-    if (scan.report != null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AppSpacing.md),
-        child: _ScanReportPanel(
-          key: LibraryRootsKeys.reportKey(root.id),
-          report: scan.report!,
+  /// 结果面板：扫描中或已收起时不留空位，否则成功 / 失败各渲染一块。
+  Widget _buildResult() {
+    final RootScanState scan = widget.scan;
+    if (scan.scanning || scan.collapsed) {
+      return const SizedBox(width: double.infinity);
+    }
+    final String? error = scan.error;
+    if (error != null) {
+      return _resultPanel(
+        _ScanErrorPanel(
+          key: LibraryRootsKeys.scanErrorKey(widget.root.id),
+          rootId: widget.root.id,
+          message: error,
+          onDismiss: _dismissResult,
         ),
       );
     }
-    if (scan.error != null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AppSpacing.md),
-        child: _ScanErrorPanel(
-          key: LibraryRootsKeys.scanErrorKey(root.id),
-          message: scan.error!,
+    final ScanReport? report = scan.report;
+    if (report != null) {
+      return _resultPanel(
+        _ScanReportPanel(
+          key: LibraryRootsKeys.reportKey(widget.root.id),
+          rootId: widget.root.id,
+          report: report,
+          onDismiss: _dismissResult,
         ),
       );
     }
     return const SizedBox(width: double.infinity);
   }
+
+  Widget _resultPanel(Widget panel) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: panel,
+    );
+  }
 }
 
 /// 单个根的管理动作。
 enum _RootMenuAction {
+  /// 查看完整来源（路径 / tree URI），可整体复制。
+  viewLocation,
+
   /// 重命名（只改展示名）。
   rename,
 
@@ -702,6 +814,8 @@ class _RootMenuButton extends StatelessWidget {
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (_RootMenuAction action) {
         switch (action) {
+          case _RootMenuAction.viewLocation:
+            unawaited(showRootLocationDialog(context, root: root));
           case _RootMenuAction.rename:
             onRename();
           case _RootMenuAction.remove:
@@ -710,6 +824,12 @@ class _RootMenuButton extends StatelessWidget {
       },
       itemBuilder: (BuildContext context) {
         return <PopupMenuEntry<_RootMenuAction>>[
+          PopupMenuItem<_RootMenuAction>(
+            key: LibraryRootsKeys.viewLocationRootKey(root.id),
+            value: _RootMenuAction.viewLocation,
+            child: const _MenuRow(icon: Icons.place_outlined, label: '查看位置'),
+          ),
+          const PopupMenuDivider(),
           PopupMenuItem<_RootMenuAction>(
             key: LibraryRootsKeys.renameRootKey(root.id),
             value: _RootMenuAction.rename,
@@ -803,84 +923,102 @@ class _ScanButton extends StatelessWidget {
   }
 }
 
-/// 单行路径：中间省略，保证末尾目录名始终可读，并把完整路径放进 tooltip。
-class _SingleLinePath extends StatelessWidget {
-  const _SingleLinePath({required this.path, this.style});
+/// 结果面板右上角的收起按钮：图标按钮保持 48dp 触控目标，tooltip 给语义名。
+class _DismissButton extends StatelessWidget {
+  const _DismissButton({
+    required this.buttonKey,
+    required this.tooltip,
+    required this.onPressed,
+    this.color,
+  });
 
-  final String path;
-  final TextStyle? style;
+  final Key buttonKey;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle? effective = style;
-    final TextScaler scaler = MediaQuery.textScalerOf(context);
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final String shown = effective == null || !constraints.hasBoundedWidth
-            ? path
-            : _middleEllipsis(
-                source: path,
-                maxWidth: constraints.maxWidth,
-                style: effective,
-                scaler: scaler,
-              );
-        return Tooltip(
-          message: path,
-          child: Text(
-            shown,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.clip,
-            style: style,
-          ),
-        );
-      },
+    return IconButton(
+      key: buttonKey,
+      onPressed: onPressed,
+      tooltip: tooltip,
+      iconSize: 18,
+      color: color,
+      icon: const Icon(Icons.close_rounded),
     );
   }
 }
 
-/// 扫描摘要：一次写入的实际增量 + 耗时 + 异常目录。
-class _ScanReportPanel extends StatelessWidget {
-  const _ScanReportPanel({required this.report, super.key});
+/// 扫描摘要：默认只给结论，只有「用户此刻会困惑」的诊断才补一句。
+///
+/// 取舍（对齐用户反馈）：
+/// - 有变化才带数字（`新增 1 册 · 2 章`），没变化就一句「没有发现新增或变更」；
+/// - 去掉「用时 N 毫秒」——用户不关心，且每次都不一样，只是噪音；
+/// - 「忽略 N 个非音频文件」「目录内共 N 册」这类诊断默认不铺：只有
+///   `booksSeen == 0`（一个音频都没扫到，往往是把书加错了目录，例如把根
+///   指向了应用私有目录）时，用户才正需要知道「为什么什么都没发生」，
+///   这时才补一句解释。
+(String, List<String>) _summarizeScan(ScanReport report) {
+  if (report.booksSeen == 0) {
+    return (
+      '目录内没有音频文件',
+      <String>[if (report.ignoredFiles > 0) '已忽略 ${report.ignoredFiles} 个其它文件'],
+    );
+  }
 
+  final List<String> added = <String>[
+    if (report.booksAdded > 0) '${report.booksAdded} 册',
+    if (report.volumesAdded > 0) '${report.volumesAdded} 卷',
+    if (report.chaptersAdded > 0) '${report.chaptersAdded} 章',
+  ];
+  final List<String> updates = <String>[
+    if (report.booksUpdated > 0) '更新 ${report.booksUpdated} 册',
+    if (report.chaptersUpdated > 0) '更新 ${report.chaptersUpdated} 章',
+  ];
+  final List<String> upkeep = <String>[
+    if (report.chaptersMarkedMissing > 0)
+      '标记缺失 ${report.chaptersMarkedMissing} 章',
+    if (report.chaptersRestored > 0) '恢复 ${report.chaptersRestored} 章',
+  ];
+  final String headline = added.isNotEmpty
+      ? '新增 ${added.join(' · ')}'
+      : report.hasChanges
+      ? '书目结构已更新'
+      : '没有发现新增或变更';
+  return (
+    headline,
+    <String>[
+      if (updates.isNotEmpty) updates.join(' · '),
+      if (upkeep.isNotEmpty) upkeep.join(' · '),
+    ],
+  );
+}
+
+/// 扫描摘要面板：成功后短暂停留，可手动收起；异常目录照样列出来。
+class _ScanReportPanel extends StatelessWidget {
+  const _ScanReportPanel({
+    required this.rootId,
+    required this.report,
+    required this.onDismiss,
+    super.key,
+  });
+
+  final String rootId;
   final ScanReport report;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
-
-    final List<String> changes = <String>[
-      if (report.booksAdded > 0) '${report.booksAdded} 册',
-      if (report.volumesAdded > 0) '${report.volumesAdded} 卷',
-      if (report.chaptersAdded > 0) '${report.chaptersAdded} 章',
-    ];
-    // 拆成「更新」与「维护」两行：400dp 下挤在一行会把最后一个词挤成孤行。
-    final List<String> updates = <String>[
-      if (report.booksUpdated > 0) '更新 ${report.booksUpdated} 册',
-      if (report.chaptersUpdated > 0) '更新 ${report.chaptersUpdated} 章',
-    ];
-    final List<String> upkeep = <String>[
-      if (report.chaptersMarkedMissing > 0)
-        '标记缺失 ${report.chaptersMarkedMissing} 章',
-      if (report.chaptersRestored > 0) '恢复 ${report.chaptersRestored} 章',
-      if (report.ignoredFiles > 0) '忽略 ${report.ignoredFiles} 个非音频文件',
-    ];
-    final bool changed = report.hasChanges;
-    final String headline = changes.isNotEmpty
-        ? '新增 ${changes.join(' · ')}'
-        : changed
-        ? '书目结构已更新'
-        : '没有发现新增或变更';
-    if (!changed && updates.isEmpty && upkeep.isEmpty) {
-      upkeep.add('目录内共 ${report.booksSeen} 册 · ${report.chaptersSeen} 章');
-    }
+    final (String headline, List<String> details) = _summarizeScan(report);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.sm,
-        AppSpacing.md,
+        AppSpacing.xs,
         AppSpacing.sm,
       ),
       decoration: BoxDecoration(
@@ -892,9 +1030,9 @@ class _ScanReportPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xxs),
+            padding: const EdgeInsets.only(top: AppSpacing.md),
             child: Icon(
-              changed
+              report.hasChanges
                   ? Icons.check_circle_outline_rounded
                   : Icons.task_alt_rounded,
               size: 16,
@@ -903,49 +1041,48 @@ class _ScanReportPanel extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  '扫描完成 · 用时 ${_formatElapsed(report.elapsed)}',
-                  style: text.labelMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  headline,
-                  style: text.titleSmall?.copyWith(color: scheme.onSurface),
-                ),
-                if (updates.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: AppSpacing.xxs),
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
                   Text(
-                    updates.join(' · '),
-                    style: text.bodySmall?.copyWith(
+                    '扫描完成',
+                    style: text.labelMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                ],
-                if (upkeep.isNotEmpty) ...<Widget>[
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    upkeep.join(' · '),
-                    style: text.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                    headline,
+                    style: text.titleSmall?.copyWith(color: scheme.onSurface),
+                  ),
+                  for (final String detail in details) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      detail,
+                      style: text.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
+                  if (report.failedPaths.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      _failedPathsLabel(report.failedPaths),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.bodySmall?.copyWith(color: scheme.error),
+                    ),
+                  ],
                 ],
-                if (report.failedPaths.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    _failedPathsLabel(report.failedPaths),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: text.bodySmall?.copyWith(color: scheme.error),
-                  ),
-                ],
-              ],
+              ),
             ),
+          ),
+          _DismissButton(
+            buttonKey: LibraryRootsKeys.dismissResultKey(rootId),
+            tooltip: '收起扫描结果',
+            onPressed: onDismiss,
           ),
         ],
       ),
@@ -953,11 +1090,18 @@ class _ScanReportPanel extends StatelessWidget {
   }
 }
 
-/// 扫描失败：具体原因就地展示，可再次扫描。
+/// 扫描失败：具体原因常驻在卡片上（出错原因要一直看得见），可手动收起。
 class _ScanErrorPanel extends StatelessWidget {
-  const _ScanErrorPanel({required this.message, super.key});
+  const _ScanErrorPanel({
+    required this.rootId,
+    required this.message,
+    required this.onDismiss,
+    super.key,
+  });
 
+  final String rootId;
   final String message;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -965,7 +1109,12 @@ class _ScanErrorPanel extends StatelessWidget {
     final TextTheme text = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: scheme.errorContainer,
         borderRadius: AppRadii.sm,
@@ -1005,6 +1154,12 @@ class _ScanErrorPanel extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          _DismissButton(
+            buttonKey: LibraryRootsKeys.dismissResultKey(rootId),
+            tooltip: '收起',
+            color: scheme.onErrorContainer,
+            onPressed: onDismiss,
           ),
         ],
       ),
@@ -1062,6 +1217,85 @@ class _SafErrorPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 「查看位置」弹层：列表上不再铺原始来源，需要排障时从这里看完整值并复制。
+///
+/// 显示的是 `root.uri` 原始值（本地路径或 SAF tree URI），不加工、不翻译，
+/// 排障时能整段复制走。
+Future<void> showRootLocationDialog(
+  BuildContext context, {
+  required LibraryRootView root,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (BuildContext context) => _RootLocationDialog(root: root),
+  );
+}
+
+class _RootLocationDialog extends StatelessWidget {
+  const _RootLocationDialog({required this.root});
+
+  final LibraryRootView root;
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: root.uri));
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已复制位置')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return AlertDialog(
+      key: LibraryRootsKeys.locationDialogKey,
+      title: const Text('查看位置'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            '「${root.displayName}」的完整来源：',
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: AppRadii.sm,
+            ),
+            child: Text(
+              root.uri,
+              style: text.bodySmall?.copyWith(color: scheme.onSurface),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '这个完整来源平时不用看，只在排障（例如排查扫描不到文件）时用。',
+            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+        FilledButton.icon(
+          key: LibraryRootsKeys.copyLocationKey,
+          onPressed: () => unawaited(_copy(context)),
+          icon: const Icon(Icons.copy_rounded, size: 18),
+          label: const Text('复制'),
+        ),
+      ],
     );
   }
 }
@@ -1126,8 +1360,8 @@ Future<bool> showRemoveRootDialog(
           children: <Widget>[
             Text('「${root.displayName}」', style: text.titleMedium),
             const SizedBox(height: AppSpacing.xxs),
-            // 弹窗要算固有宽度，不能用 LayoutBuilder 版的中省略路径；
-            // 这里退成两行截断，路径短就直接完整显示。
+            // 弹窗要算固有宽度，这里用两行截断展示来源；完整来源在
+            // 「查看位置」里可以整段复制。
             Text(
               root.uri,
               maxLines: 2,
@@ -1157,6 +1391,14 @@ Future<bool> showRemoveRootDialog(
                 ],
               ),
             ),
+            // 两种根的差别只在这里体现：系统授权目录被移除后授权也一起放弃。
+            if (root.type == 'saf') ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '这个来源是系统授权目录：移除会一并放弃对它的系统授权，下次要重新选择并授权。',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
             const SizedBox(height: AppSpacing.sm),
             Text(
               '重新添加同一个目录再扫描，书目可以重建；但已有的收听进度会一起清掉。',
@@ -1559,7 +1801,7 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
           title: '手动输入绝对路径',
           subtitle: Platform.isWindows
               ? r'手边有完整路径时用这个，例如 D:\Books。'
-              : '手边有完整路径时用这个，例如 /sdcard/Books。',
+              : '只在你确知目录的完整路径时才用；一般目录请用上面的系统选择器。',
           onTap: enabled
               ? () => setState(() => _step = _AddRootStep.manualPath)
               : null,
@@ -1619,7 +1861,8 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '路径要写得完整、准确。扫描只读取其中的音频文件，不会改动任何内容。',
+            '填一个你现在就能读取的完整路径；一般目录请返回上一步，用系统选择器'
+            '（推荐）。扫描只读取其中的音频文件，不会改动任何内容。',
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -1664,7 +1907,8 @@ class _LibraryAddRootSheetState extends ConsumerState<LibraryAddRootSheet> {
           ],
           const SizedBox(height: AppSpacing.md),
           Text(
-            '提示：应用私有目录会随卸载一起删除；长期书架建议选一个独立目录。',
+            '提示：这里要填一个你能读取的完整路径。不确定填什么就返回上一步，'
+            '用系统选择器（推荐）。',
             style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -1857,19 +2101,6 @@ String _formatTimestamp(DateTime value) {
 
 String _pad2(int value) => value.toString().padLeft(2, '0');
 
-/// 扫描耗时：不足 1 秒看毫秒，分钟级也保持短句。
-String _formatElapsed(Duration elapsed) {
-  if (elapsed.inMilliseconds < 1000) {
-    return '${elapsed.inMilliseconds} 毫秒';
-  }
-  if (elapsed.inSeconds < 60) {
-    return '${(elapsed.inMilliseconds / 1000).toStringAsFixed(1)} 秒';
-  }
-  final int minutes = elapsed.inMinutes;
-  final int seconds = elapsed.inSeconds.remainder(60);
-  return seconds == 0 ? '$minutes 分钟' : '$minutes 分 $seconds 秒';
-}
-
 /// 读取失败的目录：给出具体路径，超出两条时说明还有几处。
 String _failedPathsLabel(List<String> paths) {
   final String shown = paths.take(2).join('、');
@@ -1890,104 +2121,4 @@ String _lastPathSegment(String path) {
   final int slash = trimmed.lastIndexOf(RegExp(r'[/\\]'));
   final String name = slash < 0 ? trimmed : trimmed.substring(slash + 1);
   return name.trim().isEmpty ? path : name.trim();
-}
-
-/// 测量单行文本宽度。
-double _measureText(String value, TextStyle style, TextScaler scaler) {
-  final TextPainter painter = TextPainter(
-    text: TextSpan(text: value, style: style),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-    textScaler: scaler,
-  )..layout();
-  final double width = painter.width;
-  painter.dispose();
-  return width;
-}
-
-/// 路径中间省略：保留开头与最后一级目录，中间用一个 `…` 折叠。
-///
-/// Flutter 只提供尾部省略，长路径会把最有信息量的目录名切掉；
-/// 这里用二分查找逐步缩短开头，控制测量次数。
-String _middleEllipsis({
-  required String source,
-  required double maxWidth,
-  required TextStyle style,
-  required TextScaler scaler,
-}) {
-  final String path = source.trim();
-  if (path.isEmpty) {
-    return path;
-  }
-  if (_measureText(path, style, scaler) <= maxWidth) {
-    return path;
-  }
-
-  final String separator = path.contains('\\') ? '\\' : '/';
-  final int lastSeparator = path.lastIndexOf(RegExp(r'[/\\]'));
-  String head = lastSeparator > 0 ? path.substring(0, lastSeparator) : '';
-  head = head.replaceFirst(RegExp(r'[/\\]+$'), '');
-  String tail = lastSeparator >= 0 && lastSeparator < path.length - 1
-      ? path.substring(lastSeparator + 1)
-      : path;
-  if (tail.length > 28) {
-    tail = tail.substring(tail.length - 28);
-  }
-
-  String compose(String keptHead, String keptTail) {
-    return keptHead.isEmpty
-        ? '…$separator$keptTail'
-        : '$keptHead$separator…$separator$keptTail';
-  }
-
-  bool fits(String candidate) =>
-      _measureText(candidate, style, scaler) <= maxWidth;
-
-  // 1) 完整开头 + 尾目录。
-  if (fits(compose(head, tail))) {
-    return compose(head, tail);
-  }
-
-  // 2) 二分缩短开头（宽度随保留字符数单调增长）。
-  int best = -1;
-  int low = 0;
-  int high = head.length;
-  while (low <= high) {
-    final int mid = (low + high) ~/ 2;
-    if (fits(compose(head.substring(0, mid), tail))) {
-      best = mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-  if (best >= 0) {
-    int keep = best;
-    if (keep > 0 && keep < head.length) {
-      // 尽量切在分隔符上，避免留下半个目录名；切不到就整体省略开头。
-      final int cut = head.lastIndexOf(RegExp(r'[/\\]'), keep - 1);
-      if (cut >= 0) {
-        keep = cut;
-      }
-    }
-    return compose(head.substring(0, keep), tail);
-  }
-
-  // 3) 开头全部省略仍太宽：缩短尾目录，至少保留一个字符。
-  int bestTail = -1;
-  low = 1;
-  high = tail.length;
-  while (low <= high) {
-    final int mid = (low + high) ~/ 2;
-    if (fits('…$separator${tail.substring(tail.length - mid)}')) {
-      bestTail = mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-  if (bestTail >= 0) {
-    return '…$separator${tail.substring(tail.length - bestTail)}';
-  }
-  return '…';
 }

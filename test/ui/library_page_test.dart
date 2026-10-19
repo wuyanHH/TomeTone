@@ -330,32 +330,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('列表：展示名、单行中间省略的路径、最近扫描时间与扫描按钮', (WidgetTester tester) async {
-    const String longPath =
-        '/data/user/0/com.tometone.app/files/books/library-tooooo-long';
+  testWidgets('列表：卡片只留名字与最近扫描时间，不铺类型标签与原始来源', (WidgetTester tester) async {
+    const String safUri =
+        'content://com.android.externalstorage.documents/tree/primary%3AAudiobooks';
     await pumpLibrary(
       tester,
       roots: () => <LibraryRootView>[
-        _root(uri: longPath, lastScanAt: DateTime(2026, 10, 18, 14, 32)),
-        _root(id: 'root-2', uri: '/mnt/media/audio', displayName: '外置声库'),
+        _root(
+          uri: safUri,
+          displayName: '本地书库',
+          type: 'saf',
+          lastScanAt: DateTime(2026, 10, 19, 7, 11),
+        ),
+        _root(
+          id: 'root-2',
+          uri: '/data/user/0/com.tometone.app',
+          displayName: 'com.tometone.app',
+        ),
       ],
     );
 
     expect(find.byKey(LibraryRootsKeys.rootsListKey), findsOneWidget);
-    expect(find.text('本机书库'), findsOneWidget);
-    expect(find.text('外置声库'), findsOneWidget);
-    expect(find.text('本地目录'), findsNWidgets(2));
+    expect(find.text('本地书库'), findsOneWidget);
+    expect(find.text('com.tometone.app'), findsOneWidget);
     expect(find.text('2 个'), findsOneWidget);
-    expect(find.text('上次扫描 · 2026-10-18 14:32'), findsOneWidget);
+    expect(find.text('上次扫描 · 2026-10-19 07:11'), findsOneWidget);
     expect(find.text('从未扫描'), findsOneWidget);
 
-    // 长路径必须中间省略，并且仍然只有一行。
-    final Finder pathText = find.textContaining('…');
-    expect(pathText, findsOneWidget);
-    final Text path = tester.widget<Text>(pathText);
-    expect(path.maxLines, 1);
-    expect(path.data, startsWith('…/'));
-    expect(path.data, endsWith('library-tooooo-long'));
+    // 类型标签（`saf` / `本地目录`）与原始来源都不再出现在列表上。
+    expect(find.text('本地目录'), findsNothing);
+    expect(find.text('saf'), findsNothing);
+    expect(find.textContaining('content://'), findsNothing);
+    expect(find.textContaining('/data/user/0'), findsNothing);
 
     // 触控目标 ≥48dp。
     expect(
@@ -730,10 +736,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(LibraryRootsKeys.reportKey(testRootId)), findsOneWidget);
-    expect(find.text('扫描完成 · 用时 1.8 秒'), findsOneWidget);
+    expect(find.text('扫描完成'), findsOneWidget);
     expect(find.text('新增 3 册 · 12 卷 · 240 章'), findsOneWidget);
     expect(find.text('更新 1 册 · 更新 2 章'), findsOneWidget);
-    expect(find.text('标记缺失 1 章 · 忽略 6 个非音频文件'), findsOneWidget);
+    // 「忽略 N 个非音频文件」在正常扫到书时不再铺出来。
+    expect(find.text('标记缺失 1 章'), findsOneWidget);
+    expect(find.textContaining('忽略'), findsNothing);
+    // 耗时不再展示。
+    expect(find.textContaining('用时'), findsNothing);
     expect(find.text('上次扫描 · 2026-10-18 14:32'), findsOneWidget);
     expect(rootsQueries, 2, reason: '扫描成功必须失效书库根列表');
     expect(booksQueries, 2, reason: '扫描成功必须失效书架');
@@ -747,6 +757,10 @@ void main() {
       reason: '扫描结束后按钮恢复可用',
     );
     expect(tester.takeException(), isNull);
+
+    // 收尾：让成功面板的自动收起计时器走完，避免留下挂起的 Timer。
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('扫描失败：StateError 就地展示具体原因，不刷新书架', (WidgetTester tester) async {
@@ -799,6 +813,189 @@ void main() {
           .onPressed,
       isNotNull,
     );
+
+    // 失败面板常驻：过掉成功面板的自动收起时限后依然在，直到用户收起。
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(LibraryRootsKeys.scanErrorKey(testRootId)),
+      findsOneWidget,
+      reason: '失败原因不自动收起',
+    );
+
+    await tester.tap(find.byKey(LibraryRootsKeys.dismissResultKey(testRootId)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(LibraryRootsKeys.scanErrorKey(testRootId)), findsNothing);
+    expect(find.text('从未扫描'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('扫描成功：结果短暂提示后自动收起，卡片只留「上次扫描」', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    List<LibraryRootView> roots = <LibraryRootView>[testRoot];
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith((Ref ref) async => roots),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.scanKey(testRootId)));
+    await tester.pump();
+    roots = <LibraryRootView>[_root(lastScanAt: DateTime(2026, 10, 19, 7, 11))];
+    service.scanCompleters[testRootId]!.complete(_report());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(LibraryRootsKeys.reportKey(testRootId)), findsOneWidget);
+
+    // 约 6 秒后自动收起；收起后卡片只剩一行「上次扫描」。
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(find.byKey(LibraryRootsKeys.reportKey(testRootId)), findsNothing);
+    expect(find.text('扫描完成'), findsNothing);
+    expect(find.text('上次扫描 · 2026-10-19 07:11'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('扫描成功：结果面板可手动收起，收起后不再自动弹出', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith(
+          (Ref ref) async => const <LibraryRootView>[testRoot],
+        ),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.scanKey(testRootId)));
+    await tester.pump();
+    service.scanCompleters[testRootId]!.complete(_report());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(LibraryRootsKeys.reportKey(testRootId)), findsOneWidget);
+
+    await tester.tap(find.byKey(LibraryRootsKeys.dismissResultKey(testRootId)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(LibraryRootsKeys.reportKey(testRootId)), findsNothing);
+
+    // 收起是记在 provider 里的：再等一会儿也不会自己冒回来。
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(find.byKey(LibraryRootsKeys.reportKey(testRootId)), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('扫描成功：一个音频都没扫到时补一句解释（忽略的其它文件）', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith(
+          (Ref ref) async => const <LibraryRootView>[testRoot],
+        ),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.scanKey(testRootId)));
+    await tester.pump();
+    service.scanCompleters[testRootId]!.complete(
+      _report(
+        booksSeen: 0,
+        booksAdded: 0,
+        booksUpdated: 0,
+        volumesAdded: 0,
+        chaptersSeen: 0,
+        chaptersAdded: 0,
+        chaptersUpdated: 0,
+        chaptersMarkedMissing: 0,
+        ignoredFiles: 9,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('目录内没有音频文件'), findsOneWidget);
+    expect(find.text('已忽略 9 个其它文件'), findsOneWidget);
+    expect(find.text('没有发现新增或变更'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('查看位置：`⋮` 菜单能看完整来源并整段复制', (WidgetTester tester) async {
+    const String safUri =
+        'content://com.android.externalstorage.documents/tree/primary%3AAudiobooks';
+    final List<MethodCall> clipboardCalls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardCalls.add(call);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await pumpLibrary(
+      tester,
+      roots: () => <LibraryRootView>[
+        _root(uri: safUri, displayName: '本地书库', type: 'saf'),
+      ],
+    );
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(LibraryRootsKeys.viewLocationRootKey(testRootId)),
+      findsOneWidget,
+    );
+    expect(find.text('查看位置'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(LibraryRootsKeys.viewLocationRootKey(testRootId)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(LibraryRootsKeys.locationDialogKey), findsOneWidget);
+    expect(find.text(safUri), findsOneWidget);
+
+    await tester.tap(find.byKey(LibraryRootsKeys.copyLocationKey));
+    await tester.pumpAndSettle();
+
+    expect(clipboardCalls, hasLength(1));
+    expect(clipboardCalls.single.arguments, <String, dynamic>{'text': safUri});
+    expect(find.text('已复制位置'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -870,6 +1067,8 @@ void main() {
     expect(find.textContaining('将移除 3 册 · 12 章的书目记录'), findsOneWidget);
     expect(find.textContaining('不会删除文件'), findsOneWidget);
     expect(find.textContaining('也不会改动目录里的任何内容'), findsOneWidget);
+    // 手填的本地目录没有系统授权，不该出现「一并放弃授权」那句。
+    expect(find.textContaining('系统授权'), findsNothing);
     expect(service.removedRootIds, isEmpty, reason: '确认之前不能动手');
 
     await tester.tap(find.byKey(LibraryRootsKeys.removeConfirmKey));
@@ -998,6 +1197,66 @@ void main() {
     expect(find.textContaining('没有移除成功'), findsOneWidget);
     expect(rootsQueries, 1, reason: '没删成功就不该当作列表变了');
     expect(find.text('本机书库'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('移除：系统授权目录会说明一并放弃系统授权', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    const String safUri =
+        'content://com.android.externalstorage.documents/tree/primary%3ABooks';
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith(
+          (Ref ref) async => <LibraryRootView>[
+            _root(uri: safUri, displayName: 'Books', type: 'saf'),
+          ],
+        ),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(LibraryRootsKeys.removeRootKey(testRootId)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(LibraryRootsKeys.removeDialogKey), findsOneWidget);
+    expect(find.textContaining('一并放弃对它的系统授权'), findsOneWidget);
+    expect(find.textContaining('下次要重新选择并授权'), findsOneWidget);
+    expect(find.textContaining('不会删除文件'), findsOneWidget);
+
+    await tester.tap(find.byKey(LibraryRootsKeys.removeCancelKey));
+    await tester.pumpAndSettle();
+    expect(service.removedRootIds, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('手动输入：不预填（空），并把手填指向系统选择器', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    await pumpLibrary(
+      tester,
+      roots: () => const <LibraryRootView>[testRoot],
+      // 显式传空串 = 移动端「不预填」的形态。
+      suggestedPath: '',
+    );
+
+    await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
+    await tester.tap(find.byKey(LibraryRootsKeys.manualPathKey));
+    await tester.pumpAndSettle();
+
+    final TextFormField pathField = tester.widget<TextFormField>(
+      find.byKey(LibraryRootsKeys.pathFieldKey),
+    );
+    expect(pathField.controller?.text, isEmpty, reason: '不预填必然扫不出东西的私有目录');
+    expect(find.textContaining('系统选择器'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
