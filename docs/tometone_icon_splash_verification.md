@@ -21,13 +21,16 @@
 | :-- | :-- | :-- | :-- |
 | E1 | 桌面上屏形态 | 圆形遮罩：墨蓝墨盘满幅、纸白展开书、青绿声纹自书口升起；标记居中、未被遮罩啃到 | 通过 |
 | E2 | 小尺寸可辨识（同一枚图标的启动器缩放） | 桌面图标里「书」先成立，声纹仍可辨 | 通过 |
-| E3 | 系统闪屏形态（浅色） | 宣纸底 + 墨盘 + 记印：**系统按对比度自动显示了图标的背景层** | 通过 |
-| E4 | 系统闪屏形态（深色） | 墨底 + 纸白书 + 青绿声纹，**墨盘被系统自动隐去**，无多余色块 | 通过 |
-| E5 | 冷启动耗时 | 中位数 **7551ms**（10 次：9271 / 5864 / 5940 / 5799 / 6689 / 6130 / 7551 / 7726 / 7692 / 7640） | **不可用作判据**，见下 |
+| E3 | 系统闪屏形态（浅色） | 宣纸底 + 墨盘 + 记印；实测**墨盘 Ø192dp**（504px @420dpi） | 通过（尺寸对齐见 E6） |
+| E4 | 系统闪屏形态（深色） | 墨底 + 纸白书 + 青绿声纹，**墨盘被系统隐去**，无多余色块 | 通过 |
+| E5 | 冷启动耗时 | 中位数 **7120ms**（10 次：5799 / 5864 / 5940 / 6130 / 6689 / 7551 / 7640 / 7692 / 7726 / 9271，取中间两数均值） | **不可用作判据**，见下 |
+| E6 | 两条分支的记印尺寸一致 | 系统闪屏实测 192dp；`launch_mark` 已按 288dp 画布书写（r=36/108×288 = Ø192dp） | 尺寸一致；**位置对齐仍需 B6** |
 
 E3/E4 的意义：同一份图标资源，昼与夜得到两种正确形态，我们没有写任何条件代码——`windowSplashScreenIconBackgroundColor` 故意不设，由系统按「窗口底 vs 图标背景层」的对比度决定显隐（昼 13.37:1 → 显示；夜 1:1 → 隐去）。
 
-E5 为什么不算数：这是 **debug 构建 + 模拟器**，且 10 次运行极差 5799–9271ms（±1.7s 抖动），比 800ms 门槛大一个数量级，比 20ms 的退化阈值大两个数量级。要判断"启动页是否拖慢了启动"，只能在**真机 + profile/release 构建**上比 before/after，见 §3 的 B3。**不要**拿这里的 7551ms 当基线。
+E6 是一次**已修正的缺陷**：首版按文档里的「带 icon background = 240dp / Ø160dp」写了 `launch_mark`，但因为没有设 `windowSplashScreenIconBackgroundColor`，系统实际走的是「不带 icon background」分支——288dp / Ø192dp。从 E3 的截图量出墨盘 504px、除以 420dpi 得 192dp，证实了这一点。于是系统闪屏比 `NormalTheme` 的记印大 20%，冷启动会出现「大记印 → 小一号记印」。修正方式是把 `launch_mark` 与 layer-list 的记印都改成 288dp（viewport 仍是 108，墨盘 r 仍是 36），两条分支的**尺寸**由此对齐；**位置**是否也逐像素对齐，仍需 B6 在真机上量。
+
+E5 为什么不算数：这是 **debug 构建 + 模拟器**，且 10 次运行极差 5799–9271ms（±1.7s 抖动），比 800ms 门槛大一个数量级，比 20ms 的退化阈值大两个数量级。要判断"启动页是否拖慢了启动"，只能在**真机 + profile/release 构建**上比 before/after，见 §3 的 B3。**不要**拿这里的 7120ms 当基线。
 
 截图（已随仓库提交）：
 - `docs/design-preview/icon-v3/verified/launcher-api36.png`
@@ -68,10 +71,11 @@ B3 的基线取法：在本次改动之前（`4d5c131`）构建一版，用同�
 
 ## 4 已知限制与踩过的坑
 
-1. **非默认色盘下的窗口底**：`NormalTheme` 用的是默认色盘（`amberScroll`）的 surface 值，用户切到别的色盘时，首帧可能出现**一帧**底色不一致。这是为了不在冷启动路径上同步读 SharedPreferences 而接受的代价。
+1. **首帧一定有一次底色切换**：启动页用的是**品牌色**（昼 纸白 `#F2F4E9` / 夜 墨蓝 `#0E2A3B`），而应用首屏用的是**色盘 surface**（默认 `amberScroll`：昼 `#FBF6EC` / 夜 `#191510`）。两对颜色并不相同（夜间的蓝→暖黑尤其明显），所以**所有色盘、两种明暗形态**都会在首帧发生一次底色变化；切换色盘只是让差异换一种颜色，不是新增差异。这是设计上「启动页是品牌、首屏是内容」的取舍，不是遗漏。如果判定不可接受，正确做法是让 Flutter 首帧的背景与启动页取同一个值（而不是把启动页改成色盘色）。
 2. **模拟器不作为白闪判据**：模拟器的启动链路与真机不同，B4 必须在真机跑。
 3. **新增 drawable 后的 Gradle 陈旧合并**：本次新增 `drawable/launch_background.xml` 后，`flutter build apk` 报 `resource drawable/launch_background not found`，但文件存在、`aapt2 compile --dir android/app/src/main/res` 整树 exit 0。判定为 Gradle 增量资源合并的陈旧状态，执行 `cd android; .\gradlew :app:mergeDebugResources --rerun-tasks` 后构建通过。**下次新增资源文件若遇到同样的报错，先跑这条命令，不要去改 XML。**
-4. **legacy 位图需要一次性生成**：`android/app/src/main/res/mipmap-*/ic_launcher.png` 由 `tool/brand/generate_legacy_icons.ps1` 生成（依赖本机 Chrome）。它们已提交进仓库，CI 不需要跑该脚本；若要重新生成，跑脚本后必须确认 `dart run tool/ci/check_brand_assets.dart` 仍然通过。
+4. **legacy 位图需要一次性生成**：`android/app/src/main/res/mipmap-*/ic_launcher.png` 由 `tool/brand/generate_legacy_icons.ps1` 生成（依赖本机 Chrome，脚本要求 PowerShell 7+）。它们已提交进仓库，CI 不需要跑该脚本；若要重新生成，跑脚本后必须确认 `dart run tool/ci/check_brand_assets.dart` 仍然通过。
+5. **门禁能抓什么、抓不到什么**：`tool/ci/brand_asset_rules.dart` 用**精确值**判定（白底、transform、空层、笔宽、尺寸、真彩无 alpha、三份 pathData 同构），反向用例在 `test/ci/brand_asset_gate_test.dart`。它**抓不到**的是「形状本身好不好看」「换了一套同样合规但不同的图形」——那属于评审，不属于门禁。
 
 ## 5 复现命令
 

@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 昼：宣纸窗口底上的墨盘记印。
-     声明 240dp = 与 Android 12+ 系统闪屏「带 icon background：画布 240dp / 可见圆 Ø160dp」逐像素对齐；
-     墨盘 r=36 → 渲染 Ø160dp；mark 外接 27.0dp → 渲染 Ø60dp，与自适应图标上屏占比一致。
+     声明 288dp = Android 12+「不带 icon background」分支的画布尺寸（可见圆 Ø192dp）。
+     该分支是实测行为：不设 windowSplashScreenIconBackgroundColor 时系统走 288dp，
+     在 API 36 模拟器上量到墨盘 504px @420dpi = 192dp。若按文档里的 240dp 写，
+     系统闪屏会比 NormalTheme 的记印大 20%，冷启动时出现「大记印 → 小一号记印」。
+     换算：墨盘 r=36 ／ 108 × 288 → Ø192dp；mark 外接 27.0dp → Ø144dp。
      昼底上必须自带墨盘：否则纸白书页会落在纸白窗口底上而看不见。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="240dp"
-    android:height="240dp"
+    android:width="288dp"
+    android:height="288dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path

@@ -4,7 +4,7 @@
 
 **Goal:** 把已确认的「线描展开书 + 书口声纹」图标与配套启动页落进 Android 资源层，让 API 24–36 的图标与冷启动画面正确、不白闪、可复算。
 
-**Architecture:** 三层自适应图标全用 VectorDrawable（`mipmap-anydpi-v26/` + 两个 drawable + 一个颜色），API 24–25 回落 5 档位图；启动页分两条路径——API 31+ 用系统闪屏属性，API 24–30 用一张含 240dp 记印的 layer-list，并让 `NormalTheme` 复用同一张 layer-list 以消除「记印→纯色→首屏」跳变。资源正确性由 `tool/ci/check_brand_assets.dart` 门禁守（沿用仓库既有的 `tool/ci/*_rules.dart` + `check_*.dart` + `test/ci/*` 三件套）。
+**Architecture:** 三层自适应图标全用 VectorDrawable（`mipmap-anydpi-v26/` + 两个 drawable + 一个颜色），API 24–25 回落 5 档位图；启动页分两条路径——API 31+ 用系统闪屏属性，API 24–30 用一张含 288dp 记印的 layer-list，并让 `NormalTheme` 复用同一张 layer-list 以消除「记印→纯色→首屏」跳变。资源正确性由 `tool/ci/check_brand_assets.dart` 门禁守（沿用仓库既有的 `tool/ci/*_rules.dart` + `check_*.dart` + `test/ci/*` 三件套）。
 
 **Tech Stack:** Android 资源层（VectorDrawable / adaptive-icon / layer-list / values-* 限定符）、Dart 门禁脚本与 `flutter_test`、无头 Chrome（仅用于一次性导出 legacy 位图）。
 
@@ -377,16 +377,16 @@ git commit -m "feat(icon): legacy 五档位图（中央 72dp 裁切）+ 生成�
 
 **Interfaces:**
 - Consumes: `@drawable/ic_launcher_foreground` 的两条 `pathData`、`brand_ink` / `brand_paper` / `brand_echo`。
-- Produces: `@drawable/launch_background`（同时被 `LaunchTheme` 与 `NormalTheme` 引用，这是防白闪的关键）、`@drawable/launch_mark`（240dp）、`@color/splash_window_background`。
+- Produces: `@drawable/launch_background`（同时被 `LaunchTheme` 与 `NormalTheme` 引用，这是防白闪的关键）、`@drawable/launch_mark`（288dp）、`@color/splash_window_background`。
 
-**几何对齐**：`launch_mark.xml` 声明 **240dp**、viewport 108，墨盘 `r=36` → 渲染 Ø160dp，与 Android 12+ 系统闪屏「带 icon background：画布 240dp / 可见圆 Ø160dp」逐像素对齐；mark 外接 27.1dp → 渲染 Ø60.2dp，与图标上屏占比一致。
+**几何对齐**：`launch_mark.xml` 声明 **288dp**、viewport 108，墨盘 `r=36` → 渲染 Ø192dp。实测依据：不设 `windowSplashScreenIconBackgroundColor` 时，12+ 走「不带 icon background」分支（288dp 画布 / Ø192dp 可见圆），API 36 模拟器上量到墨盘 504px @420dpi = 192dp。mark 外接 27.0dp → 渲染 Ø144dp。若按文档里的 240dp/Ø160dp 写，系统闪屏会比应用窗口底大 20%。
 
 - [ ] **Step 1: 追加失败的启动页断言**
 
 在 `brandViolations` 追加（先写断言，再改资源）：
 1. `drawable/launch_mark.xml` 含 `fillColor="#FF0E2A3B"` 的圆盘路径；`drawable-night/launch_mark.xml` **不含**该色。
-2. `drawable/launch_background.xml` 含 `android:width="240dp"` 与 `@drawable/launch_mark`。
-3. `values/styles.xml`、`values-night/styles.xml`、`values-v31/styles.xml`、`values-night-v31/styles.xml` 四个文件里，`NormalTheme` 的 `windowBackground` 都是 `@drawable/launch_background`；且**任何** styles 文件里都不再出现 `?android:colorBackground`。
+2. `drawable/launch_background.xml` 的第一层精确等于 `@color/splash_window_background`，且含 `android:width="288dp"` 与 `@drawable/launch_mark`。
+3. `values/styles.xml` 与 `values-night/styles.xml` **必须各自定义 `LaunchTheme` 与 `NormalTheme`**，两者的 `windowBackground` 都精确等于 `@drawable/launch_background`（v31 文件只定义 `LaunchTheme`，按资源名解析会正确回落到这两份 `NormalTheme`）。v31 两个文件里 `windowSplashScreenBackground` 精确等于 `@color/splash_window_background`、`windowSplashScreenAnimatedIcon` 精确等于 `@mipmap/ic_launcher`。
 4. `values/colors.xml` 的 `splash_window_background` = `#FFF2F4E9`；`values-night/colors.xml` 的 = `#FF0E2A3B`。
 5. 对比度：`splash_window_background`（昼）与 `ic_launcher_background` 的 WCAG 比值 ≥ 3.0（用 Task 1 已实现的 `contrastRatio`；实测 13.37:1）。
 
@@ -418,11 +418,11 @@ Expected: FAIL，列出启动页相关违规
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 昼：宣纸窗口上的墨盘记印。声明 240dp = 与 12+ 系统闪屏 Ø160dp 可见圆对齐。
-     墨盘 r=36 → 渲染 Ø160dp；mark 外接 27.1dp → 渲染 Ø60.2dp。 -->
+<!-- 昼：宣纸窗口上的墨盘记印。声明 288dp = 12+ 系统闪屏「不带 icon background」分支的画布尺寸。
+     墨盘 r=36 ／ 108 × 288 → Ø192dp；mark 外接 27.0dp → Ø144dp。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="240dp"
-    android:height="240dp"
+    android:width="288dp"
+    android:height="288dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
@@ -453,13 +453,13 @@ Expected: FAIL，列出启动页相关违规
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 启动窗口底：一层纯色 + 居中 240dp 记印。API 24–30 的启动画面就是这张；
+<!-- 启动窗口底：一层纯色 + 居中 288dp 记印。API 24–30 的启动画面就是这张；
      API 31+ 由系统闪屏接管，NormalTheme 复用同一张以消除「记印→纯色→首屏」跳变。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_window_background" />
     <item
-        android:width="240dp"
-        android:height="240dp"
+        android:width="288dp"
+        android:height="288dp"
         android:gravity="center"
         android:drawable="@drawable/launch_mark" />
 </layer-list>
@@ -564,7 +564,7 @@ Run: `flutter run -d Medium_Phone_API_36.1`
 | B3 | 冷启动不回归 800ms | `adb shell am start -W com.tometone.app/.MainActivity` 连测 10 次取 `TotalTime` 中位数 | 中位数 ≤ 800ms，且比改前基线退化 ≤ 20ms |
 | B4 | 无白闪、底色不跳 | `adb shell screenrecord` 冷启 5s，逐帧看首屏内容出现**之前**的帧 | ① 无平均亮度 ≥ 0.95 的帧；② 相邻帧底色最大通道差 ≤ 8/255；③ 无纯白像素占比 > 1% 的帧 |
 | B5 | 无最小展示时长 | `grep -rn "KeepOnScreen\|postDelayed\|Thread.sleep" android/app/src/main` | 无匹配 |
-| B6 | 两条分支画面一致 | API 30 与 API 31 各截一张 | 记印大小与位置一致（240dp / Ø160dp 对齐） |
+| B6 | 两条分支画面一致 | API 30 与 API 31 各截一张 | 记印大小与位置一致（288dp 画布 / Ø192dp 可见圆对齐）；**位置**必须实测，layer-list 在窗口内居中、系统闪屏在全屏居中，可能差半个状态栏 |
 | B7 | 24–30 分支 | API 30 模拟器（模拟器不算通过，仅作形似核对）+ 可用时真机 | 纸白底 + 墨盘记印，无裸白屏 |
 
 - [ ] **Step 5: 记录已知限制（必须写进验收文档）**

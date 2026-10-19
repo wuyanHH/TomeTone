@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 品牌三色（docs/tometone_brand_icon_splash.md §2）：图标与启动页共用，不跟随应用内色盘。 -->
-    <color name="brand_ink">#FF0E2A3B</color>
-    <color name="brand_paper">#FFF2F4E9</color>
-    <color name="brand_echo">#FF58DCC1</color>
-    <!-- 自适应图标背景层：满幅不透明，不得有透明边。 -->
+    <!-- 图标背景层：满幅不透明，不得有透明边。 -->
     <color name="ic_launcher_background">#FF0E2A3B</color>
-    <!-- 启动窗口底 / 记印底：昼=纸白（与默认色盘浅色 surface 同值）；夜在 values-night 覆盖为墨蓝。 -->
+    <!-- 启动窗口底 / 记印底：昼=纸白（品牌纸白，**不是**应用内某套色盘的 surface）；夜在 values-night 覆盖为墨蓝。 -->
     <color name="splash_window_background">#FFF2F4E9</color>
 </resources>

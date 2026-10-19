@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 启动窗口底：一层纯色 + 居中 240dp 记印。
+<!-- 启动窗口底：一层纯色 + 居中 288dp 记印。
      API 24–30 的启动画面就是这张（那几代没有系统闪屏 API，只能给 Activity 窗口设背景图）；
      API 31+ 由系统闪屏接管，但 NormalTheme 复用同一张，避免
      「记印 → 纯色 → 首屏」的一次可见跳变（Flutter 在 onCreate 第一句就切到 NormalTheme）。
+     288dp 不是随手取的：不设 windowSplashScreenIconBackgroundColor 时，12+ 系统闪屏
+     走「无 icon background」分支，画布 288dp / 可见圆 Ø192dp（API 36 模拟器实测墨盘 192dp）。
+     写成 240dp 会让系统闪屏比这里大 20%，交接时缩一下。
      注：<item> 的 width/height 需要 API 23+，本项目 minSdk 24。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_window_background" />
     <item
-        android:width="240dp"
-        android:height="240dp"
+        android:width="288dp"
+        android:height="288dp"
         android:gravity="center"
         android:drawable="@drawable/launch_mark" />
 </layer-list>

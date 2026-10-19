@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+#Requires -Version 7.0
 <#
 .SYNOPSIS
   从图标矢量源导出 API 24–25 的 legacy 位图（5 档）。
