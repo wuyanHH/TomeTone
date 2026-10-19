@@ -6,19 +6,22 @@ import 'package:tometone/app/library/cover_paths.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/player/player_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 
 /// 书架（《架构需求文档》§2.1）。
 ///
+/// 职责边界（方案 A）：书架只负责「看与听」，内容来源在「书库」tab 里管理。
+///
 /// 布局：
 /// - 页首是藏馆题头与藏书数量（进入页面先知道"有多少"）；
 /// - 手机纵屏 2 列，`>=600dp` 3 列、`>=960dp` 4 列；
 /// - 每一项从上到下是封面 → 书名（最多两行）→ 进度 / 未听 → 缺失提示。
 ///
-/// 三态都直接来自 [booksProvider]：加载中不假装有内容，空态明确指向
-/// 「设置里添加书库根」，错误态提供重试（`ref.invalidate`）。
+/// 三态都直接来自 [booksProvider]：加载中不假装有内容，空态一句话指向
+/// 「书库」并给出直达按钮，错误态提供重试（`ref.invalidate`）。
 class ShelfPage extends ConsumerWidget {
   /// 创建书架。
   const ShelfPage({super.key});
@@ -37,6 +40,9 @@ class ShelfPage extends ConsumerWidget {
 
   /// 书籍网格。
   static const Key gridKey = Key('shelf-grid');
+
+  /// 空态里「去书库添加目录」的引导按钮。
+  static const Key goToLibraryKey = Key('shelf-open-library');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -123,6 +129,9 @@ class ShelfPage extends ConsumerWidget {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _ShelfEmpty(
+                  onOpenLibrary: () {
+                    ref.read(appTabProvider.notifier).select(AppTab.library);
+                  },
                   onRefresh: () {
                     ref.invalidate(booksProvider);
                     ref.invalidate(libraryRootsProvider);
@@ -331,10 +340,14 @@ class _ShelfSkeletonTile extends StatelessWidget {
   }
 }
 
-/// 空态：不假装能扫描，直接指向设置里的书库根。
+/// 空态：不假装能扫描，一句话指向「书库」，并给一个直达按钮。
 class _ShelfEmpty extends StatelessWidget {
-  const _ShelfEmpty({required this.onRefresh});
+  const _ShelfEmpty({required this.onOpenLibrary, required this.onRefresh});
 
+  /// 跳到「书库」tab（通过外壳级 provider，不依赖 AppShell 实例）。
+  final VoidCallback onOpenLibrary;
+
+  /// 重新读取书架。
   final VoidCallback onRefresh;
 
   @override
@@ -373,13 +386,20 @@ class _ShelfEmpty extends StatelessWidget {
               Text('还没有书库', style: text.headlineSmall),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '去「设置」里添加书库根，扫描完成后，书籍会出现在这里。',
+                '书架还空着：去「书库」添加一个目录，扫描完成后书目就会出现在这里。',
                 textAlign: TextAlign.center,
                 style: text.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                key: ShelfPage.goToLibraryKey,
+                onPressed: onOpenLibrary,
+                icon: const Icon(Icons.folder_special_outlined, size: 18),
+                label: const Text('去「书库」添加目录'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               OutlinedButton.icon(
                 onPressed: onRefresh,
                 icon: const Icon(Icons.refresh_rounded, size: 18),

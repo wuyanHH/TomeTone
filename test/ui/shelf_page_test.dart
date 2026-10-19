@@ -10,6 +10,7 @@ import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/player/player_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
@@ -73,15 +74,28 @@ void main() {
     expect(find.byKey(ShelfPage.emptyKey), findsOneWidget);
   });
 
-  testWidgets('空态：明确指向设置里的书库根', (WidgetTester tester) async {
+  testWidgets('空态：一句话指向「书库」，点击引导切到书库 tab', (WidgetTester tester) async {
     usePhoneViewport(tester);
-    await pumpShelf(tester, overrides: testOverrides(controller: controller));
+    final ProviderContainer container = await pumpShelf(
+      tester,
+      overrides: testOverrides(controller: controller),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(ShelfPage.emptyKey), findsOneWidget);
     expect(find.text('还没有书库'), findsOneWidget);
-    expect(find.textContaining('去「设置」里添加书库根'), findsOneWidget);
+    expect(find.textContaining('去「书库」添加一个目录'), findsOneWidget);
+    expect(find.textContaining('「设置」'), findsNothing);
     expect(find.text('重新读取书架'), findsOneWidget);
+    expect(container.read(appTabProvider), AppTab.shelf);
+
+    await tester.tap(find.byKey(ShelfPage.goToLibraryKey));
+    await tester.pump();
+    expect(
+      container.read(appTabProvider),
+      AppTab.library,
+      reason: '空态引导必须切到书库 tab',
+    );
     expect(tester.takeException(), isNull);
   });
 

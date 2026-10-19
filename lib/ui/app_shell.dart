@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/ui/app_tabs.dart';
+import 'package:tometone/ui/pages/library/library_page.dart';
 import 'package:tometone/ui/pages/settings/settings_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/mini_player.dart';
 
-/// 应用外壳：底部 3 栏（书架 / 纪年 / 设置）+ 底部 MiniPlayer。
+/// 应用外壳：底部 4 栏（书架 / 书库 / 纪年 / 设置）+ 底部 MiniPlayer。
 ///
 /// 形态规则（《架构需求文档》§3.1）：
 /// - `< 600dp` 手机纵屏：单列内容 + 底部 [NavigationBar]；
 /// - `>= 600dp` 平板 / 桌面：单列内容 + [NavigationRail]（双列网格留给后续步骤）。
 ///
+/// 选中态存放在 [appTabProvider]：页面（例如书架空态）可以请求切到别的
+/// tab，外壳只负责把它渲染成 NavigationBar / NavigationRail。
+///
 /// MiniPlayer 默认就是真实的 [MiniPlayer]（没有当前章节时它自己渲染为
 /// `SizedBox.shrink`，不占高度）；测试或特殊端形态可以注入一个替身。
 /// 外壳本身仍不读取播放数据、不含播放策略 —— 展开播放台由 MiniPlayer 自己完成。
 ///
-/// 书架与设置已是真实页面；纪年仍是占位内容，后续替换 [_tabs] 即可。
-class AppShell extends StatefulWidget {
+/// 书架、书库与设置已是真实页面；纪年仍是占位内容，后续替换 [_pageFor] 即可。
+class AppShell extends ConsumerWidget {
   /// 创建应用外壳。
   const AppShell({super.key, this.miniPlayer = const MiniPlayer()});
 
@@ -23,36 +29,27 @@ class AppShell extends StatefulWidget {
   final Widget miniPlayer;
 
   @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  int _index = 0;
-
-  void _select(int index) {
-    if (index == _index) {
-      return;
-    }
-    setState(() => _index = index);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppTab tab = ref.watch(appTabProvider);
     final bool wide =
         MediaQuery.sizeOf(context).width >= AppSizes.wideBreakpoint;
     final Duration swapDuration = AppMotion.resolve(
       context,
       AppDurations.standard,
     );
-    final Widget content = _TabSwitcher(index: _index, duration: swapDuration);
-    final Widget miniPlayer = widget.miniPlayer;
+    final Widget content = _TabSwitcher(tab: tab, duration: swapDuration);
+    final Widget miniPlayer = this.miniPlayer;
+
+    void select(int index) {
+      ref.read(appTabProvider.notifier).select(AppTab.values[index]);
+    }
 
     if (wide) {
       return Scaffold(
         body: SafeArea(
           child: Row(
             children: <Widget>[
-              _ShellRail(selectedIndex: _index, onSelected: _select),
+              _ShellRail(selectedIndex: tab.index, onSelected: select),
               const VerticalDivider(width: 1),
               Expanded(
                 child: Column(
@@ -74,7 +71,7 @@ class _AppShellState extends State<AppShell> {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           _MiniPlayerSlot(child: miniPlayer),
-          _ShellBar(selectedIndex: _index, onSelected: _select),
+          _ShellBar(selectedIndex: tab.index, onSelected: select),
         ],
       ),
     );
@@ -83,9 +80,9 @@ class _AppShellState extends State<AppShell> {
 
 /// tab 内容切换：仅一次 200ms 淡入淡出；系统"减弱动效"时立即切换。
 class _TabSwitcher extends StatelessWidget {
-  const _TabSwitcher({required this.index, required this.duration});
+  const _TabSwitcher({required this.tab, required this.duration});
 
-  final int index;
+  final AppTab tab;
   final Duration duration;
 
   @override
@@ -103,17 +100,20 @@ class _TabSwitcher extends StatelessWidget {
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(opacity: animation, child: child);
       },
-      child: KeyedSubtree(key: ValueKey<int>(index), child: _tabs[index]),
+      child: KeyedSubtree(key: ValueKey<AppTab>(tab), child: _pageFor(tab)),
     );
   }
 }
 
-/// 三个 tab 的内容。真实页面替换这里即可（届时建议改用 IndexedStack 保留滚动位置）。
-const List<Widget> _tabs = <Widget>[
-  ShelfPage(),
-  ChronicleTabPlaceholder(),
-  SettingsPage(),
-];
+/// 每个目的地的页面。新增 tab 时同步补充 [_destinations]。
+Widget _pageFor(AppTab tab) {
+  return switch (tab) {
+    AppTab.shelf => const ShelfPage(),
+    AppTab.library => const LibraryPage(),
+    AppTab.chronicle => const ChronicleTabPlaceholder(),
+    AppTab.settings => const SettingsPage(),
+  };
+}
 
 /// 外壳目的地定义。
 class _ShellDestination {
@@ -133,9 +133,15 @@ class _ShellDestination {
 const List<_ShellDestination> _destinations = <_ShellDestination>[
   _ShellDestination(
     label: '书架',
-    icon: Icons.auto_stories_outlined,
-    selectedIcon: Icons.auto_stories,
-    hint: '书架：你的藏书',
+    icon: Icons.menu_book_outlined,
+    selectedIcon: Icons.menu_book,
+    hint: '书架：你的藏书与收听',
+  ),
+  _ShellDestination(
+    label: '书库',
+    icon: Icons.folder_special_outlined,
+    selectedIcon: Icons.folder_special,
+    hint: '书库：内容来源与扫描',
   ),
   _ShellDestination(
     label: '纪年',
@@ -147,11 +153,11 @@ const List<_ShellDestination> _destinations = <_ShellDestination>[
     label: '设置',
     icon: Icons.tune_outlined,
     selectedIcon: Icons.tune,
-    hint: '设置：外观、数据与关于',
+    hint: '设置：外观与关于',
   ),
 ];
 
-/// 手机纵屏：底部 3 栏。
+/// 手机纵屏：底部 4 栏。
 class _ShellBar extends StatelessWidget {
   const _ShellBar({required this.selectedIndex, required this.onSelected});
 

@@ -93,7 +93,7 @@ abstract final class AppSizes {
   /// 关键触控目标下限（《架构需求文档》§3.4，48dp）。
   static const double minTouchTarget = 48;
 
-  /// 底部 3 栏高度。
+  /// 底部导航栏（NavigationBar）高度。
   static const double navigationBarHeight = 72;
 
   /// 平板 / 桌面 NavigationRail 宽度。

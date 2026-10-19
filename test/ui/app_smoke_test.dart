@@ -9,6 +9,7 @@ import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app.dart';
 import 'package:tometone/ui/app_shell.dart';
+import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/app_color_palette.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -48,7 +49,7 @@ void main() {
     ];
   }
 
-  testWidgets('装配入口 → 外壳渲染成功：3 个 tab 存在且无异常', (WidgetTester tester) async {
+  testWidgets('装配入口 → 外壳渲染成功：4 个 tab 存在且无异常', (WidgetTester tester) async {
     _useViewport(tester, const Size(400, 800));
 
     await tester.pumpWidget(
@@ -60,13 +61,14 @@ void main() {
     expect(find.byType(AppShell), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('书架'), findsOneWidget);
+    expect(find.text('书库'), findsOneWidget);
     expect(find.text('纪年'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('书卷藏馆'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('切换 tab 后显示对应页面，设置页读取注入的书库根', (WidgetTester tester) async {
+  testWidgets('切换 tab 后显示对应页面：纪年占位 / 书库根 / 设置', (WidgetTester tester) async {
     _useViewport(tester, const Size(400, 800));
 
     await tester.pumpWidget(
@@ -79,13 +81,40 @@ void main() {
     expect(find.text('聆听纪年'), findsOneWidget);
     expect(find.text('书卷藏馆'), findsNothing);
 
+    await tester.tap(find.text('书库'));
+    await tester.pumpAndSettle();
+    // 书库是新家：空书库根的空态与添加入口都在这页（overrides 注入空列表）。
+    expect(find.text('书库 · LIBRARY'), findsOneWidget);
+    expect(find.text('还没有书库根'), findsOneWidget);
+
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     expect(find.text('系统偏好'), findsOneWidget);
-    // 设置页现在是真实页面：空态来自 overrides 里注入的空书库根列表。
-    expect(find.text('还没有书库根'), findsOneWidget);
-    expect(find.text('书库根'), findsOneWidget);
+    // 书库根已拆走：设置页不再出现它的空态。
+    expect(find.text('还没有书库根'), findsNothing);
+    expect(find.text('外观'), findsOneWidget);
 
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('书架空态：点「去书库添加目录」直达书库 tab', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
+    await tester.pumpWidget(
+      ProviderScope(overrides: overrides(), child: const TomeToneApp()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(ShelfPage.emptyKey), findsOneWidget);
+    expect(find.textContaining('去「书库」添加一个目录'), findsOneWidget);
+    expect(find.text('去「书库」添加目录'), findsOneWidget);
+
+    await tester.tap(find.byKey(ShelfPage.goToLibraryKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('书库 · LIBRARY'), findsOneWidget);
+    expect(find.text('还没有书库根'), findsOneWidget);
+    expect(find.byKey(ShelfPage.emptyKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -132,6 +161,7 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     expect(find.text('书架'), findsOneWidget);
+    expect(find.text('书库'), findsOneWidget);
     expect(find.text('纪年'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('书卷藏馆'), findsOneWidget);
@@ -140,6 +170,12 @@ void main() {
     await tester.tap(find.text('纪年'));
     await tester.pumpAndSettle();
     expect(find.text('聆听纪年'), findsOneWidget);
+
+    // 轨道同样能到达新拆出的书库页。
+    await tester.tap(find.text('书库'));
+    await tester.pumpAndSettle();
+    expect(find.text('书库 · LIBRARY'), findsOneWidget);
+    expect(find.text('还没有书库根'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
