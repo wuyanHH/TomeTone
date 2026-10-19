@@ -194,7 +194,7 @@ List<String> brandViolations({String root = '.'}) {
     if (size == null) {
       violations.add('$path 不是可解析的 PNG');
     } else if (size.$1.toString() != expectedSize) {
-      violations.add('$path 尺寸应为 ${expectedSize}×$expectedSize，实际 ${size.$1}×${size.$2}');
+      violations.add('$path 尺寸应为 $expectedSize×$expectedSize，实际 ${size.$1}×${size.$2}');
     }
     if (pngColorType(bytes) == 3) {
       violations.add('$path 仍是 Flutter 默认位图（调色板型）；请运行 tool/brand/generate_legacy_icons.ps1');
