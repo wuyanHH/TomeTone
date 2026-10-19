@@ -156,8 +156,58 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - `storageProviderFactoryProvider` 在 `main.dart` 注入 —— 应用层不能 import
     `lib/modules/`（§5.2），工厂注入是唯一合法通路。
 
+- **SAF 书库根的播放与封面通路**（`lib/contracts/media/`、`lib/platform/saf/`、`lib/modules/storage_local/`、`lib/modules/storage_saf/`）：
+  - 新增契约端口 `MediaSourceResolver`（`resolveAudio` / `readBytes`）与 `LibraryRootKind`：
+    本地根拼绝对路径；SAF 根由平台桥按库内相对路径**逐段解析**出
+    `content://…/tree/<treeId>/document/<id>` 后交给 just_audio。播放源仍用
+    `LocalFileSource` 承载，但注释写明这是「单个可直接打开的 URI」容器的**语义借用**
+    —— `content://` 不能走 `fromPath`，否则会被包成 `file://` 而必然打不开。
+  - `SafBridge` 新增 `documentUri` / `readBytes` / `copyToCache`（`MainActivity` 侧实现）。
+    相对路径按「显示名相等」逐段匹配，不做 URL 编解码；`documentUri` 复用
+    `documentIdOf`，**不使用** `DocumentsContract.isTreeUri`（沿用上一轮
+    「0 册 0 章」的教训）。
+  - 封面：`BookCover` 新增 `coverImage`（优先于 `coverPath`，失败仍回落字标）；
+    书架 / 播放台 / 迷你播放器统一走 `coverArtProvider` —— 本地根给绝对路径（省内存），
+    SAF 根给字节。SAF 书库根的书封面不再永远显示字标兜底。
+
 ### 修复
 
+- **「书库」根列表去噪**（`lib/ui/pages/library/`）：
+  - 卡片不再显示内部存储类型（SAF 根此前直接把 `saf` 打在界面上）与原始 URI / 绝对路径；
+    需要看来源时走 `⋮ → 查看位置`（弹层展示完整来源、可复制）。
+  - 扫描结果不再常驻：成功停留约 6 秒后自动收起，也可手动关闭；失败仍常驻到用户收起
+    或下次扫描。去掉「用时 N 毫秒」这种每次都不同的噪音；「忽略 N 个非音频文件」
+    只在**没扫到任何音频**时给出 —— 它正好解释了「把书库根指到应用私有目录」这类困惑。
+  - 手填路径在移动端不再预填应用私有目录（`Directory.systemTemp.parent`）：那个默认值会
+    引导用户加一条只会扫出废文件的根，属于设计缺陷。
+  - 两种根的区别只在移除弹窗里体现（系统授权目录会提示一并放弃授权），列表上不再区分。
+- **移除系统授权目录时一并放弃持久化读授权**（`lib/contracts/storage/directory_authorization.dart`、
+  `lib/platform/saf/`、`lib/app/library/library_root_service.dart`）：
+  新增 `DirectoryAuthorization` 端口，`SafBridge` 经通道 `releasePermission` 调
+  `releasePersistableUriPermission`；`removeRoot` 在删登记成功后对 SAF 根**尽力**释放
+  （本来就没授权 / 系统拒绝都不影响移除）。此前只删登记行、授权留在系统里，
+  移除弹窗里「会一并放弃系统授权」的说明会落空。
+- **书库点击「打不开」、已打开的书再点没反应**（`lib/app/providers/playback_providers.dart`、
+  `lib/app/policy/playback_controller.dart`、`lib/ui/pages/shelf/shelf_page.dart`）：
+  - 根因：SAF 书库根**只支持扫描、不支持播放** —— 播放队列把 `content://` tree URI
+    拼上相对路径当成本地路径喂给引擎，`load` 必然抛错，又被 `on Object` 统一吞成
+    「这本书暂时打不开，请稍后再试」；同一处拼接也让 `Image.file` 永远读不出封面。
+  - `openBook` 语义收敛：已是当前书且会话健康 → **只展开播放台**（不重建队列、不重定位、不重播）；
+    打开改为原子操作 —— 空队列**零副作用**返回、加载失败**回滚**
+    （`currentBook` 置空 + 新增 `PlaybackController.clearSession()`），不再留下
+    「幽灵迷你播放器 / `--:--` 时间轴 / 书架仍显示未听」；SAF 直传失败时**只把即将播放的那一章**
+    复制到应用私有缓存后重试一次（不整书复制）；失败文案按原因区分
+    （根已移除 / 书目不完整 / 无可播章节 / 源不可读 / 未知）。本地根能力不变。
+- **播放台封面上两条游离横线**（`lib/ui/widgets/book_cover.dart`）：
+  真凶是几何字标「内框」的上下两条边 —— 左右两条因对比弱而看不见，读起来就像两条下划线。
+  改为四角角饰（保留「版框」的版式暗示，不再产生长横线），并新增**不依赖字体**的结构断言
+  锁死，防止整框回归。
+- **切章加载失败不再静默、失败残留不再挂住**（`lib/app/policy/playback_controller.dart`、
+  `lib/ui/widgets/mini_player.dart`、`lib/ui/pages/player/player_page.dart`）：
+  `skipToNext` / `skipToPrevious` / `seekToChapter` / 章末连播的加载异常收敛为
+  `lastError` + 退出播放态，迷你播放器与播放台给出「这一章打不开…」；
+  加载**成功即清** `lastError`（否则正常播放时错误提示会一直挂着）；
+  带残留错误时点同一本书不再走 `alreadyOpen` 短路，用户可以自然重试恢复。
 - **SAF 书库根扫描结果为「0 册 0 章」**（`android/app/src/main/kotlin/com/tometone/app/MainActivity.kt`）：
   `documentIdOf` 用 `DocumentsContract.isTreeUri` 区分 tree URI 与文档 URI，但该 API
   只看路径首段是不是 `tree`，而 `buildDocumentUriUsingTree` 生成的文档 URI
