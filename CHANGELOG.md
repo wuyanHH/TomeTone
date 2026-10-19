@@ -156,6 +156,24 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
   - `storageProviderFactoryProvider` 在 `main.dart` 注入 —— 应用层不能 import
     `lib/modules/`（§5.2），工厂注入是唯一合法通路。
 
+### 修复
+
+- **SAF 书库根扫描结果为「0 册 0 章」**（`android/app/src/main/kotlin/com/tometone/app/MainActivity.kt`）：
+  `documentIdOf` 用 `DocumentsContract.isTreeUri` 区分 tree URI 与文档 URI，但该 API
+  只看路径首段是不是 `tree`，而 `buildDocumentUriUsingTree` 生成的文档 URI
+  （`…/tree/<treeId>/document/<docId>`）首段同样是 `tree` —— 被误判为 tree URI 后
+  `getTreeDocumentId` 返回的是**树根** id 而非文档自己的 id。后果：列子目录时实际一直
+  在列根目录的直接子项，`书库根/<书>` 那层能进、再往下就永远重复同一层，扫描器递归到
+  `TopologyBuilder.maxDepth` 后拿不到任何章节（表现为刚添加的 SAF 书库根扫描后
+  「没有发现新增或变更 · 0 册 0 章」）。
+  改为按路径是否含 `/document/<id>` 段判定（`PATH_DOCUMENT` 未公开，用字面量）。
+  真机验证：`Audiobooks/Santi/Vol1/{001,002}.wav` 由「0 册 0 章」变为
+  「扫描完成 · 新增 1 册 · 1 卷 · 2 章」，逐层 `docId` 探针确认从
+  `primary:Audiobooks` → `primary:Audiobooks/Santi` → `…/Santi/Vol1` 正确递进。
+  - 回归盲区（待补）：`test/modules/storage_saf/saf_bridge_test.dart` 用**伪造
+    MethodChannel** 跑，绕过了 Android 侧的 URI 构造，因此覆盖不到这个 bug；
+    平台通道需要有真机/仪器化层或 URI 构造的纯函数化测试。
+
 ### 正在计划
 
 - 本地核心（书库扫描、播放、进度、统计），详见《架构需求文档》路线图 M1。

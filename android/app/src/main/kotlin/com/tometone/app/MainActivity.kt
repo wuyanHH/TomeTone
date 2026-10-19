@@ -153,15 +153,30 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * tree URI 用 tree document id；文档 URI 用 document id。
-     * 两者混用会直接抛 IllegalArgumentException，所以必须显式区分。
+     * 取 URI 指向的 document id。
+     *
+     * **不要**用 [DocumentsContract.isTreeUri] 来区分：它只看路径首段是不是 `tree`，
+     * 而 [DocumentsContract.buildDocumentUriUsingTree] 生成的文档 URI 形如
+     * `…/tree/<treeId>/document/<docId>` —— 首段同样是 `tree`，会被误判成 tree URI，
+     * 于是 [DocumentsContract.getTreeDocumentId] 返回的是**树根** id 而不是文档自己的 id。
+     *
+     * 后果（实测）：列出子目录时其实一直在列根目录的直接子项，导致
+     * `书库根/<书>` 这一层能进去、再往下就永远重复同一层，扫描器递归到深度上限后
+     * 拿不到任何章节 —— 表现为「扫描完成 · 0 册 0 章」。
+     *
+     * 正确判据是路径里有没有 `/document/<id>` 段（`PATH_DOCUMENT` 未公开，用字面量）：
+     * - 纯 tree URI（`…/tree/<treeId>`）→ `getTreeDocumentId`
+     * - 文档 URI（`…/document/<id>` 或 `…/tree/<treeId>/document/<id>`）→ `getDocumentId`
      */
-    private fun documentIdOf(uri: Uri): String =
-        if (DocumentsContract.isTreeUri(uri)) {
-            DocumentsContract.getTreeDocumentId(uri)
-        } else {
+    private fun documentIdOf(uri: Uri): String {
+        val paths = uri.pathSegments
+        val isDocumentUri = paths.size >= 2 && paths[paths.size - 2] == "document"
+        return if (isDocumentUri) {
             DocumentsContract.getDocumentId(uri)
+        } else {
+            DocumentsContract.getTreeDocumentId(uri)
         }
+    }
 
     private fun displayNameOf(uri: Uri): String {
         try {
