@@ -185,7 +185,7 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
   /// ULID。
   final String id;
 
-  /// `local` / `saf` / `webdav` / `smb`。
+  /// `local` / `saf` / `webdav` / `smb` / `online`。
   final String type;
 
   /// 根 URI（本地绝对路径或 provider 句柄）。
@@ -431,6 +431,1288 @@ class LibraryRootsCompanion extends UpdateCompanion<LibraryRoot> {
   }
 }
 
+class $BookSourcesTable extends BookSources
+    with TableInfo<$BookSourcesTable, BookSource> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BookSourcesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _libraryRootIdMeta = const VerificationMeta(
+    'libraryRootId',
+  );
+  @override
+  late final GeneratedColumn<String> libraryRootId = GeneratedColumn<String>(
+    'library_root_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES library_roots (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
+    'sourceUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+    'source_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupNameMeta = const VerificationMeta(
+    'groupName',
+  );
+  @override
+  late final GeneratedColumn<String> groupName = GeneratedColumn<String>(
+    'group_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
+    'sourceType',
+  );
+  @override
+  late final GeneratedColumn<int> sourceType = GeneratedColumn<int>(
+    'source_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rawJsonMeta = const VerificationMeta(
+    'rawJson',
+  );
+  @override
+  late final GeneratedColumn<String> rawJson = GeneratedColumn<String>(
+    'raw_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _headerJsonMeta = const VerificationMeta(
+    'headerJson',
+  );
+  @override
+  late final GeneratedColumn<String> headerJson = GeneratedColumn<String>(
+    'header_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _exploreUrlMeta = const VerificationMeta(
+    'exploreUrl',
+  );
+  @override
+  late final GeneratedColumn<String> exploreUrl = GeneratedColumn<String>(
+    'explore_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _searchUrlMeta = const VerificationMeta(
+    'searchUrl',
+  );
+  @override
+  late final GeneratedColumn<String> searchUrl = GeneratedColumn<String>(
+    'search_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _jsLibMeta = const VerificationMeta('jsLib');
+  @override
+  late final GeneratedColumn<String> jsLib = GeneratedColumn<String>(
+    'js_lib',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _enabledExploreMeta = const VerificationMeta(
+    'enabledExplore',
+  );
+  @override
+  late final GeneratedColumn<bool> enabledExplore = GeneratedColumn<bool>(
+    'enabled_explore',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled_explore" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _customOrderMeta = const VerificationMeta(
+    'customOrder',
+  );
+  @override
+  late final GeneratedColumn<int> customOrder = GeneratedColumn<int>(
+    'custom_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _concurrentRateMeta = const VerificationMeta(
+    'concurrentRate',
+  );
+  @override
+  late final GeneratedColumn<int> concurrentRate = GeneratedColumn<int>(
+    'concurrent_rate',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastTestAtMeta = const VerificationMeta(
+    'lastTestAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastTestAt = GeneratedColumn<DateTime>(
+    'last_test_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastTestOkMeta = const VerificationMeta(
+    'lastTestOk',
+  );
+  @override
+  late final GeneratedColumn<bool> lastTestOk = GeneratedColumn<bool>(
+    'last_test_ok',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("last_test_ok" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _consecutiveFailuresMeta =
+      const VerificationMeta('consecutiveFailures');
+  @override
+  late final GeneratedColumn<int> consecutiveFailures = GeneratedColumn<int>(
+    'consecutive_failures',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    libraryRootId,
+    sourceUrl,
+    name,
+    groupName,
+    sourceType,
+    rawJson,
+    headerJson,
+    exploreUrl,
+    searchUrl,
+    jsLib,
+    enabled,
+    enabledExplore,
+    customOrder,
+    concurrentRate,
+    lastTestAt,
+    lastTestOk,
+    lastError,
+    consecutiveFailures,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'book_sources';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BookSource> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('library_root_id')) {
+      context.handle(
+        _libraryRootIdMeta,
+        libraryRootId.isAcceptableOrUnknown(
+          data['library_root_id']!,
+          _libraryRootIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_libraryRootIdMeta);
+    }
+    if (data.containsKey('source_url')) {
+      context.handle(
+        _sourceUrlMeta,
+        sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceUrlMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('group_name')) {
+      context.handle(
+        _groupNameMeta,
+        groupName.isAcceptableOrUnknown(data['group_name']!, _groupNameMeta),
+      );
+    }
+    if (data.containsKey('source_type')) {
+      context.handle(
+        _sourceTypeMeta,
+        sourceType.isAcceptableOrUnknown(data['source_type']!, _sourceTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceTypeMeta);
+    }
+    if (data.containsKey('raw_json')) {
+      context.handle(
+        _rawJsonMeta,
+        rawJson.isAcceptableOrUnknown(data['raw_json']!, _rawJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rawJsonMeta);
+    }
+    if (data.containsKey('header_json')) {
+      context.handle(
+        _headerJsonMeta,
+        headerJson.isAcceptableOrUnknown(data['header_json']!, _headerJsonMeta),
+      );
+    }
+    if (data.containsKey('explore_url')) {
+      context.handle(
+        _exploreUrlMeta,
+        exploreUrl.isAcceptableOrUnknown(data['explore_url']!, _exploreUrlMeta),
+      );
+    }
+    if (data.containsKey('search_url')) {
+      context.handle(
+        _searchUrlMeta,
+        searchUrl.isAcceptableOrUnknown(data['search_url']!, _searchUrlMeta),
+      );
+    }
+    if (data.containsKey('js_lib')) {
+      context.handle(
+        _jsLibMeta,
+        jsLib.isAcceptableOrUnknown(data['js_lib']!, _jsLibMeta),
+      );
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('enabled_explore')) {
+      context.handle(
+        _enabledExploreMeta,
+        enabledExplore.isAcceptableOrUnknown(
+          data['enabled_explore']!,
+          _enabledExploreMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_order')) {
+      context.handle(
+        _customOrderMeta,
+        customOrder.isAcceptableOrUnknown(
+          data['custom_order']!,
+          _customOrderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('concurrent_rate')) {
+      context.handle(
+        _concurrentRateMeta,
+        concurrentRate.isAcceptableOrUnknown(
+          data['concurrent_rate']!,
+          _concurrentRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_test_at')) {
+      context.handle(
+        _lastTestAtMeta,
+        lastTestAt.isAcceptableOrUnknown(
+          data['last_test_at']!,
+          _lastTestAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_test_ok')) {
+      context.handle(
+        _lastTestOkMeta,
+        lastTestOk.isAcceptableOrUnknown(
+          data['last_test_ok']!,
+          _lastTestOkMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('consecutive_failures')) {
+      context.handle(
+        _consecutiveFailuresMeta,
+        consecutiveFailures.isAcceptableOrUnknown(
+          data['consecutive_failures']!,
+          _consecutiveFailuresMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BookSource map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BookSource(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      libraryRootId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}library_root_id'],
+      )!,
+      sourceUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_url'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      groupName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_name'],
+      ),
+      sourceType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source_type'],
+      )!,
+      rawJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_json'],
+      )!,
+      headerJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}header_json'],
+      ),
+      exploreUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}explore_url'],
+      ),
+      searchUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}search_url'],
+      ),
+      jsLib: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}js_lib'],
+      ),
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      enabledExplore: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled_explore'],
+      )!,
+      customOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}custom_order'],
+      )!,
+      concurrentRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}concurrent_rate'],
+      ),
+      lastTestAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_test_at'],
+      ),
+      lastTestOk: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}last_test_ok'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      consecutiveFailures: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}consecutive_failures'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $BookSourcesTable createAlias(String alias) {
+    return $BookSourcesTable(attachedDatabase, alias);
+  }
+}
+
+class BookSource extends DataClass implements Insertable<BookSource> {
+  /// ULID。
+  final String id;
+
+  /// 虚拟书库根。
+  final String libraryRootId;
+
+  /// 规范化后的书源地址（身份）。
+  final String sourceUrl;
+
+  /// 书源名。
+  final String name;
+
+  /// Legado `bookSourceGroup`。
+  final String? groupName;
+
+  /// 书源类型；本阶段只接受 1（听书源）。
+  final int sourceType;
+
+  /// 原始 Legado JSON（未知字段也保留）。
+  final String rawJson;
+
+  /// 规范化后的 header JSON；不在此层解密或记录。
+  final String? headerJson;
+
+  /// Legado `exploreUrl`。
+  final String? exploreUrl;
+
+  /// Legado `searchUrl`。
+  final String? searchUrl;
+
+  /// Legado `jsLib`。
+  final String? jsLib;
+
+  /// 是否参与自动刷新 / 发现。
+  final bool enabled;
+
+  /// 是否出现在发现页。
+  final bool enabledExplore;
+
+  /// 用户排序值。
+  final int customOrder;
+
+  /// Legado `concurrentRate`（毫秒）。
+  final int? concurrentRate;
+
+  /// 最近一次源级测试。
+  final DateTime? lastTestAt;
+
+  /// 最近一次源级测试是否成功。
+  final bool? lastTestOk;
+
+  /// 最近一次源级错误（已脱敏）。
+  final String? lastError;
+
+  /// 连续失败次数。
+  final int consecutiveFailures;
+
+  /// 导入时间。
+  final DateTime createdAt;
+
+  /// 最近更新时间。
+  final DateTime updatedAt;
+
+  /// 软删除时间；非空表示来源不可用，但书目与进度保留。
+  final DateTime? deletedAt;
+  const BookSource({
+    required this.id,
+    required this.libraryRootId,
+    required this.sourceUrl,
+    required this.name,
+    this.groupName,
+    required this.sourceType,
+    required this.rawJson,
+    this.headerJson,
+    this.exploreUrl,
+    this.searchUrl,
+    this.jsLib,
+    required this.enabled,
+    required this.enabledExplore,
+    required this.customOrder,
+    this.concurrentRate,
+    this.lastTestAt,
+    this.lastTestOk,
+    this.lastError,
+    required this.consecutiveFailures,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['library_root_id'] = Variable<String>(libraryRootId);
+    map['source_url'] = Variable<String>(sourceUrl);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || groupName != null) {
+      map['group_name'] = Variable<String>(groupName);
+    }
+    map['source_type'] = Variable<int>(sourceType);
+    map['raw_json'] = Variable<String>(rawJson);
+    if (!nullToAbsent || headerJson != null) {
+      map['header_json'] = Variable<String>(headerJson);
+    }
+    if (!nullToAbsent || exploreUrl != null) {
+      map['explore_url'] = Variable<String>(exploreUrl);
+    }
+    if (!nullToAbsent || searchUrl != null) {
+      map['search_url'] = Variable<String>(searchUrl);
+    }
+    if (!nullToAbsent || jsLib != null) {
+      map['js_lib'] = Variable<String>(jsLib);
+    }
+    map['enabled'] = Variable<bool>(enabled);
+    map['enabled_explore'] = Variable<bool>(enabledExplore);
+    map['custom_order'] = Variable<int>(customOrder);
+    if (!nullToAbsent || concurrentRate != null) {
+      map['concurrent_rate'] = Variable<int>(concurrentRate);
+    }
+    if (!nullToAbsent || lastTestAt != null) {
+      map['last_test_at'] = Variable<DateTime>(lastTestAt);
+    }
+    if (!nullToAbsent || lastTestOk != null) {
+      map['last_test_ok'] = Variable<bool>(lastTestOk);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['consecutive_failures'] = Variable<int>(consecutiveFailures);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  BookSourcesCompanion toCompanion(bool nullToAbsent) {
+    return BookSourcesCompanion(
+      id: Value(id),
+      libraryRootId: Value(libraryRootId),
+      sourceUrl: Value(sourceUrl),
+      name: Value(name),
+      groupName: groupName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupName),
+      sourceType: Value(sourceType),
+      rawJson: Value(rawJson),
+      headerJson: headerJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(headerJson),
+      exploreUrl: exploreUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exploreUrl),
+      searchUrl: searchUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(searchUrl),
+      jsLib: jsLib == null && nullToAbsent
+          ? const Value.absent()
+          : Value(jsLib),
+      enabled: Value(enabled),
+      enabledExplore: Value(enabledExplore),
+      customOrder: Value(customOrder),
+      concurrentRate: concurrentRate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(concurrentRate),
+      lastTestAt: lastTestAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastTestAt),
+      lastTestOk: lastTestOk == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastTestOk),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      consecutiveFailures: Value(consecutiveFailures),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory BookSource.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BookSource(
+      id: serializer.fromJson<String>(json['id']),
+      libraryRootId: serializer.fromJson<String>(json['libraryRootId']),
+      sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
+      name: serializer.fromJson<String>(json['name']),
+      groupName: serializer.fromJson<String?>(json['groupName']),
+      sourceType: serializer.fromJson<int>(json['sourceType']),
+      rawJson: serializer.fromJson<String>(json['rawJson']),
+      headerJson: serializer.fromJson<String?>(json['headerJson']),
+      exploreUrl: serializer.fromJson<String?>(json['exploreUrl']),
+      searchUrl: serializer.fromJson<String?>(json['searchUrl']),
+      jsLib: serializer.fromJson<String?>(json['jsLib']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      enabledExplore: serializer.fromJson<bool>(json['enabledExplore']),
+      customOrder: serializer.fromJson<int>(json['customOrder']),
+      concurrentRate: serializer.fromJson<int?>(json['concurrentRate']),
+      lastTestAt: serializer.fromJson<DateTime?>(json['lastTestAt']),
+      lastTestOk: serializer.fromJson<bool?>(json['lastTestOk']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      consecutiveFailures: serializer.fromJson<int>(
+        json['consecutiveFailures'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'libraryRootId': serializer.toJson<String>(libraryRootId),
+      'sourceUrl': serializer.toJson<String>(sourceUrl),
+      'name': serializer.toJson<String>(name),
+      'groupName': serializer.toJson<String?>(groupName),
+      'sourceType': serializer.toJson<int>(sourceType),
+      'rawJson': serializer.toJson<String>(rawJson),
+      'headerJson': serializer.toJson<String?>(headerJson),
+      'exploreUrl': serializer.toJson<String?>(exploreUrl),
+      'searchUrl': serializer.toJson<String?>(searchUrl),
+      'jsLib': serializer.toJson<String?>(jsLib),
+      'enabled': serializer.toJson<bool>(enabled),
+      'enabledExplore': serializer.toJson<bool>(enabledExplore),
+      'customOrder': serializer.toJson<int>(customOrder),
+      'concurrentRate': serializer.toJson<int?>(concurrentRate),
+      'lastTestAt': serializer.toJson<DateTime?>(lastTestAt),
+      'lastTestOk': serializer.toJson<bool?>(lastTestOk),
+      'lastError': serializer.toJson<String?>(lastError),
+      'consecutiveFailures': serializer.toJson<int>(consecutiveFailures),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  BookSource copyWith({
+    String? id,
+    String? libraryRootId,
+    String? sourceUrl,
+    String? name,
+    Value<String?> groupName = const Value.absent(),
+    int? sourceType,
+    String? rawJson,
+    Value<String?> headerJson = const Value.absent(),
+    Value<String?> exploreUrl = const Value.absent(),
+    Value<String?> searchUrl = const Value.absent(),
+    Value<String?> jsLib = const Value.absent(),
+    bool? enabled,
+    bool? enabledExplore,
+    int? customOrder,
+    Value<int?> concurrentRate = const Value.absent(),
+    Value<DateTime?> lastTestAt = const Value.absent(),
+    Value<bool?> lastTestOk = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+    int? consecutiveFailures,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => BookSource(
+    id: id ?? this.id,
+    libraryRootId: libraryRootId ?? this.libraryRootId,
+    sourceUrl: sourceUrl ?? this.sourceUrl,
+    name: name ?? this.name,
+    groupName: groupName.present ? groupName.value : this.groupName,
+    sourceType: sourceType ?? this.sourceType,
+    rawJson: rawJson ?? this.rawJson,
+    headerJson: headerJson.present ? headerJson.value : this.headerJson,
+    exploreUrl: exploreUrl.present ? exploreUrl.value : this.exploreUrl,
+    searchUrl: searchUrl.present ? searchUrl.value : this.searchUrl,
+    jsLib: jsLib.present ? jsLib.value : this.jsLib,
+    enabled: enabled ?? this.enabled,
+    enabledExplore: enabledExplore ?? this.enabledExplore,
+    customOrder: customOrder ?? this.customOrder,
+    concurrentRate: concurrentRate.present
+        ? concurrentRate.value
+        : this.concurrentRate,
+    lastTestAt: lastTestAt.present ? lastTestAt.value : this.lastTestAt,
+    lastTestOk: lastTestOk.present ? lastTestOk.value : this.lastTestOk,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  BookSource copyWithCompanion(BookSourcesCompanion data) {
+    return BookSource(
+      id: data.id.present ? data.id.value : this.id,
+      libraryRootId: data.libraryRootId.present
+          ? data.libraryRootId.value
+          : this.libraryRootId,
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      name: data.name.present ? data.name.value : this.name,
+      groupName: data.groupName.present ? data.groupName.value : this.groupName,
+      sourceType: data.sourceType.present
+          ? data.sourceType.value
+          : this.sourceType,
+      rawJson: data.rawJson.present ? data.rawJson.value : this.rawJson,
+      headerJson: data.headerJson.present
+          ? data.headerJson.value
+          : this.headerJson,
+      exploreUrl: data.exploreUrl.present
+          ? data.exploreUrl.value
+          : this.exploreUrl,
+      searchUrl: data.searchUrl.present ? data.searchUrl.value : this.searchUrl,
+      jsLib: data.jsLib.present ? data.jsLib.value : this.jsLib,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      enabledExplore: data.enabledExplore.present
+          ? data.enabledExplore.value
+          : this.enabledExplore,
+      customOrder: data.customOrder.present
+          ? data.customOrder.value
+          : this.customOrder,
+      concurrentRate: data.concurrentRate.present
+          ? data.concurrentRate.value
+          : this.concurrentRate,
+      lastTestAt: data.lastTestAt.present
+          ? data.lastTestAt.value
+          : this.lastTestAt,
+      lastTestOk: data.lastTestOk.present
+          ? data.lastTestOk.value
+          : this.lastTestOk,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      consecutiveFailures: data.consecutiveFailures.present
+          ? data.consecutiveFailures.value
+          : this.consecutiveFailures,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookSource(')
+          ..write('id: $id, ')
+          ..write('libraryRootId: $libraryRootId, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('name: $name, ')
+          ..write('groupName: $groupName, ')
+          ..write('sourceType: $sourceType, ')
+          ..write('rawJson: $rawJson, ')
+          ..write('headerJson: $headerJson, ')
+          ..write('exploreUrl: $exploreUrl, ')
+          ..write('searchUrl: $searchUrl, ')
+          ..write('jsLib: $jsLib, ')
+          ..write('enabled: $enabled, ')
+          ..write('enabledExplore: $enabledExplore, ')
+          ..write('customOrder: $customOrder, ')
+          ..write('concurrentRate: $concurrentRate, ')
+          ..write('lastTestAt: $lastTestAt, ')
+          ..write('lastTestOk: $lastTestOk, ')
+          ..write('lastError: $lastError, ')
+          ..write('consecutiveFailures: $consecutiveFailures, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    libraryRootId,
+    sourceUrl,
+    name,
+    groupName,
+    sourceType,
+    rawJson,
+    headerJson,
+    exploreUrl,
+    searchUrl,
+    jsLib,
+    enabled,
+    enabledExplore,
+    customOrder,
+    concurrentRate,
+    lastTestAt,
+    lastTestOk,
+    lastError,
+    consecutiveFailures,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BookSource &&
+          other.id == this.id &&
+          other.libraryRootId == this.libraryRootId &&
+          other.sourceUrl == this.sourceUrl &&
+          other.name == this.name &&
+          other.groupName == this.groupName &&
+          other.sourceType == this.sourceType &&
+          other.rawJson == this.rawJson &&
+          other.headerJson == this.headerJson &&
+          other.exploreUrl == this.exploreUrl &&
+          other.searchUrl == this.searchUrl &&
+          other.jsLib == this.jsLib &&
+          other.enabled == this.enabled &&
+          other.enabledExplore == this.enabledExplore &&
+          other.customOrder == this.customOrder &&
+          other.concurrentRate == this.concurrentRate &&
+          other.lastTestAt == this.lastTestAt &&
+          other.lastTestOk == this.lastTestOk &&
+          other.lastError == this.lastError &&
+          other.consecutiveFailures == this.consecutiveFailures &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class BookSourcesCompanion extends UpdateCompanion<BookSource> {
+  final Value<String> id;
+  final Value<String> libraryRootId;
+  final Value<String> sourceUrl;
+  final Value<String> name;
+  final Value<String?> groupName;
+  final Value<int> sourceType;
+  final Value<String> rawJson;
+  final Value<String?> headerJson;
+  final Value<String?> exploreUrl;
+  final Value<String?> searchUrl;
+  final Value<String?> jsLib;
+  final Value<bool> enabled;
+  final Value<bool> enabledExplore;
+  final Value<int> customOrder;
+  final Value<int?> concurrentRate;
+  final Value<DateTime?> lastTestAt;
+  final Value<bool?> lastTestOk;
+  final Value<String?> lastError;
+  final Value<int> consecutiveFailures;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const BookSourcesCompanion({
+    this.id = const Value.absent(),
+    this.libraryRootId = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.name = const Value.absent(),
+    this.groupName = const Value.absent(),
+    this.sourceType = const Value.absent(),
+    this.rawJson = const Value.absent(),
+    this.headerJson = const Value.absent(),
+    this.exploreUrl = const Value.absent(),
+    this.searchUrl = const Value.absent(),
+    this.jsLib = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.enabledExplore = const Value.absent(),
+    this.customOrder = const Value.absent(),
+    this.concurrentRate = const Value.absent(),
+    this.lastTestAt = const Value.absent(),
+    this.lastTestOk = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.consecutiveFailures = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BookSourcesCompanion.insert({
+    required String id,
+    required String libraryRootId,
+    required String sourceUrl,
+    required String name,
+    this.groupName = const Value.absent(),
+    required int sourceType,
+    required String rawJson,
+    this.headerJson = const Value.absent(),
+    this.exploreUrl = const Value.absent(),
+    this.searchUrl = const Value.absent(),
+    this.jsLib = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.enabledExplore = const Value.absent(),
+    this.customOrder = const Value.absent(),
+    this.concurrentRate = const Value.absent(),
+    this.lastTestAt = const Value.absent(),
+    this.lastTestOk = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.consecutiveFailures = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       libraryRootId = Value(libraryRootId),
+       sourceUrl = Value(sourceUrl),
+       name = Value(name),
+       sourceType = Value(sourceType),
+       rawJson = Value(rawJson),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<BookSource> custom({
+    Expression<String>? id,
+    Expression<String>? libraryRootId,
+    Expression<String>? sourceUrl,
+    Expression<String>? name,
+    Expression<String>? groupName,
+    Expression<int>? sourceType,
+    Expression<String>? rawJson,
+    Expression<String>? headerJson,
+    Expression<String>? exploreUrl,
+    Expression<String>? searchUrl,
+    Expression<String>? jsLib,
+    Expression<bool>? enabled,
+    Expression<bool>? enabledExplore,
+    Expression<int>? customOrder,
+    Expression<int>? concurrentRate,
+    Expression<DateTime>? lastTestAt,
+    Expression<bool>? lastTestOk,
+    Expression<String>? lastError,
+    Expression<int>? consecutiveFailures,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (libraryRootId != null) 'library_root_id': libraryRootId,
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (name != null) 'name': name,
+      if (groupName != null) 'group_name': groupName,
+      if (sourceType != null) 'source_type': sourceType,
+      if (rawJson != null) 'raw_json': rawJson,
+      if (headerJson != null) 'header_json': headerJson,
+      if (exploreUrl != null) 'explore_url': exploreUrl,
+      if (searchUrl != null) 'search_url': searchUrl,
+      if (jsLib != null) 'js_lib': jsLib,
+      if (enabled != null) 'enabled': enabled,
+      if (enabledExplore != null) 'enabled_explore': enabledExplore,
+      if (customOrder != null) 'custom_order': customOrder,
+      if (concurrentRate != null) 'concurrent_rate': concurrentRate,
+      if (lastTestAt != null) 'last_test_at': lastTestAt,
+      if (lastTestOk != null) 'last_test_ok': lastTestOk,
+      if (lastError != null) 'last_error': lastError,
+      if (consecutiveFailures != null)
+        'consecutive_failures': consecutiveFailures,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BookSourcesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? libraryRootId,
+    Value<String>? sourceUrl,
+    Value<String>? name,
+    Value<String?>? groupName,
+    Value<int>? sourceType,
+    Value<String>? rawJson,
+    Value<String?>? headerJson,
+    Value<String?>? exploreUrl,
+    Value<String?>? searchUrl,
+    Value<String?>? jsLib,
+    Value<bool>? enabled,
+    Value<bool>? enabledExplore,
+    Value<int>? customOrder,
+    Value<int?>? concurrentRate,
+    Value<DateTime?>? lastTestAt,
+    Value<bool?>? lastTestOk,
+    Value<String?>? lastError,
+    Value<int>? consecutiveFailures,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return BookSourcesCompanion(
+      id: id ?? this.id,
+      libraryRootId: libraryRootId ?? this.libraryRootId,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      name: name ?? this.name,
+      groupName: groupName ?? this.groupName,
+      sourceType: sourceType ?? this.sourceType,
+      rawJson: rawJson ?? this.rawJson,
+      headerJson: headerJson ?? this.headerJson,
+      exploreUrl: exploreUrl ?? this.exploreUrl,
+      searchUrl: searchUrl ?? this.searchUrl,
+      jsLib: jsLib ?? this.jsLib,
+      enabled: enabled ?? this.enabled,
+      enabledExplore: enabledExplore ?? this.enabledExplore,
+      customOrder: customOrder ?? this.customOrder,
+      concurrentRate: concurrentRate ?? this.concurrentRate,
+      lastTestAt: lastTestAt ?? this.lastTestAt,
+      lastTestOk: lastTestOk ?? this.lastTestOk,
+      lastError: lastError ?? this.lastError,
+      consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (libraryRootId.present) {
+      map['library_root_id'] = Variable<String>(libraryRootId.value);
+    }
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (groupName.present) {
+      map['group_name'] = Variable<String>(groupName.value);
+    }
+    if (sourceType.present) {
+      map['source_type'] = Variable<int>(sourceType.value);
+    }
+    if (rawJson.present) {
+      map['raw_json'] = Variable<String>(rawJson.value);
+    }
+    if (headerJson.present) {
+      map['header_json'] = Variable<String>(headerJson.value);
+    }
+    if (exploreUrl.present) {
+      map['explore_url'] = Variable<String>(exploreUrl.value);
+    }
+    if (searchUrl.present) {
+      map['search_url'] = Variable<String>(searchUrl.value);
+    }
+    if (jsLib.present) {
+      map['js_lib'] = Variable<String>(jsLib.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (enabledExplore.present) {
+      map['enabled_explore'] = Variable<bool>(enabledExplore.value);
+    }
+    if (customOrder.present) {
+      map['custom_order'] = Variable<int>(customOrder.value);
+    }
+    if (concurrentRate.present) {
+      map['concurrent_rate'] = Variable<int>(concurrentRate.value);
+    }
+    if (lastTestAt.present) {
+      map['last_test_at'] = Variable<DateTime>(lastTestAt.value);
+    }
+    if (lastTestOk.present) {
+      map['last_test_ok'] = Variable<bool>(lastTestOk.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (consecutiveFailures.present) {
+      map['consecutive_failures'] = Variable<int>(consecutiveFailures.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookSourcesCompanion(')
+          ..write('id: $id, ')
+          ..write('libraryRootId: $libraryRootId, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('name: $name, ')
+          ..write('groupName: $groupName, ')
+          ..write('sourceType: $sourceType, ')
+          ..write('rawJson: $rawJson, ')
+          ..write('headerJson: $headerJson, ')
+          ..write('exploreUrl: $exploreUrl, ')
+          ..write('searchUrl: $searchUrl, ')
+          ..write('jsLib: $jsLib, ')
+          ..write('enabled: $enabled, ')
+          ..write('enabledExplore: $enabledExplore, ')
+          ..write('customOrder: $customOrder, ')
+          ..write('concurrentRate: $concurrentRate, ')
+          ..write('lastTestAt: $lastTestAt, ')
+          ..write('lastTestOk: $lastTestOk, ')
+          ..write('lastError: $lastError, ')
+          ..write('consecutiveFailures: $consecutiveFailures, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -610,6 +1892,148 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _onShelfMeta = const VerificationMeta(
+    'onShelf',
+  );
+  @override
+  late final GeneratedColumn<bool> onShelf = GeneratedColumn<bool>(
+    'on_shelf',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("on_shelf" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _sourceIdMeta = const VerificationMeta(
+    'sourceId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
+    'source_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES book_sources (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _coverUrlMeta = const VerificationMeta(
+    'coverUrl',
+  );
+  @override
+  late final GeneratedColumn<String> coverUrl = GeneratedColumn<String>(
+    'cover_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _wordCountMeta = const VerificationMeta(
+    'wordCount',
+  );
+  @override
+  late final GeneratedColumn<String> wordCount = GeneratedColumn<String>(
+    'word_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceStatusMeta = const VerificationMeta(
+    'sourceStatus',
+  );
+  @override
+  late final GeneratedColumn<String> sourceStatus = GeneratedColumn<String>(
+    'source_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastChapterMeta = const VerificationMeta(
+    'lastChapter',
+  );
+  @override
+  late final GeneratedColumn<String> lastChapter = GeneratedColumn<String>(
+    'last_chapter',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceUpdatedAtMeta = const VerificationMeta(
+    'sourceUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> sourceUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'source_updated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastRefreshAtMeta = const VerificationMeta(
+    'lastRefreshAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastRefreshAt =
+      GeneratedColumn<DateTime>(
+        'last_refresh_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastRefreshOkMeta = const VerificationMeta(
+    'lastRefreshOk',
+  );
+  @override
+  late final GeneratedColumn<bool> lastRefreshOk = GeneratedColumn<bool>(
+    'last_refresh_ok',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("last_refresh_ok" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _lastRefreshErrorMeta = const VerificationMeta(
+    'lastRefreshError',
+  );
+  @override
+  late final GeneratedColumn<String> lastRefreshError = GeneratedColumn<String>(
+    'last_refresh_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -628,6 +2052,18 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     totalDurationMs,
     createdAt,
     updatedAt,
+    onShelf,
+    sourceId,
+    coverUrl,
+    description,
+    kind,
+    wordCount,
+    sourceStatus,
+    lastChapter,
+    sourceUpdatedAt,
+    lastRefreshAt,
+    lastRefreshOk,
+    lastRefreshError,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -754,6 +2190,99 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('on_shelf')) {
+      context.handle(
+        _onShelfMeta,
+        onShelf.isAcceptableOrUnknown(data['on_shelf']!, _onShelfMeta),
+      );
+    }
+    if (data.containsKey('source_id')) {
+      context.handle(
+        _sourceIdMeta,
+        sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta),
+      );
+    }
+    if (data.containsKey('cover_url')) {
+      context.handle(
+        _coverUrlMeta,
+        coverUrl.isAcceptableOrUnknown(data['cover_url']!, _coverUrlMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
+    if (data.containsKey('word_count')) {
+      context.handle(
+        _wordCountMeta,
+        wordCount.isAcceptableOrUnknown(data['word_count']!, _wordCountMeta),
+      );
+    }
+    if (data.containsKey('source_status')) {
+      context.handle(
+        _sourceStatusMeta,
+        sourceStatus.isAcceptableOrUnknown(
+          data['source_status']!,
+          _sourceStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_chapter')) {
+      context.handle(
+        _lastChapterMeta,
+        lastChapter.isAcceptableOrUnknown(
+          data['last_chapter']!,
+          _lastChapterMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_updated_at')) {
+      context.handle(
+        _sourceUpdatedAtMeta,
+        sourceUpdatedAt.isAcceptableOrUnknown(
+          data['source_updated_at']!,
+          _sourceUpdatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_refresh_at')) {
+      context.handle(
+        _lastRefreshAtMeta,
+        lastRefreshAt.isAcceptableOrUnknown(
+          data['last_refresh_at']!,
+          _lastRefreshAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_refresh_ok')) {
+      context.handle(
+        _lastRefreshOkMeta,
+        lastRefreshOk.isAcceptableOrUnknown(
+          data['last_refresh_ok']!,
+          _lastRefreshOkMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_refresh_error')) {
+      context.handle(
+        _lastRefreshErrorMeta,
+        lastRefreshError.isAcceptableOrUnknown(
+          data['last_refresh_error']!,
+          _lastRefreshErrorMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -829,6 +2358,54 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      onShelf: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}on_shelf'],
+      )!,
+      sourceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_id'],
+      ),
+      coverUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_url'],
+      ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      ),
+      wordCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}word_count'],
+      ),
+      sourceStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_status'],
+      ),
+      lastChapter: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_chapter'],
+      ),
+      sourceUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}source_updated_at'],
+      ),
+      lastRefreshAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_refresh_at'],
+      ),
+      lastRefreshOk: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}last_refresh_ok'],
+      ),
+      lastRefreshError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_refresh_error'],
+      ),
     );
   }
 
@@ -894,6 +2471,42 @@ class Book extends DataClass implements Insertable<Book> {
 
   /// 最近更新时间。
   final DateTime updatedAt;
+
+  /// 是否在书架展示。在线书首次收听/加入书架后为 true；本机书默认 true。
+  final bool onShelf;
+
+  /// 在线书来源；本机书为空。
+  final String? sourceId;
+
+  /// 在线封面 URL；本机封面仍走 [coverPath]。
+  final String? coverUrl;
+
+  /// 在线简介（覆盖层优先）。
+  final String? description;
+
+  /// 在线书类型 / 标签（Legado bookInfo.kind）。
+  final String? kind;
+
+  /// 在线字数（原样文本，可能含“万字”）。
+  final String? wordCount;
+
+  /// 在线书状态（连载 / 完结等，原样文本）。
+  final String? sourceStatus;
+
+  /// 在线书最新章名（列表展示用）。
+  final String? lastChapter;
+
+  /// 源侧最近更新时间。
+  final DateTime? sourceUpdatedAt;
+
+  /// 最近一次刷新信息时间。
+  final DateTime? lastRefreshAt;
+
+  /// 最近一次刷新是否成功。
+  final bool? lastRefreshOk;
+
+  /// 最近一次刷新错误（已脱敏）。
+  final String? lastRefreshError;
   const Book({
     required this.id,
     required this.libraryRootId,
@@ -911,6 +2524,18 @@ class Book extends DataClass implements Insertable<Book> {
     required this.totalDurationMs,
     required this.createdAt,
     required this.updatedAt,
+    required this.onShelf,
+    this.sourceId,
+    this.coverUrl,
+    this.description,
+    this.kind,
+    this.wordCount,
+    this.sourceStatus,
+    this.lastChapter,
+    this.sourceUpdatedAt,
+    this.lastRefreshAt,
+    this.lastRefreshOk,
+    this.lastRefreshError,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -947,6 +2572,40 @@ class Book extends DataClass implements Insertable<Book> {
     map['total_duration_ms'] = Variable<int>(totalDurationMs);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['on_shelf'] = Variable<bool>(onShelf);
+    if (!nullToAbsent || sourceId != null) {
+      map['source_id'] = Variable<String>(sourceId);
+    }
+    if (!nullToAbsent || coverUrl != null) {
+      map['cover_url'] = Variable<String>(coverUrl);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || kind != null) {
+      map['kind'] = Variable<String>(kind);
+    }
+    if (!nullToAbsent || wordCount != null) {
+      map['word_count'] = Variable<String>(wordCount);
+    }
+    if (!nullToAbsent || sourceStatus != null) {
+      map['source_status'] = Variable<String>(sourceStatus);
+    }
+    if (!nullToAbsent || lastChapter != null) {
+      map['last_chapter'] = Variable<String>(lastChapter);
+    }
+    if (!nullToAbsent || sourceUpdatedAt != null) {
+      map['source_updated_at'] = Variable<DateTime>(sourceUpdatedAt);
+    }
+    if (!nullToAbsent || lastRefreshAt != null) {
+      map['last_refresh_at'] = Variable<DateTime>(lastRefreshAt);
+    }
+    if (!nullToAbsent || lastRefreshOk != null) {
+      map['last_refresh_ok'] = Variable<bool>(lastRefreshOk);
+    }
+    if (!nullToAbsent || lastRefreshError != null) {
+      map['last_refresh_error'] = Variable<String>(lastRefreshError);
+    }
     return map;
   }
 
@@ -980,6 +2639,38 @@ class Book extends DataClass implements Insertable<Book> {
       totalDurationMs: Value(totalDurationMs),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      onShelf: Value(onShelf),
+      sourceId: sourceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceId),
+      coverUrl: coverUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverUrl),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      kind: kind == null && nullToAbsent ? const Value.absent() : Value(kind),
+      wordCount: wordCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(wordCount),
+      sourceStatus: sourceStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceStatus),
+      lastChapter: lastChapter == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastChapter),
+      sourceUpdatedAt: sourceUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceUpdatedAt),
+      lastRefreshAt: lastRefreshAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRefreshAt),
+      lastRefreshOk: lastRefreshOk == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRefreshOk),
+      lastRefreshError: lastRefreshError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRefreshError),
     );
   }
 
@@ -1007,6 +2698,18 @@ class Book extends DataClass implements Insertable<Book> {
       totalDurationMs: serializer.fromJson<int>(json['totalDurationMs']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      onShelf: serializer.fromJson<bool>(json['onShelf']),
+      sourceId: serializer.fromJson<String?>(json['sourceId']),
+      coverUrl: serializer.fromJson<String?>(json['coverUrl']),
+      description: serializer.fromJson<String?>(json['description']),
+      kind: serializer.fromJson<String?>(json['kind']),
+      wordCount: serializer.fromJson<String?>(json['wordCount']),
+      sourceStatus: serializer.fromJson<String?>(json['sourceStatus']),
+      lastChapter: serializer.fromJson<String?>(json['lastChapter']),
+      sourceUpdatedAt: serializer.fromJson<DateTime?>(json['sourceUpdatedAt']),
+      lastRefreshAt: serializer.fromJson<DateTime?>(json['lastRefreshAt']),
+      lastRefreshOk: serializer.fromJson<bool?>(json['lastRefreshOk']),
+      lastRefreshError: serializer.fromJson<String?>(json['lastRefreshError']),
     );
   }
   @override
@@ -1029,6 +2732,18 @@ class Book extends DataClass implements Insertable<Book> {
       'totalDurationMs': serializer.toJson<int>(totalDurationMs),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'onShelf': serializer.toJson<bool>(onShelf),
+      'sourceId': serializer.toJson<String?>(sourceId),
+      'coverUrl': serializer.toJson<String?>(coverUrl),
+      'description': serializer.toJson<String?>(description),
+      'kind': serializer.toJson<String?>(kind),
+      'wordCount': serializer.toJson<String?>(wordCount),
+      'sourceStatus': serializer.toJson<String?>(sourceStatus),
+      'lastChapter': serializer.toJson<String?>(lastChapter),
+      'sourceUpdatedAt': serializer.toJson<DateTime?>(sourceUpdatedAt),
+      'lastRefreshAt': serializer.toJson<DateTime?>(lastRefreshAt),
+      'lastRefreshOk': serializer.toJson<bool?>(lastRefreshOk),
+      'lastRefreshError': serializer.toJson<String?>(lastRefreshError),
     };
   }
 
@@ -1049,6 +2764,18 @@ class Book extends DataClass implements Insertable<Book> {
     int? totalDurationMs,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? onShelf,
+    Value<String?> sourceId = const Value.absent(),
+    Value<String?> coverUrl = const Value.absent(),
+    Value<String?> description = const Value.absent(),
+    Value<String?> kind = const Value.absent(),
+    Value<String?> wordCount = const Value.absent(),
+    Value<String?> sourceStatus = const Value.absent(),
+    Value<String?> lastChapter = const Value.absent(),
+    Value<DateTime?> sourceUpdatedAt = const Value.absent(),
+    Value<DateTime?> lastRefreshAt = const Value.absent(),
+    Value<bool?> lastRefreshOk = const Value.absent(),
+    Value<String?> lastRefreshError = const Value.absent(),
   }) => Book(
     id: id ?? this.id,
     libraryRootId: libraryRootId ?? this.libraryRootId,
@@ -1066,6 +2793,26 @@ class Book extends DataClass implements Insertable<Book> {
     totalDurationMs: totalDurationMs ?? this.totalDurationMs,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    onShelf: onShelf ?? this.onShelf,
+    sourceId: sourceId.present ? sourceId.value : this.sourceId,
+    coverUrl: coverUrl.present ? coverUrl.value : this.coverUrl,
+    description: description.present ? description.value : this.description,
+    kind: kind.present ? kind.value : this.kind,
+    wordCount: wordCount.present ? wordCount.value : this.wordCount,
+    sourceStatus: sourceStatus.present ? sourceStatus.value : this.sourceStatus,
+    lastChapter: lastChapter.present ? lastChapter.value : this.lastChapter,
+    sourceUpdatedAt: sourceUpdatedAt.present
+        ? sourceUpdatedAt.value
+        : this.sourceUpdatedAt,
+    lastRefreshAt: lastRefreshAt.present
+        ? lastRefreshAt.value
+        : this.lastRefreshAt,
+    lastRefreshOk: lastRefreshOk.present
+        ? lastRefreshOk.value
+        : this.lastRefreshOk,
+    lastRefreshError: lastRefreshError.present
+        ? lastRefreshError.value
+        : this.lastRefreshError,
   );
   Book copyWithCompanion(BooksCompanion data) {
     return Book(
@@ -1099,6 +2846,32 @@ class Book extends DataClass implements Insertable<Book> {
           : this.totalDurationMs,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      onShelf: data.onShelf.present ? data.onShelf.value : this.onShelf,
+      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      wordCount: data.wordCount.present ? data.wordCount.value : this.wordCount,
+      sourceStatus: data.sourceStatus.present
+          ? data.sourceStatus.value
+          : this.sourceStatus,
+      lastChapter: data.lastChapter.present
+          ? data.lastChapter.value
+          : this.lastChapter,
+      sourceUpdatedAt: data.sourceUpdatedAt.present
+          ? data.sourceUpdatedAt.value
+          : this.sourceUpdatedAt,
+      lastRefreshAt: data.lastRefreshAt.present
+          ? data.lastRefreshAt.value
+          : this.lastRefreshAt,
+      lastRefreshOk: data.lastRefreshOk.present
+          ? data.lastRefreshOk.value
+          : this.lastRefreshOk,
+      lastRefreshError: data.lastRefreshError.present
+          ? data.lastRefreshError.value
+          : this.lastRefreshError,
     );
   }
 
@@ -1120,13 +2893,25 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('totalChapters: $totalChapters, ')
           ..write('totalDurationMs: $totalDurationMs, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('onShelf: $onShelf, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('coverUrl: $coverUrl, ')
+          ..write('description: $description, ')
+          ..write('kind: $kind, ')
+          ..write('wordCount: $wordCount, ')
+          ..write('sourceStatus: $sourceStatus, ')
+          ..write('lastChapter: $lastChapter, ')
+          ..write('sourceUpdatedAt: $sourceUpdatedAt, ')
+          ..write('lastRefreshAt: $lastRefreshAt, ')
+          ..write('lastRefreshOk: $lastRefreshOk, ')
+          ..write('lastRefreshError: $lastRefreshError')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     libraryRootId,
     title,
@@ -1143,7 +2928,19 @@ class Book extends DataClass implements Insertable<Book> {
     totalDurationMs,
     createdAt,
     updatedAt,
-  );
+    onShelf,
+    sourceId,
+    coverUrl,
+    description,
+    kind,
+    wordCount,
+    sourceStatus,
+    lastChapter,
+    sourceUpdatedAt,
+    lastRefreshAt,
+    lastRefreshOk,
+    lastRefreshError,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1163,7 +2960,19 @@ class Book extends DataClass implements Insertable<Book> {
           other.totalChapters == this.totalChapters &&
           other.totalDurationMs == this.totalDurationMs &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.onShelf == this.onShelf &&
+          other.sourceId == this.sourceId &&
+          other.coverUrl == this.coverUrl &&
+          other.description == this.description &&
+          other.kind == this.kind &&
+          other.wordCount == this.wordCount &&
+          other.sourceStatus == this.sourceStatus &&
+          other.lastChapter == this.lastChapter &&
+          other.sourceUpdatedAt == this.sourceUpdatedAt &&
+          other.lastRefreshAt == this.lastRefreshAt &&
+          other.lastRefreshOk == this.lastRefreshOk &&
+          other.lastRefreshError == this.lastRefreshError);
 }
 
 class BooksCompanion extends UpdateCompanion<Book> {
@@ -1183,6 +2992,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<int> totalDurationMs;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<bool> onShelf;
+  final Value<String?> sourceId;
+  final Value<String?> coverUrl;
+  final Value<String?> description;
+  final Value<String?> kind;
+  final Value<String?> wordCount;
+  final Value<String?> sourceStatus;
+  final Value<String?> lastChapter;
+  final Value<DateTime?> sourceUpdatedAt;
+  final Value<DateTime?> lastRefreshAt;
+  final Value<bool?> lastRefreshOk;
+  final Value<String?> lastRefreshError;
   final Value<int> rowid;
   const BooksCompanion({
     this.id = const Value.absent(),
@@ -1201,6 +3022,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.totalDurationMs = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.onShelf = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.coverUrl = const Value.absent(),
+    this.description = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.wordCount = const Value.absent(),
+    this.sourceStatus = const Value.absent(),
+    this.lastChapter = const Value.absent(),
+    this.sourceUpdatedAt = const Value.absent(),
+    this.lastRefreshAt = const Value.absent(),
+    this.lastRefreshOk = const Value.absent(),
+    this.lastRefreshError = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BooksCompanion.insert({
@@ -1220,6 +3053,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.totalDurationMs = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.onShelf = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.coverUrl = const Value.absent(),
+    this.description = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.wordCount = const Value.absent(),
+    this.sourceStatus = const Value.absent(),
+    this.lastChapter = const Value.absent(),
+    this.sourceUpdatedAt = const Value.absent(),
+    this.lastRefreshAt = const Value.absent(),
+    this.lastRefreshOk = const Value.absent(),
+    this.lastRefreshError = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        libraryRootId = Value(libraryRootId),
@@ -1245,6 +3090,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<int>? totalDurationMs,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<bool>? onShelf,
+    Expression<String>? sourceId,
+    Expression<String>? coverUrl,
+    Expression<String>? description,
+    Expression<String>? kind,
+    Expression<String>? wordCount,
+    Expression<String>? sourceStatus,
+    Expression<String>? lastChapter,
+    Expression<DateTime>? sourceUpdatedAt,
+    Expression<DateTime>? lastRefreshAt,
+    Expression<bool>? lastRefreshOk,
+    Expression<String>? lastRefreshError,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1264,6 +3121,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (totalDurationMs != null) 'total_duration_ms': totalDurationMs,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (onShelf != null) 'on_shelf': onShelf,
+      if (sourceId != null) 'source_id': sourceId,
+      if (coverUrl != null) 'cover_url': coverUrl,
+      if (description != null) 'description': description,
+      if (kind != null) 'kind': kind,
+      if (wordCount != null) 'word_count': wordCount,
+      if (sourceStatus != null) 'source_status': sourceStatus,
+      if (lastChapter != null) 'last_chapter': lastChapter,
+      if (sourceUpdatedAt != null) 'source_updated_at': sourceUpdatedAt,
+      if (lastRefreshAt != null) 'last_refresh_at': lastRefreshAt,
+      if (lastRefreshOk != null) 'last_refresh_ok': lastRefreshOk,
+      if (lastRefreshError != null) 'last_refresh_error': lastRefreshError,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1285,6 +3154,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<int>? totalDurationMs,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<bool>? onShelf,
+    Value<String?>? sourceId,
+    Value<String?>? coverUrl,
+    Value<String?>? description,
+    Value<String?>? kind,
+    Value<String?>? wordCount,
+    Value<String?>? sourceStatus,
+    Value<String?>? lastChapter,
+    Value<DateTime?>? sourceUpdatedAt,
+    Value<DateTime?>? lastRefreshAt,
+    Value<bool?>? lastRefreshOk,
+    Value<String?>? lastRefreshError,
     Value<int>? rowid,
   }) {
     return BooksCompanion(
@@ -1304,6 +3185,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
       totalDurationMs: totalDurationMs ?? this.totalDurationMs,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      onShelf: onShelf ?? this.onShelf,
+      sourceId: sourceId ?? this.sourceId,
+      coverUrl: coverUrl ?? this.coverUrl,
+      description: description ?? this.description,
+      kind: kind ?? this.kind,
+      wordCount: wordCount ?? this.wordCount,
+      sourceStatus: sourceStatus ?? this.sourceStatus,
+      lastChapter: lastChapter ?? this.lastChapter,
+      sourceUpdatedAt: sourceUpdatedAt ?? this.sourceUpdatedAt,
+      lastRefreshAt: lastRefreshAt ?? this.lastRefreshAt,
+      lastRefreshOk: lastRefreshOk ?? this.lastRefreshOk,
+      lastRefreshError: lastRefreshError ?? this.lastRefreshError,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1361,6 +3254,42 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (onShelf.present) {
+      map['on_shelf'] = Variable<bool>(onShelf.value);
+    }
+    if (sourceId.present) {
+      map['source_id'] = Variable<String>(sourceId.value);
+    }
+    if (coverUrl.present) {
+      map['cover_url'] = Variable<String>(coverUrl.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (wordCount.present) {
+      map['word_count'] = Variable<String>(wordCount.value);
+    }
+    if (sourceStatus.present) {
+      map['source_status'] = Variable<String>(sourceStatus.value);
+    }
+    if (lastChapter.present) {
+      map['last_chapter'] = Variable<String>(lastChapter.value);
+    }
+    if (sourceUpdatedAt.present) {
+      map['source_updated_at'] = Variable<DateTime>(sourceUpdatedAt.value);
+    }
+    if (lastRefreshAt.present) {
+      map['last_refresh_at'] = Variable<DateTime>(lastRefreshAt.value);
+    }
+    if (lastRefreshOk.present) {
+      map['last_refresh_ok'] = Variable<bool>(lastRefreshOk.value);
+    }
+    if (lastRefreshError.present) {
+      map['last_refresh_error'] = Variable<String>(lastRefreshError.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1386,6 +3315,18 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('totalDurationMs: $totalDurationMs, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('onShelf: $onShelf, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('coverUrl: $coverUrl, ')
+          ..write('description: $description, ')
+          ..write('kind: $kind, ')
+          ..write('wordCount: $wordCount, ')
+          ..write('sourceStatus: $sourceStatus, ')
+          ..write('lastChapter: $lastChapter, ')
+          ..write('sourceUpdatedAt: $sourceUpdatedAt, ')
+          ..write('lastRefreshAt: $lastRefreshAt, ')
+          ..write('lastRefreshOk: $lastRefreshOk, ')
+          ..write('lastRefreshError: $lastRefreshError, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2009,6 +3950,34 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _retiredMeta = const VerificationMeta(
+    'retired',
+  );
+  @override
+  late final GeneratedColumn<bool> retired = GeneratedColumn<bool>(
+    'retired',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("retired" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isVipMeta = const VerificationMeta('isVip');
+  @override
+  late final GeneratedColumn<bool> isVip = GeneratedColumn<bool>(
+    'is_vip',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_vip" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -2034,6 +4003,8 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
     sizeBytes,
     missing,
     metadataAttempts,
+    retired,
+    isVip,
     updatedAt,
   ];
   @override
@@ -2140,6 +4111,18 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
         ),
       );
     }
+    if (data.containsKey('retired')) {
+      context.handle(
+        _retiredMeta,
+        retired.isAcceptableOrUnknown(data['retired']!, _retiredMeta),
+      );
+    }
+    if (data.containsKey('is_vip')) {
+      context.handle(
+        _isVipMeta,
+        isVip.isAcceptableOrUnknown(data['is_vip']!, _isVipMeta),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -2205,6 +4188,14 @@ class $ChaptersTable extends Chapters with TableInfo<$ChaptersTable, Chapter> {
         DriftSqlType.int,
         data['${effectivePrefix}metadata_attempts'],
       )!,
+      retired: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}retired'],
+      )!,
+      isVip: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_vip'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -2259,6 +4250,12 @@ class Chapter extends DataClass implements Insertable<Chapter> {
   /// 连续失败达到上限后跳过它，保证队列整体推进。
   final int metadataAttempts;
 
+  /// 换源 / 目录刷新后标记旧章；只增不删，保留进度归属。
+  final bool retired;
+
+  /// 源侧标记的 VIP / 付费章；M1 只记录，不尝试绕过。
+  final bool isVip;
+
   /// 最近更新时间。
   final DateTime updatedAt;
   const Chapter({
@@ -2274,6 +4271,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     this.sizeBytes,
     required this.missing,
     required this.metadataAttempts,
+    required this.retired,
+    required this.isVip,
     required this.updatedAt,
   });
   @override
@@ -2297,6 +4296,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     }
     map['missing'] = Variable<bool>(missing);
     map['metadata_attempts'] = Variable<int>(metadataAttempts);
+    map['retired'] = Variable<bool>(retired);
+    map['is_vip'] = Variable<bool>(isVip);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -2321,6 +4322,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           : Value(sizeBytes),
       missing: Value(missing),
       metadataAttempts: Value(metadataAttempts),
+      retired: Value(retired),
+      isVip: Value(isVip),
       updatedAt: Value(updatedAt),
     );
   }
@@ -2343,6 +4346,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
       sizeBytes: serializer.fromJson<int?>(json['sizeBytes']),
       missing: serializer.fromJson<bool>(json['missing']),
       metadataAttempts: serializer.fromJson<int>(json['metadataAttempts']),
+      retired: serializer.fromJson<bool>(json['retired']),
+      isVip: serializer.fromJson<bool>(json['isVip']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -2362,6 +4367,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
       'sizeBytes': serializer.toJson<int?>(sizeBytes),
       'missing': serializer.toJson<bool>(missing),
       'metadataAttempts': serializer.toJson<int>(metadataAttempts),
+      'retired': serializer.toJson<bool>(retired),
+      'isVip': serializer.toJson<bool>(isVip),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -2379,6 +4386,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     Value<int?> sizeBytes = const Value.absent(),
     bool? missing,
     int? metadataAttempts,
+    bool? retired,
+    bool? isVip,
     DateTime? updatedAt,
   }) => Chapter(
     id: id ?? this.id,
@@ -2393,6 +4402,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     sizeBytes: sizeBytes.present ? sizeBytes.value : this.sizeBytes,
     missing: missing ?? this.missing,
     metadataAttempts: metadataAttempts ?? this.metadataAttempts,
+    retired: retired ?? this.retired,
+    isVip: isVip ?? this.isVip,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   Chapter copyWithCompanion(ChaptersCompanion data) {
@@ -2417,6 +4428,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
       metadataAttempts: data.metadataAttempts.present
           ? data.metadataAttempts.value
           : this.metadataAttempts,
+      retired: data.retired.present ? data.retired.value : this.retired,
+      isVip: data.isVip.present ? data.isVip.value : this.isVip,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -2436,6 +4449,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           ..write('sizeBytes: $sizeBytes, ')
           ..write('missing: $missing, ')
           ..write('metadataAttempts: $metadataAttempts, ')
+          ..write('retired: $retired, ')
+          ..write('isVip: $isVip, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -2455,6 +4470,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
     sizeBytes,
     missing,
     metadataAttempts,
+    retired,
+    isVip,
     updatedAt,
   );
   @override
@@ -2473,6 +4490,8 @@ class Chapter extends DataClass implements Insertable<Chapter> {
           other.sizeBytes == this.sizeBytes &&
           other.missing == this.missing &&
           other.metadataAttempts == this.metadataAttempts &&
+          other.retired == this.retired &&
+          other.isVip == this.isVip &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -2489,6 +4508,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
   final Value<int?> sizeBytes;
   final Value<bool> missing;
   final Value<int> metadataAttempts;
+  final Value<bool> retired;
+  final Value<bool> isVip;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const ChaptersCompanion({
@@ -2504,6 +4525,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     this.sizeBytes = const Value.absent(),
     this.missing = const Value.absent(),
     this.metadataAttempts = const Value.absent(),
+    this.retired = const Value.absent(),
+    this.isVip = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2520,6 +4543,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     this.sizeBytes = const Value.absent(),
     this.missing = const Value.absent(),
     this.metadataAttempts = const Value.absent(),
+    this.retired = const Value.absent(),
+    this.isVip = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -2543,6 +4568,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     Expression<int>? sizeBytes,
     Expression<bool>? missing,
     Expression<int>? metadataAttempts,
+    Expression<bool>? retired,
+    Expression<bool>? isVip,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -2559,6 +4586,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
       if (sizeBytes != null) 'size_bytes': sizeBytes,
       if (missing != null) 'missing': missing,
       if (metadataAttempts != null) 'metadata_attempts': metadataAttempts,
+      if (retired != null) 'retired': retired,
+      if (isVip != null) 'is_vip': isVip,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2577,6 +4606,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     Value<int?>? sizeBytes,
     Value<bool>? missing,
     Value<int>? metadataAttempts,
+    Value<bool>? retired,
+    Value<bool>? isVip,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -2593,6 +4624,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
       sizeBytes: sizeBytes ?? this.sizeBytes,
       missing: missing ?? this.missing,
       metadataAttempts: metadataAttempts ?? this.metadataAttempts,
+      retired: retired ?? this.retired,
+      isVip: isVip ?? this.isVip,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2637,6 +4670,12 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
     if (metadataAttempts.present) {
       map['metadata_attempts'] = Variable<int>(metadataAttempts.value);
     }
+    if (retired.present) {
+      map['retired'] = Variable<bool>(retired.value);
+    }
+    if (isVip.present) {
+      map['is_vip'] = Variable<bool>(isVip.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -2661,6 +4700,8 @@ class ChaptersCompanion extends UpdateCompanion<Chapter> {
           ..write('sizeBytes: $sizeBytes, ')
           ..write('missing: $missing, ')
           ..write('metadataAttempts: $metadataAttempts, ')
+          ..write('retired: $retired, ')
+          ..write('isVip: $isVip, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -5190,10 +7231,978 @@ class StorageAccountsCompanion extends UpdateCompanion<StorageAccount> {
   }
 }
 
+class $AudioCacheEntriesTable extends AudioCacheEntries
+    with TableInfo<$AudioCacheEntriesTable, AudioCacheEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AudioCacheEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _chapterIdMeta = const VerificationMeta(
+    'chapterId',
+  );
+  @override
+  late final GeneratedColumn<String> chapterId = GeneratedColumn<String>(
+    'chapter_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES chapters (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _sourceIdMeta = const VerificationMeta(
+    'sourceId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
+    'source_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES book_sources (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _sourceUrlHashMeta = const VerificationMeta(
+    'sourceUrlHash',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrlHash = GeneratedColumn<String>(
+    'source_url_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+    'file_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentTypeMeta = const VerificationMeta(
+    'contentType',
+  );
+  @override
+  late final GeneratedColumn<String> contentType = GeneratedColumn<String>(
+    'content_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bytesMeta = const VerificationMeta('bytes');
+  @override
+  late final GeneratedColumn<int> bytes = GeneratedColumn<int>(
+    'bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _etagMeta = const VerificationMeta('etag');
+  @override
+  late final GeneratedColumn<String> etag = GeneratedColumn<String>(
+    'etag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastAccessedAtMeta = const VerificationMeta(
+    'lastAccessedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAccessedAt =
+      GeneratedColumn<DateTime>(
+        'last_accessed_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    chapterId,
+    bookId,
+    sourceId,
+    sourceUrlHash,
+    filePath,
+    contentType,
+    bytes,
+    status,
+    etag,
+    createdAt,
+    lastAccessedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'audio_cache_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AudioCacheEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('chapter_id')) {
+      context.handle(
+        _chapterIdMeta,
+        chapterId.isAcceptableOrUnknown(data['chapter_id']!, _chapterIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chapterIdMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('source_id')) {
+      context.handle(
+        _sourceIdMeta,
+        sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta),
+      );
+    }
+    if (data.containsKey('source_url_hash')) {
+      context.handle(
+        _sourceUrlHashMeta,
+        sourceUrlHash.isAcceptableOrUnknown(
+          data['source_url_hash']!,
+          _sourceUrlHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceUrlHashMeta);
+    }
+    if (data.containsKey('file_path')) {
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('content_type')) {
+      context.handle(
+        _contentTypeMeta,
+        contentType.isAcceptableOrUnknown(
+          data['content_type']!,
+          _contentTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bytes')) {
+      context.handle(
+        _bytesMeta,
+        bytes.isAcceptableOrUnknown(data['bytes']!, _bytesMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bytesMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('etag')) {
+      context.handle(
+        _etagMeta,
+        etag.isAcceptableOrUnknown(data['etag']!, _etagMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('last_accessed_at')) {
+      context.handle(
+        _lastAccessedAtMeta,
+        lastAccessedAt.isAcceptableOrUnknown(
+          data['last_accessed_at']!,
+          _lastAccessedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastAccessedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {chapterId};
+  @override
+  AudioCacheEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AudioCacheEntry(
+      chapterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chapter_id'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      sourceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_id'],
+      ),
+      sourceUrlHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_url_hash'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path'],
+      )!,
+      contentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_type'],
+      ),
+      bytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bytes'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      etag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}etag'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastAccessedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_accessed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AudioCacheEntriesTable createAlias(String alias) {
+    return $AudioCacheEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class AudioCacheEntry extends DataClass implements Insertable<AudioCacheEntry> {
+  /// 对应章（一章最多一条缓存）。
+  final String chapterId;
+
+  /// 冗余书，便于按书清理。
+  final String bookId;
+
+  /// 来源；来源硬删除时置空（当前只软删除）。
+  final String? sourceId;
+
+  /// 章 URL 的 SHA-256，用于失效判断。
+  final String sourceUrlHash;
+
+  /// 缓存文件相对路径。
+  final String filePath;
+
+  /// MIME 类型。
+  final String? contentType;
+
+  /// 文件字节数。
+  final int bytes;
+
+  /// `queued` / `downloading` / `ready` / `failed`。
+  final String status;
+
+  /// HTTP ETag（如有）。
+  final String? etag;
+
+  /// 创建时间。
+  final DateTime createdAt;
+
+  /// 最近访问时间（LRU 清理依据）。
+  final DateTime lastAccessedAt;
+  const AudioCacheEntry({
+    required this.chapterId,
+    required this.bookId,
+    this.sourceId,
+    required this.sourceUrlHash,
+    required this.filePath,
+    this.contentType,
+    required this.bytes,
+    required this.status,
+    this.etag,
+    required this.createdAt,
+    required this.lastAccessedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['chapter_id'] = Variable<String>(chapterId);
+    map['book_id'] = Variable<String>(bookId);
+    if (!nullToAbsent || sourceId != null) {
+      map['source_id'] = Variable<String>(sourceId);
+    }
+    map['source_url_hash'] = Variable<String>(sourceUrlHash);
+    map['file_path'] = Variable<String>(filePath);
+    if (!nullToAbsent || contentType != null) {
+      map['content_type'] = Variable<String>(contentType);
+    }
+    map['bytes'] = Variable<int>(bytes);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || etag != null) {
+      map['etag'] = Variable<String>(etag);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt);
+    return map;
+  }
+
+  AudioCacheEntriesCompanion toCompanion(bool nullToAbsent) {
+    return AudioCacheEntriesCompanion(
+      chapterId: Value(chapterId),
+      bookId: Value(bookId),
+      sourceId: sourceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceId),
+      sourceUrlHash: Value(sourceUrlHash),
+      filePath: Value(filePath),
+      contentType: contentType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentType),
+      bytes: Value(bytes),
+      status: Value(status),
+      etag: etag == null && nullToAbsent ? const Value.absent() : Value(etag),
+      createdAt: Value(createdAt),
+      lastAccessedAt: Value(lastAccessedAt),
+    );
+  }
+
+  factory AudioCacheEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AudioCacheEntry(
+      chapterId: serializer.fromJson<String>(json['chapterId']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      sourceId: serializer.fromJson<String?>(json['sourceId']),
+      sourceUrlHash: serializer.fromJson<String>(json['sourceUrlHash']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      contentType: serializer.fromJson<String?>(json['contentType']),
+      bytes: serializer.fromJson<int>(json['bytes']),
+      status: serializer.fromJson<String>(json['status']),
+      etag: serializer.fromJson<String?>(json['etag']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastAccessedAt: serializer.fromJson<DateTime>(json['lastAccessedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'chapterId': serializer.toJson<String>(chapterId),
+      'bookId': serializer.toJson<String>(bookId),
+      'sourceId': serializer.toJson<String?>(sourceId),
+      'sourceUrlHash': serializer.toJson<String>(sourceUrlHash),
+      'filePath': serializer.toJson<String>(filePath),
+      'contentType': serializer.toJson<String?>(contentType),
+      'bytes': serializer.toJson<int>(bytes),
+      'status': serializer.toJson<String>(status),
+      'etag': serializer.toJson<String?>(etag),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastAccessedAt': serializer.toJson<DateTime>(lastAccessedAt),
+    };
+  }
+
+  AudioCacheEntry copyWith({
+    String? chapterId,
+    String? bookId,
+    Value<String?> sourceId = const Value.absent(),
+    String? sourceUrlHash,
+    String? filePath,
+    Value<String?> contentType = const Value.absent(),
+    int? bytes,
+    String? status,
+    Value<String?> etag = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? lastAccessedAt,
+  }) => AudioCacheEntry(
+    chapterId: chapterId ?? this.chapterId,
+    bookId: bookId ?? this.bookId,
+    sourceId: sourceId.present ? sourceId.value : this.sourceId,
+    sourceUrlHash: sourceUrlHash ?? this.sourceUrlHash,
+    filePath: filePath ?? this.filePath,
+    contentType: contentType.present ? contentType.value : this.contentType,
+    bytes: bytes ?? this.bytes,
+    status: status ?? this.status,
+    etag: etag.present ? etag.value : this.etag,
+    createdAt: createdAt ?? this.createdAt,
+    lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+  );
+  AudioCacheEntry copyWithCompanion(AudioCacheEntriesCompanion data) {
+    return AudioCacheEntry(
+      chapterId: data.chapterId.present ? data.chapterId.value : this.chapterId,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      sourceUrlHash: data.sourceUrlHash.present
+          ? data.sourceUrlHash.value
+          : this.sourceUrlHash,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      contentType: data.contentType.present
+          ? data.contentType.value
+          : this.contentType,
+      bytes: data.bytes.present ? data.bytes.value : this.bytes,
+      status: data.status.present ? data.status.value : this.status,
+      etag: data.etag.present ? data.etag.value : this.etag,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastAccessedAt: data.lastAccessedAt.present
+          ? data.lastAccessedAt.value
+          : this.lastAccessedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AudioCacheEntry(')
+          ..write('chapterId: $chapterId, ')
+          ..write('bookId: $bookId, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('sourceUrlHash: $sourceUrlHash, ')
+          ..write('filePath: $filePath, ')
+          ..write('contentType: $contentType, ')
+          ..write('bytes: $bytes, ')
+          ..write('status: $status, ')
+          ..write('etag: $etag, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastAccessedAt: $lastAccessedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    chapterId,
+    bookId,
+    sourceId,
+    sourceUrlHash,
+    filePath,
+    contentType,
+    bytes,
+    status,
+    etag,
+    createdAt,
+    lastAccessedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AudioCacheEntry &&
+          other.chapterId == this.chapterId &&
+          other.bookId == this.bookId &&
+          other.sourceId == this.sourceId &&
+          other.sourceUrlHash == this.sourceUrlHash &&
+          other.filePath == this.filePath &&
+          other.contentType == this.contentType &&
+          other.bytes == this.bytes &&
+          other.status == this.status &&
+          other.etag == this.etag &&
+          other.createdAt == this.createdAt &&
+          other.lastAccessedAt == this.lastAccessedAt);
+}
+
+class AudioCacheEntriesCompanion extends UpdateCompanion<AudioCacheEntry> {
+  final Value<String> chapterId;
+  final Value<String> bookId;
+  final Value<String?> sourceId;
+  final Value<String> sourceUrlHash;
+  final Value<String> filePath;
+  final Value<String?> contentType;
+  final Value<int> bytes;
+  final Value<String> status;
+  final Value<String?> etag;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastAccessedAt;
+  final Value<int> rowid;
+  const AudioCacheEntriesCompanion({
+    this.chapterId = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.sourceUrlHash = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.contentType = const Value.absent(),
+    this.bytes = const Value.absent(),
+    this.status = const Value.absent(),
+    this.etag = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastAccessedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AudioCacheEntriesCompanion.insert({
+    required String chapterId,
+    required String bookId,
+    this.sourceId = const Value.absent(),
+    required String sourceUrlHash,
+    required String filePath,
+    this.contentType = const Value.absent(),
+    required int bytes,
+    required String status,
+    this.etag = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime lastAccessedAt,
+    this.rowid = const Value.absent(),
+  }) : chapterId = Value(chapterId),
+       bookId = Value(bookId),
+       sourceUrlHash = Value(sourceUrlHash),
+       filePath = Value(filePath),
+       bytes = Value(bytes),
+       status = Value(status),
+       createdAt = Value(createdAt),
+       lastAccessedAt = Value(lastAccessedAt);
+  static Insertable<AudioCacheEntry> custom({
+    Expression<String>? chapterId,
+    Expression<String>? bookId,
+    Expression<String>? sourceId,
+    Expression<String>? sourceUrlHash,
+    Expression<String>? filePath,
+    Expression<String>? contentType,
+    Expression<int>? bytes,
+    Expression<String>? status,
+    Expression<String>? etag,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastAccessedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (chapterId != null) 'chapter_id': chapterId,
+      if (bookId != null) 'book_id': bookId,
+      if (sourceId != null) 'source_id': sourceId,
+      if (sourceUrlHash != null) 'source_url_hash': sourceUrlHash,
+      if (filePath != null) 'file_path': filePath,
+      if (contentType != null) 'content_type': contentType,
+      if (bytes != null) 'bytes': bytes,
+      if (status != null) 'status': status,
+      if (etag != null) 'etag': etag,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastAccessedAt != null) 'last_accessed_at': lastAccessedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AudioCacheEntriesCompanion copyWith({
+    Value<String>? chapterId,
+    Value<String>? bookId,
+    Value<String?>? sourceId,
+    Value<String>? sourceUrlHash,
+    Value<String>? filePath,
+    Value<String?>? contentType,
+    Value<int>? bytes,
+    Value<String>? status,
+    Value<String?>? etag,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastAccessedAt,
+    Value<int>? rowid,
+  }) {
+    return AudioCacheEntriesCompanion(
+      chapterId: chapterId ?? this.chapterId,
+      bookId: bookId ?? this.bookId,
+      sourceId: sourceId ?? this.sourceId,
+      sourceUrlHash: sourceUrlHash ?? this.sourceUrlHash,
+      filePath: filePath ?? this.filePath,
+      contentType: contentType ?? this.contentType,
+      bytes: bytes ?? this.bytes,
+      status: status ?? this.status,
+      etag: etag ?? this.etag,
+      createdAt: createdAt ?? this.createdAt,
+      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (chapterId.present) {
+      map['chapter_id'] = Variable<String>(chapterId.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (sourceId.present) {
+      map['source_id'] = Variable<String>(sourceId.value);
+    }
+    if (sourceUrlHash.present) {
+      map['source_url_hash'] = Variable<String>(sourceUrlHash.value);
+    }
+    if (filePath.present) {
+      map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (contentType.present) {
+      map['content_type'] = Variable<String>(contentType.value);
+    }
+    if (bytes.present) {
+      map['bytes'] = Variable<int>(bytes.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (etag.present) {
+      map['etag'] = Variable<String>(etag.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastAccessedAt.present) {
+      map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AudioCacheEntriesCompanion(')
+          ..write('chapterId: $chapterId, ')
+          ..write('bookId: $bookId, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('sourceUrlHash: $sourceUrlHash, ')
+          ..write('filePath: $filePath, ')
+          ..write('contentType: $contentType, ')
+          ..write('bytes: $bytes, ')
+          ..write('status: $status, ')
+          ..write('etag: $etag, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastAccessedAt: $lastAccessedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppSettingsTable extends AppSettings
+    with TableInfo<$AppSettingsTable, AppSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, value, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppSetting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  AppSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppSetting(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AppSettingsTable createAlias(String alias) {
+    return $AppSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class AppSetting extends DataClass implements Insertable<AppSetting> {
+  /// 设置键。
+  final String key;
+
+  /// JSON / 原始字符串值。
+  final String value;
+
+  /// 最近更新时间。
+  final DateTime updatedAt;
+  const AppSetting({
+    required this.key,
+    required this.value,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['value'] = Variable<String>(value);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AppSettingsCompanion toCompanion(bool nullToAbsent) {
+    return AppSettingsCompanion(
+      key: Value(key),
+      value: Value(value),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AppSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppSetting(
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<String>(json['value']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<String>(value),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AppSetting copyWith({String? key, String? value, DateTime? updatedAt}) =>
+      AppSetting(
+        key: key ?? this.key,
+        value: value ?? this.value,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  AppSetting copyWithCompanion(AppSettingsCompanion data) {
+    return AppSetting(
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSetting(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, value, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppSetting &&
+          other.key == this.key &&
+          other.value == this.value &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
+  final Value<String> key;
+  final Value<String> value;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AppSettingsCompanion({
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppSettingsCompanion.insert({
+    required String key,
+    required String value,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       value = Value(value),
+       updatedAt = Value(updatedAt);
+  static Insertable<AppSetting> custom({
+    Expression<String>? key,
+    Expression<String>? value,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppSettingsCompanion copyWith({
+    Value<String>? key,
+    Value<String>? value,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return AppSettingsCompanion(
+      key: key ?? this.key,
+      value: value ?? this.value,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsCompanion(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$TomeToneDatabase extends GeneratedDatabase {
   _$TomeToneDatabase(QueryExecutor e) : super(e);
   $TomeToneDatabaseManager get managers => $TomeToneDatabaseManager(this);
   late final $LibraryRootsTable libraryRoots = $LibraryRootsTable(this);
+  late final $BookSourcesTable bookSources = $BookSourcesTable(this);
   late final $BooksTable books = $BooksTable(this);
   late final $VolumesTable volumes = $VolumesTable(this);
   late final $ChaptersTable chapters = $ChaptersTable(this);
@@ -5210,9 +8219,24 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
   late final $StorageAccountsTable storageAccounts = $StorageAccountsTable(
     this,
   );
+  late final $AudioCacheEntriesTable audioCacheEntries =
+      $AudioCacheEntriesTable(this);
+  late final $AppSettingsTable appSettings = $AppSettingsTable(this);
   late final Index libraryRootsType = Index(
     'library_roots_type',
     'CREATE INDEX library_roots_type ON library_roots (type)',
+  );
+  late final Index bookSourcesSourceUrl = Index(
+    'book_sources_source_url',
+    'CREATE UNIQUE INDEX book_sources_source_url ON book_sources (source_url)',
+  );
+  late final Index bookSourcesLibraryRoot = Index(
+    'book_sources_library_root',
+    'CREATE UNIQUE INDEX book_sources_library_root ON book_sources (library_root_id)',
+  );
+  late final Index bookSourcesDeletedAt = Index(
+    'book_sources_deleted_at',
+    'CREATE INDEX book_sources_deleted_at ON book_sources (deleted_at)',
   );
   late final Index booksRootPathUnique = Index(
     'books_root_path_unique',
@@ -5258,12 +8282,21 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
     'storage_accounts_default',
     'CREATE INDEX storage_accounts_default ON storage_accounts (is_default)',
   );
+  late final Index audioCacheBook = Index(
+    'audio_cache_book',
+    'CREATE INDEX audio_cache_book ON audio_cache_entries (book_id)',
+  );
+  late final Index audioCacheAccessed = Index(
+    'audio_cache_accessed',
+    'CREATE INDEX audio_cache_accessed ON audio_cache_entries (last_accessed_at)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     libraryRoots,
+    bookSources,
     books,
     volumes,
     chapters,
@@ -5273,7 +8306,12 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
     perBookPrefs,
     listeningRecords,
     storageAccounts,
+    audioCacheEntries,
+    appSettings,
     libraryRootsType,
+    bookSourcesSourceUrl,
+    bookSourcesLibraryRoot,
+    bookSourcesDeletedAt,
     booksRootPathUnique,
     booksSeries,
     volumesBookPathUnique,
@@ -5285,6 +8323,8 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
     listeningRecordsStarted,
     listeningRecordsBook,
     storageAccountsDefault,
+    audioCacheBook,
+    audioCacheAccessed,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5294,6 +8334,13 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('books', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'book_sources',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('books', kind: UpdateKind.update)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -5372,6 +8419,27 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
       ),
       result: [TableUpdate('listening_records', kind: UpdateKind.delete)],
     ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'chapters',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('audio_cache_entries', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('audio_cache_entries', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'book_sources',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('audio_cache_entries', kind: UpdateKind.update)],
+    ),
   ]);
 }
 
@@ -5400,6 +8468,24 @@ final class $$LibraryRootsTableReferences
     extends
         BaseReferences<_$TomeToneDatabase, $LibraryRootsTable, LibraryRoot> {
   $$LibraryRootsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BookSourcesTable, List<BookSource>>
+  _bookSourcesRefsTable(_$TomeToneDatabase db) => MultiTypedResultKey.fromTable(
+    db.bookSources,
+    aliasName: 'library_roots__id__book_sources__library_root_id',
+  );
+
+  $$BookSourcesTableProcessedTableManager get bookSourcesRefs {
+    final manager = $$BookSourcesTableTableManager(
+      $_db,
+      $_db.bookSources,
+    ).filter((f) => f.libraryRootId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookSourcesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 
   static MultiTypedResultKey<$BooksTable, List<Book>> _booksRefsTable(
     _$TomeToneDatabase db,
@@ -5478,6 +8564,31 @@ class $$LibraryRootsTableFilterComposer
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> bookSourcesRefs(
+    Expression<bool> Function($$BookSourcesTableFilterComposer f) f,
+  ) {
+    final $$BookSourcesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.libraryRootId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableFilterComposer(
+            $db: $db,
+            $table: $db.bookSources,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 
   Expression<bool> booksRefs(
     Expression<bool> Function($$BooksTableFilterComposer f) f,
@@ -5601,6 +8712,31 @@ class $$LibraryRootsTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
+  Expression<T> bookSourcesRefs<T extends Object>(
+    Expression<T> Function($$BookSourcesTableAnnotationComposer a) f,
+  ) {
+    final $$BookSourcesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.libraryRootId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookSources,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> booksRefs<T extends Object>(
     Expression<T> Function($$BooksTableAnnotationComposer a) f,
   ) {
@@ -5665,7 +8801,11 @@ class $$LibraryRootsTableTableManager
           $$LibraryRootsTableUpdateCompanionBuilder,
           (LibraryRoot, $$LibraryRootsTableReferences),
           LibraryRoot,
-          PrefetchHooks Function({bool booksRefs, bool chaptersRefs})
+          PrefetchHooks Function({
+            bool bookSourcesRefs,
+            bool booksRefs,
+            bool chaptersRefs,
+          })
         > {
   $$LibraryRootsTableTableManager(
     _$TomeToneDatabase db,
@@ -5724,62 +8864,89 @@ class $$LibraryRootsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({booksRefs = false, chaptersRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (booksRefs) db.books,
-                if (chaptersRefs) db.chapters,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (booksRefs)
-                    await $_getPrefetchedData<
-                      LibraryRoot,
-                      $LibraryRootsTable,
-                      Book
-                    >(
-                      currentTable: table,
-                      referencedTable: $$LibraryRootsTableReferences
-                          ._booksRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$LibraryRootsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).booksRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.libraryRootId == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                  if (chaptersRefs)
-                    await $_getPrefetchedData<
-                      LibraryRoot,
-                      $LibraryRootsTable,
-                      Chapter
-                    >(
-                      currentTable: table,
-                      referencedTable: $$LibraryRootsTableReferences
-                          ._chaptersRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$LibraryRootsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).chaptersRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.libraryRootId == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                bookSourcesRefs = false,
+                booksRefs = false,
+                chaptersRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (bookSourcesRefs) db.bookSources,
+                    if (booksRefs) db.books,
+                    if (chaptersRefs) db.chapters,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (bookSourcesRefs)
+                        await $_getPrefetchedData<
+                          LibraryRoot,
+                          $LibraryRootsTable,
+                          BookSource
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LibraryRootsTableReferences
+                              ._bookSourcesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LibraryRootsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).bookSourcesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.libraryRootId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (booksRefs)
+                        await $_getPrefetchedData<
+                          LibraryRoot,
+                          $LibraryRootsTable,
+                          Book
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LibraryRootsTableReferences
+                              ._booksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LibraryRootsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).booksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.libraryRootId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (chaptersRefs)
+                        await $_getPrefetchedData<
+                          LibraryRoot,
+                          $LibraryRootsTable,
+                          Chapter
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LibraryRootsTableReferences
+                              ._chaptersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LibraryRootsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).chaptersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.libraryRootId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -5796,7 +8963,868 @@ typedef $$LibraryRootsTableProcessedTableManager =
       $$LibraryRootsTableUpdateCompanionBuilder,
       (LibraryRoot, $$LibraryRootsTableReferences),
       LibraryRoot,
-      PrefetchHooks Function({bool booksRefs, bool chaptersRefs})
+      PrefetchHooks Function({
+        bool bookSourcesRefs,
+        bool booksRefs,
+        bool chaptersRefs,
+      })
+    >;
+typedef $$BookSourcesTableCreateCompanionBuilder =
+    BookSourcesCompanion Function({
+      required String id,
+      required String libraryRootId,
+      required String sourceUrl,
+      required String name,
+      Value<String?> groupName,
+      required int sourceType,
+      required String rawJson,
+      Value<String?> headerJson,
+      Value<String?> exploreUrl,
+      Value<String?> searchUrl,
+      Value<String?> jsLib,
+      Value<bool> enabled,
+      Value<bool> enabledExplore,
+      Value<int> customOrder,
+      Value<int?> concurrentRate,
+      Value<DateTime?> lastTestAt,
+      Value<bool?> lastTestOk,
+      Value<String?> lastError,
+      Value<int> consecutiveFailures,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$BookSourcesTableUpdateCompanionBuilder =
+    BookSourcesCompanion Function({
+      Value<String> id,
+      Value<String> libraryRootId,
+      Value<String> sourceUrl,
+      Value<String> name,
+      Value<String?> groupName,
+      Value<int> sourceType,
+      Value<String> rawJson,
+      Value<String?> headerJson,
+      Value<String?> exploreUrl,
+      Value<String?> searchUrl,
+      Value<String?> jsLib,
+      Value<bool> enabled,
+      Value<bool> enabledExplore,
+      Value<int> customOrder,
+      Value<int?> concurrentRate,
+      Value<DateTime?> lastTestAt,
+      Value<bool?> lastTestOk,
+      Value<String?> lastError,
+      Value<int> consecutiveFailures,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+
+final class $$BookSourcesTableReferences
+    extends BaseReferences<_$TomeToneDatabase, $BookSourcesTable, BookSource> {
+  $$BookSourcesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $LibraryRootsTable _libraryRootIdTable(_$TomeToneDatabase db) => db
+      .libraryRoots
+      .createAlias('book_sources__library_root_id__library_roots__id');
+
+  $$LibraryRootsTableProcessedTableManager get libraryRootId {
+    final $_column = $_itemColumn<String>('library_root_id')!;
+
+    final manager = $$LibraryRootsTableTableManager(
+      $_db,
+      $_db.libraryRoots,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_libraryRootIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$BooksTable, List<Book>> _booksRefsTable(
+    _$TomeToneDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.books,
+    aliasName: 'book_sources__id__books__source_id',
+  );
+
+  $$BooksTableProcessedTableManager get booksRefs {
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.sourceId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_booksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$AudioCacheEntriesTable, List<AudioCacheEntry>>
+  _audioCacheEntriesRefsTable(_$TomeToneDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.audioCacheEntries,
+        aliasName: 'book_sources__id__audio_cache_entries__source_id',
+      );
+
+  $$AudioCacheEntriesTableProcessedTableManager get audioCacheEntriesRefs {
+    final manager = $$AudioCacheEntriesTableTableManager(
+      $_db,
+      $_db.audioCacheEntries,
+    ).filter((f) => f.sourceId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _audioCacheEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$BookSourcesTableFilterComposer
+    extends Composer<_$TomeToneDatabase, $BookSourcesTable> {
+  $$BookSourcesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupName => $composableBuilder(
+    column: $table.groupName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawJson => $composableBuilder(
+    column: $table.rawJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get headerJson => $composableBuilder(
+    column: $table.headerJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get exploreUrl => $composableBuilder(
+    column: $table.exploreUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get searchUrl => $composableBuilder(
+    column: $table.searchUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get jsLib => $composableBuilder(
+    column: $table.jsLib,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabledExplore => $composableBuilder(
+    column: $table.enabledExplore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get customOrder => $composableBuilder(
+    column: $table.customOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get concurrentRate => $composableBuilder(
+    column: $table.concurrentRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastTestAt => $composableBuilder(
+    column: $table.lastTestAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get lastTestOk => $composableBuilder(
+    column: $table.lastTestOk,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get consecutiveFailures => $composableBuilder(
+    column: $table.consecutiveFailures,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LibraryRootsTableFilterComposer get libraryRootId {
+    final $$LibraryRootsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.libraryRootId,
+      referencedTable: $db.libraryRoots,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LibraryRootsTableFilterComposer(
+            $db: $db,
+            $table: $db.libraryRoots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> booksRefs(
+    Expression<bool> Function($$BooksTableFilterComposer f) f,
+  ) {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.sourceId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> audioCacheEntriesRefs(
+    Expression<bool> Function($$AudioCacheEntriesTableFilterComposer f) f,
+  ) {
+    final $$AudioCacheEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.audioCacheEntries,
+      getReferencedColumn: (t) => t.sourceId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AudioCacheEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.audioCacheEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$BookSourcesTableOrderingComposer
+    extends Composer<_$TomeToneDatabase, $BookSourcesTable> {
+  $$BookSourcesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupName => $composableBuilder(
+    column: $table.groupName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawJson => $composableBuilder(
+    column: $table.rawJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get headerJson => $composableBuilder(
+    column: $table.headerJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get exploreUrl => $composableBuilder(
+    column: $table.exploreUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get searchUrl => $composableBuilder(
+    column: $table.searchUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get jsLib => $composableBuilder(
+    column: $table.jsLib,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabledExplore => $composableBuilder(
+    column: $table.enabledExplore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get customOrder => $composableBuilder(
+    column: $table.customOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get concurrentRate => $composableBuilder(
+    column: $table.concurrentRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastTestAt => $composableBuilder(
+    column: $table.lastTestAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get lastTestOk => $composableBuilder(
+    column: $table.lastTestOk,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get consecutiveFailures => $composableBuilder(
+    column: $table.consecutiveFailures,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LibraryRootsTableOrderingComposer get libraryRootId {
+    final $$LibraryRootsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.libraryRootId,
+      referencedTable: $db.libraryRoots,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LibraryRootsTableOrderingComposer(
+            $db: $db,
+            $table: $db.libraryRoots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookSourcesTableAnnotationComposer
+    extends Composer<_$TomeToneDatabase, $BookSourcesTable> {
+  $$BookSourcesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get groupName =>
+      $composableBuilder(column: $table.groupName, builder: (column) => column);
+
+  GeneratedColumn<int> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rawJson =>
+      $composableBuilder(column: $table.rawJson, builder: (column) => column);
+
+  GeneratedColumn<String> get headerJson => $composableBuilder(
+    column: $table.headerJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get exploreUrl => $composableBuilder(
+    column: $table.exploreUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get searchUrl =>
+      $composableBuilder(column: $table.searchUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get jsLib =>
+      $composableBuilder(column: $table.jsLib, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabledExplore => $composableBuilder(
+    column: $table.enabledExplore,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get customOrder => $composableBuilder(
+    column: $table.customOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get concurrentRate => $composableBuilder(
+    column: $table.concurrentRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastTestAt => $composableBuilder(
+    column: $table.lastTestAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get lastTestOk => $composableBuilder(
+    column: $table.lastTestOk,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<int> get consecutiveFailures => $composableBuilder(
+    column: $table.consecutiveFailures,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$LibraryRootsTableAnnotationComposer get libraryRootId {
+    final $$LibraryRootsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.libraryRootId,
+      referencedTable: $db.libraryRoots,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LibraryRootsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.libraryRoots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> booksRefs<T extends Object>(
+    Expression<T> Function($$BooksTableAnnotationComposer a) f,
+  ) {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.sourceId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> audioCacheEntriesRefs<T extends Object>(
+    Expression<T> Function($$AudioCacheEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$AudioCacheEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.audioCacheEntries,
+          getReferencedColumn: (t) => t.sourceId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AudioCacheEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.audioCacheEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$BookSourcesTableTableManager
+    extends
+        RootTableManager<
+          _$TomeToneDatabase,
+          $BookSourcesTable,
+          BookSource,
+          $$BookSourcesTableFilterComposer,
+          $$BookSourcesTableOrderingComposer,
+          $$BookSourcesTableAnnotationComposer,
+          $$BookSourcesTableCreateCompanionBuilder,
+          $$BookSourcesTableUpdateCompanionBuilder,
+          (BookSource, $$BookSourcesTableReferences),
+          BookSource,
+          PrefetchHooks Function({
+            bool libraryRootId,
+            bool booksRefs,
+            bool audioCacheEntriesRefs,
+          })
+        > {
+  $$BookSourcesTableTableManager(_$TomeToneDatabase db, $BookSourcesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BookSourcesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BookSourcesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BookSourcesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> libraryRootId = const Value.absent(),
+                Value<String> sourceUrl = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> groupName = const Value.absent(),
+                Value<int> sourceType = const Value.absent(),
+                Value<String> rawJson = const Value.absent(),
+                Value<String?> headerJson = const Value.absent(),
+                Value<String?> exploreUrl = const Value.absent(),
+                Value<String?> searchUrl = const Value.absent(),
+                Value<String?> jsLib = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<bool> enabledExplore = const Value.absent(),
+                Value<int> customOrder = const Value.absent(),
+                Value<int?> concurrentRate = const Value.absent(),
+                Value<DateTime?> lastTestAt = const Value.absent(),
+                Value<bool?> lastTestOk = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> consecutiveFailures = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BookSourcesCompanion(
+                id: id,
+                libraryRootId: libraryRootId,
+                sourceUrl: sourceUrl,
+                name: name,
+                groupName: groupName,
+                sourceType: sourceType,
+                rawJson: rawJson,
+                headerJson: headerJson,
+                exploreUrl: exploreUrl,
+                searchUrl: searchUrl,
+                jsLib: jsLib,
+                enabled: enabled,
+                enabledExplore: enabledExplore,
+                customOrder: customOrder,
+                concurrentRate: concurrentRate,
+                lastTestAt: lastTestAt,
+                lastTestOk: lastTestOk,
+                lastError: lastError,
+                consecutiveFailures: consecutiveFailures,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String libraryRootId,
+                required String sourceUrl,
+                required String name,
+                Value<String?> groupName = const Value.absent(),
+                required int sourceType,
+                required String rawJson,
+                Value<String?> headerJson = const Value.absent(),
+                Value<String?> exploreUrl = const Value.absent(),
+                Value<String?> searchUrl = const Value.absent(),
+                Value<String?> jsLib = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<bool> enabledExplore = const Value.absent(),
+                Value<int> customOrder = const Value.absent(),
+                Value<int?> concurrentRate = const Value.absent(),
+                Value<DateTime?> lastTestAt = const Value.absent(),
+                Value<bool?> lastTestOk = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> consecutiveFailures = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BookSourcesCompanion.insert(
+                id: id,
+                libraryRootId: libraryRootId,
+                sourceUrl: sourceUrl,
+                name: name,
+                groupName: groupName,
+                sourceType: sourceType,
+                rawJson: rawJson,
+                headerJson: headerJson,
+                exploreUrl: exploreUrl,
+                searchUrl: searchUrl,
+                jsLib: jsLib,
+                enabled: enabled,
+                enabledExplore: enabledExplore,
+                customOrder: customOrder,
+                concurrentRate: concurrentRate,
+                lastTestAt: lastTestAt,
+                lastTestOk: lastTestOk,
+                lastError: lastError,
+                consecutiveFailures: consecutiveFailures,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BookSourcesTable, BookSource>(table),
+                  $$BookSourcesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                libraryRootId = false,
+                booksRefs = false,
+                audioCacheEntriesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (booksRefs) db.books,
+                    if (audioCacheEntriesRefs) db.audioCacheEntries,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (libraryRootId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.libraryRootId,
+                            referencedTable: $$BookSourcesTableReferences
+                                ._libraryRootIdTable(db),
+                            referencedColumn: $$BookSourcesTableReferences
+                                ._libraryRootIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (booksRefs)
+                        await $_getPrefetchedData<
+                          BookSource,
+                          $BookSourcesTable,
+                          Book
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BookSourcesTableReferences
+                              ._booksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BookSourcesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).booksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.sourceId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (audioCacheEntriesRefs)
+                        await $_getPrefetchedData<
+                          BookSource,
+                          $BookSourcesTable,
+                          AudioCacheEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BookSourcesTableReferences
+                              ._audioCacheEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BookSourcesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).audioCacheEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.sourceId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$BookSourcesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$TomeToneDatabase,
+      $BookSourcesTable,
+      BookSource,
+      $$BookSourcesTableFilterComposer,
+      $$BookSourcesTableOrderingComposer,
+      $$BookSourcesTableAnnotationComposer,
+      $$BookSourcesTableCreateCompanionBuilder,
+      $$BookSourcesTableUpdateCompanionBuilder,
+      (BookSource, $$BookSourcesTableReferences),
+      BookSource,
+      PrefetchHooks Function({
+        bool libraryRootId,
+        bool booksRefs,
+        bool audioCacheEntriesRefs,
+      })
     >;
 typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   required String id,
@@ -5815,6 +9843,18 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   Value<int> totalDurationMs,
   required DateTime createdAt,
   required DateTime updatedAt,
+  Value<bool> onShelf,
+  Value<String?> sourceId,
+  Value<String?> coverUrl,
+  Value<String?> description,
+  Value<String?> kind,
+  Value<String?> wordCount,
+  Value<String?> sourceStatus,
+  Value<String?> lastChapter,
+  Value<DateTime?> sourceUpdatedAt,
+  Value<DateTime?> lastRefreshAt,
+  Value<bool?> lastRefreshOk,
+  Value<String?> lastRefreshError,
   Value<int> rowid,
 });
 typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
@@ -5834,6 +9874,18 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<int> totalDurationMs,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
+  Value<bool> onShelf,
+  Value<String?> sourceId,
+  Value<String?> coverUrl,
+  Value<String?> description,
+  Value<String?> kind,
+  Value<String?> wordCount,
+  Value<String?> sourceStatus,
+  Value<String?> lastChapter,
+  Value<DateTime?> sourceUpdatedAt,
+  Value<DateTime?> lastRefreshAt,
+  Value<bool?> lastRefreshOk,
+  Value<String?> lastRefreshError,
   Value<int> rowid,
 });
 
@@ -5852,6 +9904,23 @@ final class $$BooksTableReferences
       $_db.libraryRoots,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_libraryRootIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $BookSourcesTable _sourceIdTable(_$TomeToneDatabase db) =>
+      db.bookSources.createAlias('books__source_id__book_sources__id');
+
+  $$BookSourcesTableProcessedTableManager? get sourceId {
+    final $_column = $_itemColumn<String>('source_id');
+    if ($_column == null) return null;
+    final manager = $$BookSourcesTableTableManager(
+      $_db,
+      $_db.bookSources,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_sourceIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -6000,6 +10069,27 @@ final class $$BooksTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$AudioCacheEntriesTable, List<AudioCacheEntry>>
+  _audioCacheEntriesRefsTable(_$TomeToneDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.audioCacheEntries,
+        aliasName: 'books__id__audio_cache_entries__book_id',
+      );
+
+  $$AudioCacheEntriesTableProcessedTableManager get audioCacheEntriesRefs {
+    final manager = $$AudioCacheEntriesTableTableManager(
+      $_db,
+      $_db.audioCacheEntries,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _audioCacheEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$BooksTableFilterComposer
@@ -6087,6 +10177,61 @@ class $$BooksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get onShelf => $composableBuilder(
+    column: $table.onShelf,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get wordCount => $composableBuilder(
+    column: $table.wordCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceStatus => $composableBuilder(
+    column: $table.sourceStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastChapter => $composableBuilder(
+    column: $table.lastChapter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get sourceUpdatedAt => $composableBuilder(
+    column: $table.sourceUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastRefreshAt => $composableBuilder(
+    column: $table.lastRefreshAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get lastRefreshOk => $composableBuilder(
+    column: $table.lastRefreshOk,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastRefreshError => $composableBuilder(
+    column: $table.lastRefreshError,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$LibraryRootsTableFilterComposer get libraryRootId {
     final $$LibraryRootsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -6101,6 +10246,29 @@ class $$BooksTableFilterComposer
           }) => $$LibraryRootsTableFilterComposer(
             $db: $db,
             $table: $db.libraryRoots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BookSourcesTableFilterComposer get sourceId {
+    final $$BookSourcesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceId,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableFilterComposer(
+            $db: $db,
+            $table: $db.bookSources,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6285,6 +10453,31 @@ class $$BooksTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> audioCacheEntriesRefs(
+    Expression<bool> Function($$AudioCacheEntriesTableFilterComposer f) f,
+  ) {
+    final $$AudioCacheEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.audioCacheEntries,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AudioCacheEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.audioCacheEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BooksTableOrderingComposer
@@ -6371,6 +10564,61 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get onShelf => $composableBuilder(
+    column: $table.onShelf,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get wordCount => $composableBuilder(
+    column: $table.wordCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceStatus => $composableBuilder(
+    column: $table.sourceStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastChapter => $composableBuilder(
+    column: $table.lastChapter,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get sourceUpdatedAt => $composableBuilder(
+    column: $table.sourceUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastRefreshAt => $composableBuilder(
+    column: $table.lastRefreshAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get lastRefreshOk => $composableBuilder(
+    column: $table.lastRefreshOk,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastRefreshError => $composableBuilder(
+    column: $table.lastRefreshError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$LibraryRootsTableOrderingComposer get libraryRootId {
     final $$LibraryRootsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6385,6 +10633,29 @@ class $$BooksTableOrderingComposer
           }) => $$LibraryRootsTableOrderingComposer(
             $db: $db,
             $table: $db.libraryRoots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BookSourcesTableOrderingComposer get sourceId {
+    final $$BookSourcesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceId,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableOrderingComposer(
+            $db: $db,
+            $table: $db.bookSources,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6462,6 +10733,53 @@ class $$BooksTableAnnotationComposer
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
+  GeneratedColumn<bool> get onShelf =>
+      $composableBuilder(column: $table.onShelf, builder: (column) => column);
+
+  GeneratedColumn<String> get coverUrl =>
+      $composableBuilder(column: $table.coverUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get wordCount =>
+      $composableBuilder(column: $table.wordCount, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceStatus => $composableBuilder(
+    column: $table.sourceStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastChapter => $composableBuilder(
+    column: $table.lastChapter,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get sourceUpdatedAt => $composableBuilder(
+    column: $table.sourceUpdatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastRefreshAt => $composableBuilder(
+    column: $table.lastRefreshAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get lastRefreshOk => $composableBuilder(
+    column: $table.lastRefreshOk,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastRefreshError => $composableBuilder(
+    column: $table.lastRefreshError,
+    builder: (column) => column,
+  );
+
   $$LibraryRootsTableAnnotationComposer get libraryRootId {
     final $$LibraryRootsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -6476,6 +10794,29 @@ class $$BooksTableAnnotationComposer
           }) => $$LibraryRootsTableAnnotationComposer(
             $db: $db,
             $table: $db.libraryRoots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BookSourcesTableAnnotationComposer get sourceId {
+    final $$BookSourcesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceId,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookSources,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6660,6 +11001,32 @@ class $$BooksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> audioCacheEntriesRefs<T extends Object>(
+    Expression<T> Function($$AudioCacheEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$AudioCacheEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.audioCacheEntries,
+          getReferencedColumn: (t) => t.bookId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AudioCacheEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.audioCacheEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$BooksTableTableManager
@@ -6677,6 +11044,7 @@ class $$BooksTableTableManager
           Book,
           PrefetchHooks Function({
             bool libraryRootId,
+            bool sourceId,
             bool volumesRefs,
             bool chaptersRefs,
             bool bookMetadataOverridesRefs,
@@ -6684,6 +11052,7 @@ class $$BooksTableTableManager
             bool playbackProgressRefs,
             bool perBookPrefsRefs,
             bool listeningRecordsRefs,
+            bool audioCacheEntriesRefs,
           })
         > {
   $$BooksTableTableManager(_$TomeToneDatabase db, $BooksTable table)
@@ -6715,6 +11084,18 @@ class $$BooksTableTableManager
                 Value<int> totalDurationMs = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> onShelf = const Value.absent(),
+                Value<String?> sourceId = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> kind = const Value.absent(),
+                Value<String?> wordCount = const Value.absent(),
+                Value<String?> sourceStatus = const Value.absent(),
+                Value<String?> lastChapter = const Value.absent(),
+                Value<DateTime?> sourceUpdatedAt = const Value.absent(),
+                Value<DateTime?> lastRefreshAt = const Value.absent(),
+                Value<bool?> lastRefreshOk = const Value.absent(),
+                Value<String?> lastRefreshError = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BooksCompanion(
                 id: id,
@@ -6733,6 +11114,18 @@ class $$BooksTableTableManager
                 totalDurationMs: totalDurationMs,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                onShelf: onShelf,
+                sourceId: sourceId,
+                coverUrl: coverUrl,
+                description: description,
+                kind: kind,
+                wordCount: wordCount,
+                sourceStatus: sourceStatus,
+                lastChapter: lastChapter,
+                sourceUpdatedAt: sourceUpdatedAt,
+                lastRefreshAt: lastRefreshAt,
+                lastRefreshOk: lastRefreshOk,
+                lastRefreshError: lastRefreshError,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6753,6 +11146,18 @@ class $$BooksTableTableManager
                 Value<int> totalDurationMs = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<bool> onShelf = const Value.absent(),
+                Value<String?> sourceId = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> kind = const Value.absent(),
+                Value<String?> wordCount = const Value.absent(),
+                Value<String?> sourceStatus = const Value.absent(),
+                Value<String?> lastChapter = const Value.absent(),
+                Value<DateTime?> sourceUpdatedAt = const Value.absent(),
+                Value<DateTime?> lastRefreshAt = const Value.absent(),
+                Value<bool?> lastRefreshOk = const Value.absent(),
+                Value<String?> lastRefreshError = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BooksCompanion.insert(
                 id: id,
@@ -6771,6 +11176,18 @@ class $$BooksTableTableManager
                 totalDurationMs: totalDurationMs,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                onShelf: onShelf,
+                sourceId: sourceId,
+                coverUrl: coverUrl,
+                description: description,
+                kind: kind,
+                wordCount: wordCount,
+                sourceStatus: sourceStatus,
+                lastChapter: lastChapter,
+                sourceUpdatedAt: sourceUpdatedAt,
+                lastRefreshAt: lastRefreshAt,
+                lastRefreshOk: lastRefreshOk,
+                lastRefreshError: lastRefreshError,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6784,6 +11201,7 @@ class $$BooksTableTableManager
           prefetchHooksCallback:
               ({
                 libraryRootId = false,
+                sourceId = false,
                 volumesRefs = false,
                 chaptersRefs = false,
                 bookMetadataOverridesRefs = false,
@@ -6791,6 +11209,7 @@ class $$BooksTableTableManager
                 playbackProgressRefs = false,
                 perBookPrefsRefs = false,
                 listeningRecordsRefs = false,
+                audioCacheEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6802,6 +11221,7 @@ class $$BooksTableTableManager
                     if (playbackProgressRefs) db.playbackProgress,
                     if (perBookPrefsRefs) db.perBookPrefs,
                     if (listeningRecordsRefs) db.listeningRecords,
+                    if (audioCacheEntriesRefs) db.audioCacheEntries,
                   ],
                   addJoins:
                       <
@@ -6827,6 +11247,17 @@ class $$BooksTableTableManager
                                 ._libraryRootIdTable(db),
                             referencedColumn: $$BooksTableReferences
                                 ._libraryRootIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (sourceId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.sourceId,
+                            referencedTable: $$BooksTableReferences
+                                ._sourceIdTable(db),
+                            referencedColumn: $$BooksTableReferences
+                                ._sourceIdTable(db)
                                 .id,
                           ) as T;
                         }
@@ -6966,6 +11397,27 @@ class $$BooksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (audioCacheEntriesRefs)
+                        await $_getPrefetchedData<
+                          Book,
+                          $BooksTable,
+                          AudioCacheEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._audioCacheEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).audioCacheEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6988,6 +11440,7 @@ typedef $$BooksTableProcessedTableManager =
       Book,
       PrefetchHooks Function({
         bool libraryRootId,
+        bool sourceId,
         bool volumesRefs,
         bool chaptersRefs,
         bool bookMetadataOverridesRefs,
@@ -6995,6 +11448,7 @@ typedef $$BooksTableProcessedTableManager =
         bool playbackProgressRefs,
         bool perBookPrefsRefs,
         bool listeningRecordsRefs,
+        bool audioCacheEntriesRefs,
       })
     >;
 typedef $$VolumesTableCreateCompanionBuilder = VolumesCompanion Function({
@@ -7445,6 +11899,8 @@ typedef $$ChaptersTableCreateCompanionBuilder = ChaptersCompanion Function({
   Value<int?> sizeBytes,
   Value<bool> missing,
   Value<int> metadataAttempts,
+  Value<bool> retired,
+  Value<bool> isVip,
   required DateTime updatedAt,
   Value<int> rowid,
 });
@@ -7461,6 +11917,8 @@ typedef $$ChaptersTableUpdateCompanionBuilder = ChaptersCompanion Function({
   Value<int?> sizeBytes,
   Value<bool> missing,
   Value<int> metadataAttempts,
+  Value<bool> retired,
+  Value<bool> isVip,
   Value<DateTime> updatedAt,
   Value<int> rowid,
 });
@@ -7562,6 +12020,27 @@ final class $$ChaptersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$AudioCacheEntriesTable, List<AudioCacheEntry>>
+  _audioCacheEntriesRefsTable(_$TomeToneDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.audioCacheEntries,
+        aliasName: 'chapters__id__audio_cache_entries__chapter_id',
+      );
+
+  $$AudioCacheEntriesTableProcessedTableManager get audioCacheEntriesRefs {
+    final manager = $$AudioCacheEntriesTableTableManager(
+      $_db,
+      $_db.audioCacheEntries,
+    ).filter((f) => f.chapterId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _audioCacheEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ChaptersTableFilterComposer
@@ -7615,6 +12094,16 @@ class $$ChaptersTableFilterComposer
 
   ColumnFilters<int> get metadataAttempts => $composableBuilder(
     column: $table.metadataAttempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get retired => $composableBuilder(
+    column: $table.retired,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isVip => $composableBuilder(
+    column: $table.isVip,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7741,6 +12230,31 @@ class $$ChaptersTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> audioCacheEntriesRefs(
+    Expression<bool> Function($$AudioCacheEntriesTableFilterComposer f) f,
+  ) {
+    final $$AudioCacheEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.audioCacheEntries,
+      getReferencedColumn: (t) => t.chapterId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AudioCacheEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.audioCacheEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ChaptersTableOrderingComposer
@@ -7794,6 +12308,16 @@ class $$ChaptersTableOrderingComposer
 
   ColumnOrderings<int> get metadataAttempts => $composableBuilder(
     column: $table.metadataAttempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get retired => $composableBuilder(
+    column: $table.retired,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isVip => $composableBuilder(
+    column: $table.isVip,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -7913,6 +12437,12 @@ class $$ChaptersTableAnnotationComposer
     column: $table.metadataAttempts,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get retired =>
+      $composableBuilder(column: $table.retired, builder: (column) => column);
+
+  GeneratedColumn<bool> get isVip =>
+      $composableBuilder(column: $table.isVip, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -8035,6 +12565,32 @@ class $$ChaptersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> audioCacheEntriesRefs<T extends Object>(
+    Expression<T> Function($$AudioCacheEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$AudioCacheEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.audioCacheEntries,
+          getReferencedColumn: (t) => t.chapterId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AudioCacheEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.audioCacheEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$ChaptersTableTableManager
@@ -8056,6 +12612,7 @@ class $$ChaptersTableTableManager
             bool libraryRootId,
             bool playbackProgressRefs,
             bool listeningRecordsRefs,
+            bool audioCacheEntriesRefs,
           })
         > {
   $$ChaptersTableTableManager(_$TomeToneDatabase db, $ChaptersTable table)
@@ -8083,6 +12640,8 @@ class $$ChaptersTableTableManager
                 Value<int?> sizeBytes = const Value.absent(),
                 Value<bool> missing = const Value.absent(),
                 Value<int> metadataAttempts = const Value.absent(),
+                Value<bool> retired = const Value.absent(),
+                Value<bool> isVip = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChaptersCompanion(
@@ -8098,6 +12657,8 @@ class $$ChaptersTableTableManager
                 sizeBytes: sizeBytes,
                 missing: missing,
                 metadataAttempts: metadataAttempts,
+                retired: retired,
+                isVip: isVip,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -8115,6 +12676,8 @@ class $$ChaptersTableTableManager
                 Value<int?> sizeBytes = const Value.absent(),
                 Value<bool> missing = const Value.absent(),
                 Value<int> metadataAttempts = const Value.absent(),
+                Value<bool> retired = const Value.absent(),
+                Value<bool> isVip = const Value.absent(),
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
               }) => ChaptersCompanion.insert(
@@ -8130,6 +12693,8 @@ class $$ChaptersTableTableManager
                 sizeBytes: sizeBytes,
                 missing: missing,
                 metadataAttempts: metadataAttempts,
+                retired: retired,
+                isVip: isVip,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -8148,12 +12713,14 @@ class $$ChaptersTableTableManager
                 libraryRootId = false,
                 playbackProgressRefs = false,
                 listeningRecordsRefs = false,
+                audioCacheEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (playbackProgressRefs) db.playbackProgress,
                     if (listeningRecordsRefs) db.listeningRecords,
+                    if (audioCacheEntriesRefs) db.audioCacheEntries,
                   ],
                   addJoins:
                       <
@@ -8251,6 +12818,27 @@ class $$ChaptersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (audioCacheEntriesRefs)
+                        await $_getPrefetchedData<
+                          Chapter,
+                          $ChaptersTable,
+                          AudioCacheEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ChaptersTableReferences
+                              ._audioCacheEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ChaptersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).audioCacheEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.chapterId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -8277,6 +12865,7 @@ typedef $$ChaptersTableProcessedTableManager =
         bool libraryRootId,
         bool playbackProgressRefs,
         bool listeningRecordsRefs,
+        bool audioCacheEntriesRefs,
       })
     >;
 typedef $$BookMetadataOverridesTableCreateCompanionBuilder =
@@ -10387,12 +14976,804 @@ typedef $$StorageAccountsTableProcessedTableManager =
       StorageAccount,
       PrefetchHooks Function()
     >;
+typedef $$AudioCacheEntriesTableCreateCompanionBuilder =
+    AudioCacheEntriesCompanion Function({
+      required String chapterId,
+      required String bookId,
+      Value<String?> sourceId,
+      required String sourceUrlHash,
+      required String filePath,
+      Value<String?> contentType,
+      required int bytes,
+      required String status,
+      Value<String?> etag,
+      required DateTime createdAt,
+      required DateTime lastAccessedAt,
+      Value<int> rowid,
+    });
+typedef $$AudioCacheEntriesTableUpdateCompanionBuilder =
+    AudioCacheEntriesCompanion Function({
+      Value<String> chapterId,
+      Value<String> bookId,
+      Value<String?> sourceId,
+      Value<String> sourceUrlHash,
+      Value<String> filePath,
+      Value<String?> contentType,
+      Value<int> bytes,
+      Value<String> status,
+      Value<String?> etag,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastAccessedAt,
+      Value<int> rowid,
+    });
+
+final class $$AudioCacheEntriesTableReferences
+    extends
+        BaseReferences<
+          _$TomeToneDatabase,
+          $AudioCacheEntriesTable,
+          AudioCacheEntry
+        > {
+  $$AudioCacheEntriesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ChaptersTable _chapterIdTable(_$TomeToneDatabase db) =>
+      db.chapters.createAlias('audio_cache_entries__chapter_id__chapters__id');
+
+  $$ChaptersTableProcessedTableManager get chapterId {
+    final $_column = $_itemColumn<String>('chapter_id')!;
+
+    final manager = $$ChaptersTableTableManager(
+      $_db,
+      $_db.chapters,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_chapterIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $BooksTable _bookIdTable(_$TomeToneDatabase db) =>
+      db.books.createAlias('audio_cache_entries__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $BookSourcesTable _sourceIdTable(_$TomeToneDatabase db) => db
+      .bookSources
+      .createAlias('audio_cache_entries__source_id__book_sources__id');
+
+  $$BookSourcesTableProcessedTableManager? get sourceId {
+    final $_column = $_itemColumn<String>('source_id');
+    if ($_column == null) return null;
+    final manager = $$BookSourcesTableTableManager(
+      $_db,
+      $_db.bookSources,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_sourceIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AudioCacheEntriesTableFilterComposer
+    extends Composer<_$TomeToneDatabase, $AudioCacheEntriesTable> {
+  $$AudioCacheEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get sourceUrlHash => $composableBuilder(
+    column: $table.sourceUrlHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bytes => $composableBuilder(
+    column: $table.bytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get etag => $composableBuilder(
+    column: $table.etag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAccessedAt => $composableBuilder(
+    column: $table.lastAccessedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ChaptersTableFilterComposer get chapterId {
+    final $$ChaptersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.chapterId,
+      referencedTable: $db.chapters,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ChaptersTableFilterComposer(
+            $db: $db,
+            $table: $db.chapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BookSourcesTableFilterComposer get sourceId {
+    final $$BookSourcesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceId,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableFilterComposer(
+            $db: $db,
+            $table: $db.bookSources,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AudioCacheEntriesTableOrderingComposer
+    extends Composer<_$TomeToneDatabase, $AudioCacheEntriesTable> {
+  $$AudioCacheEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get sourceUrlHash => $composableBuilder(
+    column: $table.sourceUrlHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bytes => $composableBuilder(
+    column: $table.bytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get etag => $composableBuilder(
+    column: $table.etag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAccessedAt => $composableBuilder(
+    column: $table.lastAccessedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ChaptersTableOrderingComposer get chapterId {
+    final $$ChaptersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.chapterId,
+      referencedTable: $db.chapters,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ChaptersTableOrderingComposer(
+            $db: $db,
+            $table: $db.chapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BookSourcesTableOrderingComposer get sourceId {
+    final $$BookSourcesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceId,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableOrderingComposer(
+            $db: $db,
+            $table: $db.bookSources,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AudioCacheEntriesTableAnnotationComposer
+    extends Composer<_$TomeToneDatabase, $AudioCacheEntriesTable> {
+  $$AudioCacheEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get sourceUrlHash => $composableBuilder(
+    column: $table.sourceUrlHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get filePath =>
+      $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bytes =>
+      $composableBuilder(column: $table.bytes, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get etag =>
+      $composableBuilder(column: $table.etag, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastAccessedAt => $composableBuilder(
+    column: $table.lastAccessedAt,
+    builder: (column) => column,
+  );
+
+  $$ChaptersTableAnnotationComposer get chapterId {
+    final $$ChaptersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.chapterId,
+      referencedTable: $db.chapters,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ChaptersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.chapters,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BookSourcesTableAnnotationComposer get sourceId {
+    final $$BookSourcesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceId,
+      referencedTable: $db.bookSources,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookSourcesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookSources,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AudioCacheEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$TomeToneDatabase,
+          $AudioCacheEntriesTable,
+          AudioCacheEntry,
+          $$AudioCacheEntriesTableFilterComposer,
+          $$AudioCacheEntriesTableOrderingComposer,
+          $$AudioCacheEntriesTableAnnotationComposer,
+          $$AudioCacheEntriesTableCreateCompanionBuilder,
+          $$AudioCacheEntriesTableUpdateCompanionBuilder,
+          (AudioCacheEntry, $$AudioCacheEntriesTableReferences),
+          AudioCacheEntry,
+          PrefetchHooks Function({bool chapterId, bool bookId, bool sourceId})
+        > {
+  $$AudioCacheEntriesTableTableManager(
+    _$TomeToneDatabase db,
+    $AudioCacheEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AudioCacheEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AudioCacheEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AudioCacheEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> chapterId = const Value.absent(),
+                Value<String> bookId = const Value.absent(),
+                Value<String?> sourceId = const Value.absent(),
+                Value<String> sourceUrlHash = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<String?> contentType = const Value.absent(),
+                Value<int> bytes = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> etag = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastAccessedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AudioCacheEntriesCompanion(
+                chapterId: chapterId,
+                bookId: bookId,
+                sourceId: sourceId,
+                sourceUrlHash: sourceUrlHash,
+                filePath: filePath,
+                contentType: contentType,
+                bytes: bytes,
+                status: status,
+                etag: etag,
+                createdAt: createdAt,
+                lastAccessedAt: lastAccessedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String chapterId,
+                required String bookId,
+                Value<String?> sourceId = const Value.absent(),
+                required String sourceUrlHash,
+                required String filePath,
+                Value<String?> contentType = const Value.absent(),
+                required int bytes,
+                required String status,
+                Value<String?> etag = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime lastAccessedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AudioCacheEntriesCompanion.insert(
+                chapterId: chapterId,
+                bookId: bookId,
+                sourceId: sourceId,
+                sourceUrlHash: sourceUrlHash,
+                filePath: filePath,
+                contentType: contentType,
+                bytes: bytes,
+                status: status,
+                etag: etag,
+                createdAt: createdAt,
+                lastAccessedAt: lastAccessedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AudioCacheEntriesTable, AudioCacheEntry>(table),
+                  $$AudioCacheEntriesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({chapterId = false, bookId = false, sourceId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (chapterId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.chapterId,
+                            referencedTable: $$AudioCacheEntriesTableReferences
+                                ._chapterIdTable(db),
+                            referencedColumn: $$AudioCacheEntriesTableReferences
+                                ._chapterIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (bookId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.bookId,
+                            referencedTable: $$AudioCacheEntriesTableReferences
+                                ._bookIdTable(db),
+                            referencedColumn: $$AudioCacheEntriesTableReferences
+                                ._bookIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (sourceId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.sourceId,
+                            referencedTable: $$AudioCacheEntriesTableReferences
+                                ._sourceIdTable(db),
+                            referencedColumn: $$AudioCacheEntriesTableReferences
+                                ._sourceIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$AudioCacheEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$TomeToneDatabase,
+      $AudioCacheEntriesTable,
+      AudioCacheEntry,
+      $$AudioCacheEntriesTableFilterComposer,
+      $$AudioCacheEntriesTableOrderingComposer,
+      $$AudioCacheEntriesTableAnnotationComposer,
+      $$AudioCacheEntriesTableCreateCompanionBuilder,
+      $$AudioCacheEntriesTableUpdateCompanionBuilder,
+      (AudioCacheEntry, $$AudioCacheEntriesTableReferences),
+      AudioCacheEntry,
+      PrefetchHooks Function({bool chapterId, bool bookId, bool sourceId})
+    >;
+typedef $$AppSettingsTableCreateCompanionBuilder =
+    AppSettingsCompanion Function({
+      required String key,
+      required String value,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$AppSettingsTableUpdateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<String> key,
+      Value<String> value,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$AppSettingsTableFilterComposer
+    extends Composer<_$TomeToneDatabase, $AppSettingsTable> {
+  $$AppSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppSettingsTableOrderingComposer
+    extends Composer<_$TomeToneDatabase, $AppSettingsTable> {
+  $$AppSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppSettingsTableAnnotationComposer
+    extends Composer<_$TomeToneDatabase, $AppSettingsTable> {
+  $$AppSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AppSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$TomeToneDatabase,
+          $AppSettingsTable,
+          AppSetting,
+          $$AppSettingsTableFilterComposer,
+          $$AppSettingsTableOrderingComposer,
+          $$AppSettingsTableAnnotationComposer,
+          $$AppSettingsTableCreateCompanionBuilder,
+          $$AppSettingsTableUpdateCompanionBuilder,
+          (
+            AppSetting,
+            BaseReferences<_$TomeToneDatabase, $AppSettingsTable, AppSetting>,
+          ),
+          AppSetting,
+          PrefetchHooks Function()
+        > {
+  $$AppSettingsTableTableManager(_$TomeToneDatabase db, $AppSettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion(
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String value,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion.insert(
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppSettingsTable, AppSetting>(table),
+                  BaseReferences<
+                    _$TomeToneDatabase,
+                    $AppSettingsTable,
+                    AppSetting
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$TomeToneDatabase,
+      $AppSettingsTable,
+      AppSetting,
+      $$AppSettingsTableFilterComposer,
+      $$AppSettingsTableOrderingComposer,
+      $$AppSettingsTableAnnotationComposer,
+      $$AppSettingsTableCreateCompanionBuilder,
+      $$AppSettingsTableUpdateCompanionBuilder,
+      (
+        AppSetting,
+        BaseReferences<_$TomeToneDatabase, $AppSettingsTable, AppSetting>,
+      ),
+      AppSetting,
+      PrefetchHooks Function()
+    >;
 
 class $TomeToneDatabaseManager {
   final _$TomeToneDatabase _db;
   $TomeToneDatabaseManager(this._db);
   $$LibraryRootsTableTableManager get libraryRoots =>
       $$LibraryRootsTableTableManager(_db, _db.libraryRoots);
+  $$BookSourcesTableTableManager get bookSources =>
+      $$BookSourcesTableTableManager(_db, _db.bookSources);
   $$BooksTableTableManager get books =>
       $$BooksTableTableManager(_db, _db.books);
   $$VolumesTableTableManager get volumes =>
@@ -10411,4 +15792,8 @@ class $TomeToneDatabaseManager {
       $$ListeningRecordsTableTableManager(_db, _db.listeningRecords);
   $$StorageAccountsTableTableManager get storageAccounts =>
       $$StorageAccountsTableTableManager(_db, _db.storageAccounts);
+  $$AudioCacheEntriesTableTableManager get audioCacheEntries =>
+      $$AudioCacheEntriesTableTableManager(_db, _db.audioCacheEntries);
+  $$AppSettingsTableTableManager get appSettings =>
+      $$AppSettingsTableTableManager(_db, _db.appSettings);
 }

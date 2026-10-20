@@ -24,11 +24,12 @@ class _V1SchemaUser implements QueryExecutorUser {
 }
 
 /// 手工构造一个 v1 库（旧列集合：无 `manual_edited_at` / `finished_at` / `book_tags`），
-/// 并写入一条书库根、一条书、一条覆盖层，`user_version` 置 1。
+/// 并写入一条书库根、一条书、一条章节、一条覆盖层，`user_version` 置 1。
 ///
-/// 注：迁移会 `addColumn(playback_progress, finished_at)`，故 v1 库必须已存在
-/// `playback_progress` 表（否则 `ALTER TABLE` 会因缺表失败）；其余 v2 前就有的表
-/// 与本次迁移无关，为保持用例聚焦只建被断言涉及的表。
+/// 注：迁移会 `addColumn(playback_progress, finished_at)`，v3 又会
+/// `addColumn(chapters, ...)`，故 v1 库必须已存在这两张表（否则 `ALTER TABLE`
+/// 会因缺表失败）；其余 v2/v3 前就有的表与本次迁移无关，为保持用例聚焦只建
+/// 被断言涉及的表。
 Future<void> _createV1Database(File file) async {
   final raw = NativeDatabase(file);
   await raw.ensureOpen(const _V1SchemaUser());
@@ -64,6 +65,23 @@ Future<void> _createV1Database(File file) async {
       )
     ''');
     await raw.runCustom('''
+      CREATE TABLE chapters (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        volume_id TEXT NOT NULL,
+        library_root_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        chapter_index INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        source_uri TEXT,
+        duration_ms INTEGER,
+        size_bytes INTEGER,
+        missing INTEGER NOT NULL DEFAULT 0,
+        metadata_attempts INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await raw.runCustom('''
       CREATE TABLE book_metadata_overrides (
         book_id TEXT NOT NULL PRIMARY KEY,
         title TEXT,
@@ -91,6 +109,9 @@ Future<void> _createV1Database(File file) async {
       "INSERT INTO books (id, library_root_id, title, root_path, source_type, created_at, updated_at) VALUES ('book-1', 'root-1', '三体', '三体', 'local', 0, 0)",
     );
     await raw.runCustom(
+      "INSERT INTO chapters (id, book_id, volume_id, library_root_id, title, chapter_index, file_path, updated_at) VALUES ('ch-1', 'book-1', 'vol-1', 'root-1', '第一章', 0, '三体/001.mp3', 0)",
+    );
+    await raw.runCustom(
       "INSERT INTO book_metadata_overrides (book_id, title, updated_at) VALUES ('book-1', '覆盖标题', 0)",
     );
 
@@ -115,13 +136,13 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  test('v1 库增量升级到 v2：增列增表且保留既有覆盖层数据', () async {
+  test('v1 库增量升级到 v3：增列增表且保留既有覆盖层数据', () async {
     await _createV1Database(dbFile);
 
     final db = TomeToneDatabase(NativeDatabase(dbFile));
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 2);
+    expect(db.schemaVersion, 3);
 
     final columns = await db
         .customSelect("PRAGMA table_info('book_metadata_overrides')")
@@ -142,7 +163,29 @@ void main() {
     final tables = await db
         .customSelect("SELECT name FROM sqlite_master WHERE type='table'")
         .get();
-    expect(tables.map((r) => r.read<String>('name')), contains('book_tags'));
+    expect(
+      tables.map((r) => r.read<String>('name')),
+      containsAll(<String>[
+        'book_tags',
+        'book_sources',
+        'audio_cache_entries',
+        'app_settings',
+      ]),
+    );
+
+    final book = await db
+        .customSelect(
+          "SELECT on_shelf, source_id FROM books WHERE id = 'book-1'",
+        )
+        .getSingle();
+    expect(book.read<bool>('on_shelf'), isTrue);
+    expect(book.read<String?>('source_id'), isNull);
+
+    final chapter = await db
+        .customSelect("SELECT retired, is_vip FROM chapters WHERE id = 'ch-1'")
+        .getSingle();
+    expect(chapter.read<bool>('retired'), isFalse);
+    expect(chapter.read<bool>('is_vip'), isFalse);
 
     expect(await db.select(db.bookMetadataOverrides).get(), hasLength(1));
   });

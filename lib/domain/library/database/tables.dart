@@ -21,7 +21,7 @@ class LibraryRoots extends Table {
   /// ULID。
   TextColumn get id => text()();
 
-  /// `local` / `saf` / `webdav` / `smb`。
+  /// `local` / `saf` / `webdav` / `smb` / `online`。
   TextColumn get type => text()();
 
   /// 根 URI（本地绝对路径或 provider 句柄）。
@@ -35,6 +35,95 @@ class LibraryRoots extends Table {
 
   /// 加入时间。
   DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// 在线书源（Legado `bookSourceType == 1`）。
+///
+/// 每个源绑定一条虚拟书库根（`library_roots.type = 'online'`），在线书目通过
+/// [Books.sourceId] 归属到源；书源软删除，重新导入同 URL 时复活原行。
+@TableIndex(
+  name: 'book_sources_source_url',
+  columns: {#sourceUrl},
+  unique: true,
+)
+@TableIndex(
+  name: 'book_sources_library_root',
+  columns: {#libraryRootId},
+  unique: true,
+)
+@TableIndex(name: 'book_sources_deleted_at', columns: {#deletedAt})
+class BookSources extends Table {
+  /// ULID。
+  TextColumn get id => text()();
+
+  /// 虚拟书库根。
+  TextColumn get libraryRootId =>
+      text().references(LibraryRoots, #id, onDelete: KeyAction.restrict)();
+
+  /// 规范化后的书源地址（身份）。
+  TextColumn get sourceUrl => text()();
+
+  /// 书源名。
+  TextColumn get name => text()();
+
+  /// Legado `bookSourceGroup`。
+  TextColumn get groupName => text().nullable()();
+
+  /// 书源类型；本阶段只接受 1（听书源）。
+  IntColumn get sourceType => integer()();
+
+  /// 原始 Legado JSON（未知字段也保留）。
+  TextColumn get rawJson => text()();
+
+  /// 规范化后的 header JSON；不在此层解密或记录。
+  TextColumn get headerJson => text().nullable()();
+
+  /// Legado `exploreUrl`。
+  TextColumn get exploreUrl => text().nullable()();
+
+  /// Legado `searchUrl`。
+  TextColumn get searchUrl => text().nullable()();
+
+  /// Legado `jsLib`。
+  TextColumn get jsLib => text().nullable()();
+
+  /// 是否参与自动刷新 / 发现。
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+
+  /// 是否出现在发现页。
+  BoolColumn get enabledExplore =>
+      boolean().withDefault(const Constant(true))();
+
+  /// 用户排序值。
+  IntColumn get customOrder => integer().withDefault(const Constant(0))();
+
+  /// Legado `concurrentRate`（毫秒）。
+  IntColumn get concurrentRate => integer().nullable()();
+
+  /// 最近一次源级测试。
+  DateTimeColumn get lastTestAt => dateTime().nullable()();
+
+  /// 最近一次源级测试是否成功。
+  BoolColumn get lastTestOk => boolean().nullable()();
+
+  /// 最近一次源级错误（已脱敏）。
+  TextColumn get lastError => text().nullable()();
+
+  /// 连续失败次数。
+  IntColumn get consecutiveFailures =>
+      integer().withDefault(const Constant(0))();
+
+  /// 导入时间。
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// 最近更新时间。
+  DateTimeColumn get updatedAt => dateTime()();
+
+  /// 软删除时间；非空表示来源不可用，但书目与进度保留。
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -103,6 +192,46 @@ class Books extends Table {
 
   /// 最近更新时间。
   DateTimeColumn get updatedAt => dateTime()();
+
+  /// 是否在书架展示。在线书首次收听/加入书架后为 true；本机书默认 true。
+  BoolColumn get onShelf => boolean().withDefault(const Constant(true))();
+
+  /// 在线书来源；本机书为空。
+  TextColumn get sourceId => text().nullable().references(
+    BookSources,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+
+  /// 在线封面 URL；本机封面仍走 [coverPath]。
+  TextColumn get coverUrl => text().nullable()();
+
+  /// 在线简介（覆盖层优先）。
+  TextColumn get description => text().nullable()();
+
+  /// 在线书类型 / 标签（Legado bookInfo.kind）。
+  TextColumn get kind => text().nullable()();
+
+  /// 在线字数（原样文本，可能含“万字”）。
+  TextColumn get wordCount => text().nullable()();
+
+  /// 在线书状态（连载 / 完结等，原样文本）。
+  TextColumn get sourceStatus => text().nullable()();
+
+  /// 在线书最新章名（列表展示用）。
+  TextColumn get lastChapter => text().nullable()();
+
+  /// 源侧最近更新时间。
+  DateTimeColumn get sourceUpdatedAt => dateTime().nullable()();
+
+  /// 最近一次刷新信息时间。
+  DateTimeColumn get lastRefreshAt => dateTime().nullable()();
+
+  /// 最近一次刷新是否成功。
+  BoolColumn get lastRefreshOk => boolean().nullable()();
+
+  /// 最近一次刷新错误（已脱敏）。
+  TextColumn get lastRefreshError => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -194,6 +323,12 @@ class Chapters extends Table {
   /// 时长（坏文件 / 编码异常），它会一直留在队首，**饿死**后面所有章节。
   /// 连续失败达到上限后跳过它，保证队列整体推进。
   IntColumn get metadataAttempts => integer().withDefault(const Constant(0))();
+
+  /// 换源 / 目录刷新后标记旧章；只增不删，保留进度归属。
+  BoolColumn get retired => boolean().withDefault(const Constant(false))();
+
+  /// 源侧标记的 VIP / 付费章；M1 只记录，不尝试绕过。
+  BoolColumn get isVip => boolean().withDefault(const Constant(false))();
 
   /// 最近更新时间。
   DateTimeColumn get updatedAt => dateTime()();
@@ -358,4 +493,68 @@ class StorageAccounts extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// 在线音频缓存清单（M1-D 使用；此阶段只建表）。
+///
+/// 只存章 URL 哈希，不持久化解析后的音频 URL：章 URL 变化即失效。
+@TableIndex(name: 'audio_cache_book', columns: {#bookId})
+@TableIndex(name: 'audio_cache_accessed', columns: {#lastAccessedAt})
+class AudioCacheEntries extends Table {
+  /// 对应章（一章最多一条缓存）。
+  TextColumn get chapterId =>
+      text().references(Chapters, #id, onDelete: KeyAction.cascade)();
+
+  /// 冗余书，便于按书清理。
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+
+  /// 来源；来源硬删除时置空（当前只软删除）。
+  TextColumn get sourceId => text().nullable().references(
+    BookSources,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+
+  /// 章 URL 的 SHA-256，用于失效判断。
+  TextColumn get sourceUrlHash => text()();
+
+  /// 缓存文件相对路径。
+  TextColumn get filePath => text()();
+
+  /// MIME 类型。
+  TextColumn get contentType => text().nullable()();
+
+  /// 文件字节数。
+  IntColumn get bytes => integer()();
+
+  /// `queued` / `downloading` / `ready` / `failed`。
+  TextColumn get status => text()();
+
+  /// HTTP ETag（如有）。
+  TextColumn get etag => text().nullable()();
+
+  /// 创建时间。
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// 最近访问时间（LRU 清理依据）。
+  DateTimeColumn get lastAccessedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{chapterId};
+}
+
+/// 应用级设置（预下载章数、仅 Wi-Fi、缓存上限等）。
+class AppSettings extends Table {
+  /// 设置键。
+  TextColumn get key => text()();
+
+  /// JSON / 原始字符串值。
+  TextColumn get value => text()();
+
+  /// 最近更新时间。
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{key};
 }

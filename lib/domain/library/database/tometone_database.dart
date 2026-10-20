@@ -14,6 +14,7 @@ part 'tometone_database.g.dart';
 @DriftDatabase(
   tables: <Type>[
     LibraryRoots,
+    BookSources,
     Books,
     Volumes,
     Chapters,
@@ -23,6 +24,8 @@ part 'tometone_database.g.dart';
     PerBookPrefs,
     ListeningRecords,
     StorageAccounts,
+    AudioCacheEntries,
+    AppSettings,
   ],
 )
 class TomeToneDatabase extends _$TomeToneDatabase {
@@ -30,7 +33,7 @@ class TomeToneDatabase extends _$TomeToneDatabase {
   TomeToneDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,6 +54,30 @@ class TomeToneDatabase extends _$TomeToneDatabase {
         );
         await migrator.addColumn(playbackProgress, playbackProgress.finishedAt);
         await migrator.createTable(bookTags);
+      }
+
+      // v2 → v3 只增列、增表。先建来源表，再给 books 加 source_id。
+      if (from < 3) {
+        await migrator.createTable(bookSources);
+
+        await migrator.addColumn(books, books.onShelf);
+        await migrator.addColumn(books, books.sourceId);
+        await migrator.addColumn(books, books.coverUrl);
+        await migrator.addColumn(books, books.description);
+        await migrator.addColumn(books, books.kind);
+        await migrator.addColumn(books, books.wordCount);
+        await migrator.addColumn(books, books.sourceStatus);
+        await migrator.addColumn(books, books.lastChapter);
+        await migrator.addColumn(books, books.sourceUpdatedAt);
+        await migrator.addColumn(books, books.lastRefreshAt);
+        await migrator.addColumn(books, books.lastRefreshOk);
+        await migrator.addColumn(books, books.lastRefreshError);
+
+        await migrator.addColumn(chapters, chapters.retired);
+        await migrator.addColumn(chapters, chapters.isVip);
+
+        await migrator.createTable(audioCacheEntries);
+        await migrator.createTable(appSettings);
       }
     },
     beforeOpen: (OpeningDetails details) async {
