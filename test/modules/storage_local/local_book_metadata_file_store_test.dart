@@ -80,5 +80,44 @@ void main() {
     test('read 不存在的书根返回 null', () async {
       expect(await store.read('books/nope'), isNull);
     });
+
+    test('同一书根写两次，第二次覆盖', () async {
+      createBookDir('books/a');
+      final first = Uint8List.fromList(<int>[1, 1, 1]);
+      final second = Uint8List.fromList(<int>[2, 2, 2]);
+
+      expect(await store.write('books/a', first), BookMetadataWriteStatus.written);
+      expect(await store.write('books/a', second), BookMetadataWriteStatus.written);
+      expect(await store.read('books/a'), second);
+    });
+  });
+
+  group('路径穿越防护', () {
+    test('read ../ 穿越返回 null', () async {
+      expect(await store.read('../outside'), isNull);
+    });
+
+    test('write ../ 穿越返回 failed，且根外没有生成 sidecar', () async {
+      // 在根目录的父目录里预建一个「根外」目录，使无防护时 write 真的会落进去。
+      final outsideDir = Directory.systemTemp.createTempSync('tometone_outside_');
+      addTearDown(() {
+        if (outsideDir.existsSync()) {
+          outsideDir.deleteSync(recursive: true);
+        }
+      });
+      final outsideName = outsideDir.path.split(Platform.pathSeparator).last;
+
+      final status = await store.write('../$outsideName', bytes);
+      expect(status, BookMetadataWriteStatus.failed);
+
+      final sidecar = File(
+        '${outsideDir.path}${Platform.pathSeparator}tometone.meta.json',
+      );
+      expect(sidecar.existsSync(), isFalse);
+    });
+
+    test('write 含盘符段返回 failed', () async {
+      expect(await store.write('C:/outside', bytes), BookMetadataWriteStatus.failed);
+    });
   });
 }

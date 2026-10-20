@@ -30,6 +30,17 @@ void main() {
       );
     });
 
+    test('schema 为 0 或负数（未知/非法版本）返回 null', () {
+      expect(
+        BookMetadataCodec.decode(Uint8List.fromList(utf8.encode('{"schema":0}'))),
+        isNull,
+      );
+      expect(
+        BookMetadataCodec.decode(Uint8List.fromList(utf8.encode('{"schema":-1}'))),
+        isNull,
+      );
+    });
+
     test('JSON 缺字段时对应值为 null，未知字段被忽略', () {
       final decoded = BookMetadataCodec.decode(
         Uint8List.fromList(utf8.encode('{"schema":1,"unknownField":"x"}')),

@@ -25,7 +25,11 @@ class LocalBookMetadataFileStore implements BookMetadataFileStore {
 
   @override
   Future<Uint8List?> read(String bookRootPath) async {
-    final file = File(_sidecarPath(bookRootPath));
+    final path = _sidecarPath(bookRootPath);
+    if (path == null) {
+      return null;
+    }
+    final file = File(path);
     try {
       final length = file.lengthSync();
       if (length > maxReadBytes) {
@@ -42,7 +46,11 @@ class LocalBookMetadataFileStore implements BookMetadataFileStore {
     String bookRootPath,
     Uint8List bytes,
   ) async {
-    final target = File(_sidecarPath(bookRootPath));
+    final path = _sidecarPath(bookRootPath);
+    if (path == null) {
+      return BookMetadataWriteStatus.failed;
+    }
+    final target = File(path);
     final temp = File('${target.path}.tmp');
     try {
       if (!target.parent.existsSync()) {
@@ -63,13 +71,21 @@ class LocalBookMetadataFileStore implements BookMetadataFileStore {
     }
   }
 
-  /// 把「根 + 书根相对路径 + sidecar 文件名」拼成绝对路径。
-  String _sidecarPath(String bookRootPath) {
+  /// 把「根 + 书根相对路径 + sidecar 文件名」拼成绝对路径；不安全返回 `null`。
+  ///
+  /// 拒绝 `..`（路径穿越）与含 `:` 的段（Windows 盘符），防止写到书库根之外。
+  String? _sidecarPath(String bookRootPath) {
     final normalized = bookRootPath.replaceAll('\\', '/');
-    final segments = normalized
-        .split('/')
-        .where((String segment) => segment.isNotEmpty)
-        .toList();
+    final segments = <String>[];
+    for (final segment in normalized.split('/')) {
+      if (segment.isEmpty) {
+        continue;
+      }
+      if (segment == '..' || segment.contains(':')) {
+        return null;
+      }
+      segments.add(segment);
+    }
     return <String>[rootPath, ...segments, sidecarFileName].join(
       Platform.pathSeparator,
     );

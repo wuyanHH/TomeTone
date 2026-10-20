@@ -48,7 +48,7 @@ class BookMetadataCodec {
     }
     final map = decoded;
     final Object? schema = map['schema'];
-    if (schema is! num || schema > schemaVersion) {
+    if (schema is! num || schema <= 0 || schema > schemaVersion) {
       return null;
     }
     return BookMetadataDraft(
