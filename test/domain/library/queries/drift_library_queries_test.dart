@@ -410,6 +410,23 @@ void main() {
       expect(tags.map((t) => t.tag).toSet(), <String>{'甲', '乙'});
     });
 
+    test('saveBookMetadata(manual: true) 空标签清空现有标签', () async {
+      await seed();
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-a', tag: '旧标签'));
+
+      await queries.saveBookMetadata(
+        bookId: 'book-a',
+        metadata: const BookMetadataDraft(title: '新书名'),
+      );
+
+      final tags = await (db.select(db.bookTags)
+            ..where((t) => t.bookId.equals('book-a')))
+          .get();
+      expect(tags, isEmpty, reason: 'manual: true 空列表即清空');
+    });
+
     test('saveBookMetadata(manual: false, onlyFillEmpty: true) 只补空字段、缺失不清空', () async {
       await seed();
       await db
@@ -434,6 +451,39 @@ void main() {
           .getSingle();
       expect(row.title, '自动书名', reason: '缺失字段（title 未提供）不清空');
       expect(row.description, '补的简介', reason: '空字段被补上');
+      expect(row.manualEditedAt, isNull);
+    });
+
+    test('saveBookMetadata(manual: false, onlyFillEmpty: true) 非空 title 不被 sidecar 覆盖', () async {
+      await seed();
+      await db
+          .into(db.bookMetadataOverrides)
+          .insert(
+            BookMetadataOverridesCompanion.insert(
+              bookId: 'book-a',
+              title: const Value<String?>('旧标题'),
+              author: const Value<String?>('旧作者'),
+              updatedAt: _t0,
+            ),
+          );
+
+      await queries.saveBookMetadata(
+        bookId: 'book-a',
+        metadata: const BookMetadataDraft(
+          title: '新标题',
+          author: '新作者',
+          description: '补的简介',
+        ),
+        manual: false,
+        onlyFillEmpty: true,
+      );
+
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals('book-a')))
+          .getSingle();
+      expect(row.title, '旧标题', reason: '已有非空字段不被 sidecar 覆盖');
+      expect(row.author, '旧作者');
+      expect(row.description, '补的简介', reason: '空字段仍被补上');
       expect(row.manualEditedAt, isNull);
     });
 

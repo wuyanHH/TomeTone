@@ -270,12 +270,12 @@ class DriftLibraryQueries implements LibraryQueries {
         await _upsertOverrides(
           bookId: bookId,
           draft: BookMetadataDraft(
-            title: draft.title ?? existing?.title,
-            author: draft.author ?? existing?.author,
-            narrator: draft.narrator ?? existing?.narrator,
-            seriesName: draft.seriesName ?? existing?.seriesName,
-            seriesIndex: draft.seriesIndex ?? existing?.seriesIndex,
-            description: draft.description ?? existing?.description,
+            title: existing?.title ?? draft.title,
+            author: existing?.author ?? draft.author,
+            narrator: existing?.narrator ?? draft.narrator,
+            seriesName: existing?.seriesName ?? draft.seriesName,
+            seriesIndex: existing?.seriesIndex ?? draft.seriesIndex,
+            description: existing?.description ?? draft.description,
             tags: draft.tags,
           ),
           manualEditedAt: null,
