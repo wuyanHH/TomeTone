@@ -64,7 +64,7 @@ void main() {
     expect(find.text('书库'), findsOneWidget);
     expect(find.text('纪年'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
-    expect(find.text('书卷藏馆'), findsOneWidget);
+    expect(find.text('我的书架'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -79,7 +79,7 @@ void main() {
     await tester.tap(find.text('纪年'));
     await tester.pumpAndSettle();
     expect(find.text('聆听纪年'), findsOneWidget);
-    expect(find.text('书卷藏馆'), findsNothing);
+    expect(find.text('我的书架'), findsNothing);
 
     await tester.tap(find.text('书库'));
     await tester.pumpAndSettle();
@@ -164,7 +164,7 @@ void main() {
     expect(find.text('书库'), findsOneWidget);
     expect(find.text('纪年'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
-    expect(find.text('书卷藏馆'), findsOneWidget);
+    expect(find.text('我的书架'), findsOneWidget);
     expect(find.text('播放器'), findsOneWidget);
 
     await tester.tap(find.text('纪年'));

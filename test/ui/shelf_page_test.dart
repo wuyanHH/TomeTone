@@ -16,6 +16,7 @@ import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/player/player_page.dart';
+import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 
@@ -371,5 +372,402 @@ void main() {
       4,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  group('ShelfFilterState 筛选模型', () {
+    /// 四本摘要：在听（长夜行舟）、未听（雾中灯塔）、已完（春山慢）、无简介（雪落长安）。
+    List<BookSummary> shelfFixture() => <BookSummary>[
+      testSummary(
+        id: 'book-1',
+        title: '长夜行舟',
+        author: '沈砚',
+        narrator: '白露',
+        seriesName: '山海纪',
+        description: '夜航灯影下打捞旧事的航行',
+        tags: <String>['Wuxia'],
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+      ),
+      testSummary(
+        id: 'book-2',
+        title: '雾中灯塔',
+        author: '江照',
+        narrator: 'Chen Yu',
+        seriesName: '山海纪',
+        description: '守塔人每晚写一封不会寄出的信',
+        tags: <String>['悬疑'],
+      ),
+      testSummary(
+        id: 'book-3',
+        title: '春山慢',
+        author: '温酒',
+        narrator: '苏晚',
+        description: '山寺的钟一天只响一次',
+        tags: <String>['wuxia'],
+        isFinished: true,
+        progressPositionMs: 1000,
+        progressChapterIndex: 9,
+      ),
+      testSummary(
+        id: 'book-4',
+        title: '雪落长安',
+        author: '温酒',
+        narrator: '苏晚',
+        seriesName: '长安三夜',
+      ),
+    ];
+
+    /// 只取书名，断言用。
+    List<String> titles(List<BookSummary> books) =>
+        <String>[for (final BookSummary book in books) book.title];
+
+    test('apply([]) 为空；默认状态不激活且原样返回', () {
+      const ShelfFilterState filter = ShelfFilterState();
+      final List<BookSummary> books = shelfFixture();
+
+      expect(filter.apply(const <BookSummary>[]), isEmpty);
+      expect(filter.isActive, isFalse);
+      expect(titles(filter.apply(books)), <String>[
+        '长夜行舟',
+        '雾中灯塔',
+        '春山慢',
+        '雪落长安',
+      ]);
+    });
+
+    test('搜索：书名 / 作者 / 演播 / 简介 / 系列关键词命中，大小写不敏感', () {
+      const ShelfFilterState base = ShelfFilterState();
+      final List<BookSummary> books = shelfFixture();
+
+      expect(titles(base.copyWith(query: '长安').apply(books)), <String>['雪落长安']);
+      expect(titles(base.copyWith(query: '沈砚').apply(books)), <String>['长夜行舟']);
+      // 演播者大小写折叠：'Chen Yu' 能被 'chen yu' 命中。
+      expect(titles(base.copyWith(query: 'chen yu').apply(books)), <String>['雾中灯塔']);
+      // 简介关键词。
+      expect(titles(base.copyWith(query: '不会寄出').apply(books)), <String>['雾中灯塔']);
+      // 系列名也参与搜索。
+      expect(
+        titles(base.copyWith(query: '山海纪').apply(books)),
+        <String>['长夜行舟', '雾中灯塔'],
+      );
+      expect(base.copyWith(query: '不存在的关键词').apply(books), isEmpty);
+      // 空白搜索词等同未搜索。
+      expect(base.copyWith(query: '   ').apply(books), hasLength(4));
+    });
+
+    test('状态筛选：在听 / 未听 / 已完 只留对应书', () {
+      final List<BookSummary> books = shelfFixture();
+
+      // 有进度但已听完的《春山慢》不算「在听」。
+      expect(
+        titles(
+          const ShelfFilterState(status: ShelfStatusFilter.listening)
+              .apply(books),
+        ),
+        <String>['长夜行舟'],
+      );
+      // 有进度的《春山慢》不算「未听」（即便已听完）。
+      expect(
+        titles(
+          const ShelfFilterState(status: ShelfStatusFilter.unlistened)
+              .apply(books),
+        ),
+        <String>['雾中灯塔', '雪落长安'],
+      );
+      expect(
+        titles(
+          const ShelfFilterState(status: ShelfStatusFilter.finished)
+              .apply(books),
+        ),
+        <String>['春山慢'],
+      );
+    });
+
+    test('标签大小写折叠、系列按原文比较，组合为 AND', () {
+      final List<BookSummary> books = shelfFixture();
+
+      // 'Wuxia' / 'wuxia' 视为同一标签。
+      expect(
+        titles(const ShelfFilterState(tag: 'WUXIA').apply(books)),
+        <String>['长夜行舟', '春山慢'],
+      );
+      expect(
+        titles(const ShelfFilterState(series: '山海纪').apply(books)),
+        <String>['长夜行舟', '雾中灯塔'],
+      );
+      // 系列按原文：大小写不同不算命中。
+      final BookSummary saga = testSummary(
+        id: 'book-5',
+        title: '雾都孤儿',
+        seriesName: 'Saga',
+      );
+      expect(
+        const ShelfFilterState(series: 'saga').apply(<BookSummary>[saga]),
+        isEmpty,
+      );
+      // 标签 ∩ 系列。
+      expect(
+        titles(
+          const ShelfFilterState(tag: 'wuxia', series: '山海纪')
+              .apply(books),
+        ),
+        <String>['长夜行舟'],
+      );
+      // 状态 ∩ 搜索。
+      expect(
+        titles(
+          const ShelfFilterState(
+            status: ShelfStatusFilter.unlistened,
+            query: '温酒',
+          ).apply(books),
+        ),
+        <String>['雪落长安'],
+      );
+    });
+
+    test('isActive：任一维度偏离默认即激活，空白值不激活', () {
+      expect(const ShelfFilterState().isActive, isFalse);
+      expect(const ShelfFilterState(query: '夜').isActive, isTrue);
+      expect(
+        const ShelfFilterState(status: ShelfStatusFilter.listening).isActive,
+        isTrue,
+      );
+      expect(const ShelfFilterState(tag: '武侠').isActive, isTrue);
+      expect(const ShelfFilterState(series: '山海纪').isActive, isTrue);
+      expect(const ShelfFilterState(query: '   ').isActive, isFalse);
+      expect(const ShelfFilterState(tag: '').isActive, isFalse);
+      expect(const ShelfFilterState(series: '').isActive, isFalse);
+    });
+  });
+
+  group('书架筛选交互', () {
+    List<BookSummary> shelfFixture() => <BookSummary>[
+      testSummary(
+        id: 'book-1',
+        title: '长夜行舟',
+        author: '沈砚',
+        narrator: '白露',
+        seriesName: '山海纪',
+        description: '夜航灯影下打捞旧事的航行',
+        tags: <String>['Wuxia'],
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+      ),
+      testSummary(
+        id: 'book-2',
+        title: '雾中灯塔',
+        author: '江照',
+        narrator: 'Chen Yu',
+        seriesName: '山海纪',
+        description: '守塔人每晚写一封不会寄出的信',
+        tags: <String>['悬疑'],
+      ),
+      testSummary(
+        id: 'book-3',
+        title: '春山慢',
+        author: '温酒',
+        narrator: '苏晚',
+        description: '山寺的钟一天只响一次',
+        tags: <String>['wuxia'],
+        isFinished: true,
+        progressPositionMs: 1000,
+        progressChapterIndex: 9,
+      ),
+      testSummary(
+        id: 'book-4',
+        title: '雪落长安',
+        author: '温酒',
+        narrator: '苏晚',
+        seriesName: '长安三夜',
+      ),
+    ];
+
+    testWidgets('搜索：展开输入即时过滤，清除按钮一键恢复', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: shelfFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final String title in const <String>[
+        '长夜行舟',
+        '雾中灯塔',
+        '春山慢',
+        '雪落长安',
+      ]) {
+        expect(find.text(title), findsOneWidget);
+      }
+      expect(find.text('4 册'), findsOneWidget);
+
+      await tester.tap(find.byKey(ShelfPage.searchToggleKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ShelfPage.searchFieldKey), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(ShelfPage.searchFieldKey),
+        '沈砚',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('雾中灯塔'), findsNothing);
+      expect(find.text('1 / 4 册'), findsOneWidget);
+
+      // 有关键字时出现清除按钮；点它恢复全部。
+      expect(find.byKey(ShelfPage.searchClearKey), findsOneWidget);
+      await tester.tap(find.byKey(ShelfPage.searchClearKey));
+      await tester.pumpAndSettle();
+      expect(find.text('雾中灯塔'), findsOneWidget);
+      expect(find.text('4 册'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('状态 chips：在听只留对应书，切回全部恢复', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: shelfFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ShelfPage.statusChipKey(
+        ShelfStatusFilter.listening,
+      )));
+      await tester.pumpAndSettle();
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('雾中灯塔'), findsNothing);
+      expect(find.text('1 / 4 册'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.all)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('雪落长安'), findsOneWidget);
+      expect(find.text('4 册'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('分类与系列选项派生自书单，组合过滤生效', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: shelfFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 分类菜单：选项来自书单标签（跨书大小写折叠去重，保留原文）。
+      // 菜单项按类型定位后 tap，避免点到 Text 中心时触发 hit-test 警告。
+      Finder checkedItem(String label) => find
+          .ancestor(
+            of: find.text(label),
+            matching: find.byType(CheckedPopupMenuItem<String>),
+          )
+          .first;
+      Finder plainItem(String label) => find
+          .ancestor(
+            of: find.text(label),
+            matching: find.byType(PopupMenuItem<String>),
+          )
+          .first;
+
+      await tester.tap(find.byKey(ShelfPage.tagFilterKey));
+      await tester.pumpAndSettle();
+      expect(find.text('不限分类'), findsOneWidget);
+      expect(find.text('悬疑'), findsOneWidget);
+      await tester.tap(checkedItem('悬疑'));
+      await tester.pumpAndSettle();
+      expect(find.text('雾中灯塔'), findsOneWidget);
+      expect(find.text('长夜行舟'), findsNothing);
+      expect(find.text('1 / 4 册'), findsOneWidget);
+
+      // 系列叠加：《雾中灯塔》属于「山海纪」，《雪落长安》属于「长安三夜」。
+      await tester.tap(find.byKey(ShelfPage.seriesFilterKey));
+      await tester.pumpAndSettle();
+      expect(find.text('不限系列'), findsOneWidget);
+      expect(find.text('长安三夜'), findsOneWidget);
+      await tester.tap(checkedItem('长安三夜'));
+      await tester.pumpAndSettle();
+      // 悬疑 ∩ 长安三夜 = 空：本轮不渲染零结果空态（Task 8），只看数量与网格清空。
+      expect(find.text('雾中灯塔'), findsNothing);
+      expect(find.text('0 / 4 册'), findsOneWidget);
+
+      // 「不限分类」只清标签，系列筛选保留（《长安三夜》只含《雪落长安》）。
+      await tester.tap(find.byKey(ShelfPage.tagFilterKey));
+      await tester.pumpAndSettle();
+      await tester.tap(plainItem('不限分类'));
+      await tester.pumpAndSettle();
+      expect(find.text('雪落长安'), findsOneWidget);
+      expect(find.text('雾中灯塔'), findsNothing);
+      expect(find.text('1 / 4 册'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('布局切换：图标随状态翻转，本轮网格不变', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: shelfFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+      await tester.tap(find.byKey(ShelfPage.layoutToggleKey));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.view_list_rounded), findsOneWidget);
+      // 布局状态本轮仅存内存：网格仍用现有卡片。
+      expect(find.byKey(ShelfPage.gridKey), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('320dp 宽 + 系统大字号：展开搜索与筛选行不溢出', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: shelfFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ShelfPage.searchToggleKey));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(ShelfPage.searchFieldKey), '沈砚');
+      await tester.tap(
+        find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.listening)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

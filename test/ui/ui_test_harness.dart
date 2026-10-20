@@ -34,6 +34,8 @@ BookSummary testSummary({
   String id = 'book-1',
   String title = '山海夜航',
   String? author = '沈砚',
+  String? narrator,
+  String? seriesName,
   String libraryRootId = testRootId,
   String? coverPath,
   int totalChapters = 4,
@@ -52,6 +54,8 @@ BookSummary testSummary({
     id: id,
     title: title,
     author: author,
+    narrator: narrator,
+    seriesName: seriesName,
     libraryRootId: libraryRootId,
     rootPath: 'books/$id',
     coverSource: coverPath == null
