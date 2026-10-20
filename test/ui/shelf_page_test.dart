@@ -16,6 +16,8 @@ import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/player/player_page.dart';
+import 'package:tometone/ui/pages/shelf/shelf_book_card.dart';
+import 'package:tometone/ui/pages/shelf/shelf_book_row.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
@@ -136,7 +138,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('书架项：封面路径拼成绝对路径，进度 / 未听 / 缺失提示齐备', (WidgetTester tester) async {
+  testWidgets('书架项：封面路径拼成绝对路径，未听 / 缺失提示齐备', (WidgetTester tester) async {
     usePhoneViewport(tester);
     final BookSummary first = testSummary(
       title: '山海夜航',
@@ -162,7 +164,16 @@ void main() {
 
     expect(find.text('山海夜航'), findsOneWidget);
     expect(find.text('北境旧事录'), findsOneWidget);
-    expect(find.text('未听 · 8 小时 20 分'), findsOneWidget);
+    // 两本都没有进度 → 卡片内各显示「未听」（工具栏的「未听」chip 不算）。
+    expect(
+      find.descendant(
+        of: find.byType(ShelfBookCard),
+        matching: find.text('未听'),
+      ),
+      findsNWidgets(2),
+    );
+    // 两本都没有简介 → 都显示「暂无简介」。
+    expect(find.text('暂无简介'), findsNWidgets(2));
     expect(find.text('2 章缺失'), findsOneWidget);
 
     final List<BookCover> covers = tester
@@ -717,7 +728,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('布局切换：图标随状态翻转，本轮网格不变', (
+    testWidgets('布局切换：网格与列表真实切换，不重建数据', (
       WidgetTester tester,
     ) async {
       usePhoneViewport(tester);
@@ -730,12 +741,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+      // 默认网格：用 ShelfBookCard。
+      expect(find.byKey(ShelfPage.gridKey), findsOneWidget);
+      expect(find.byKey(ShelfPage.listKey), findsNothing);
+      expect(find.byType(ShelfBookCard), findsWidgets);
+      expect(find.byType(ShelfBookRow), findsNothing);
+
       await tester.tap(find.byKey(ShelfPage.layoutToggleKey));
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.view_list_rounded), findsOneWidget);
-      // 布局状态本轮仅存内存：网格仍用现有卡片。
-      expect(find.byKey(ShelfPage.gridKey), findsOneWidget);
+      expect(find.byKey(ShelfPage.gridKey), findsNothing);
+      expect(find.byKey(ShelfPage.listKey), findsOneWidget);
+      expect(find.byType(ShelfBookRow), findsWidgets);
+      expect(find.byType(ShelfBookCard), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -767,6 +784,159 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('长夜行舟'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('书架卡片与列表行', () {
+    testWidgets('网格卡片：书名 / 作者·演播 / 一句简介 / 进度百分比', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      final BookSummary book = testSummary(
+        title: '长夜行舟',
+        author: '沈砚',
+        narrator: '白露',
+        description: '夜航灯影下打捞旧事的航行',
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+        totalChapters: 4,
+      );
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: <BookSummary>[book],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('沈砚 著 · 白露 演播'), findsOneWidget);
+      expect(find.text('夜航灯影下打捞旧事的航行'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('列表行：两行简介与标签 chips，进度沿用同一口径', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      final BookSummary book = testSummary(
+        title: '长夜行舟',
+        author: '沈砚',
+        narrator: '白露',
+        description: '夜航灯影下打捞旧事的航行，一直讲到天亮。',
+        tags: <String>['武侠', '夜航'],
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+        totalChapters: 4,
+      );
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: <BookSummary>[book],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ShelfPage.layoutToggleKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ShelfBookRow), findsOneWidget);
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('沈砚 著 · 白露 演播'), findsOneWidget);
+      expect(
+        find.text('夜航灯影下打捞旧事的航行，一直讲到天亮。'),
+        findsOneWidget,
+      );
+      expect(find.text('武侠'), findsOneWidget);
+      expect(find.text('夜航'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('卡片回调分离：点卡片触发 onOpen，点播放只触发 onPlay', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      final BookSummary book = testSummary(title: '山海夜航');
+      int opened = 0;
+      int played = 0;
+      final ProviderContainer container = ProviderContainer(
+        overrides: testOverrides(
+          controller: controller,
+          books: <BookSummary>[book],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        testApp(
+          container,
+          Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 160,
+                child: ShelfBookCard(
+                  book: book,
+                  onOpen: () => opened++,
+                  onPlay: () => played++,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('山海夜航'));
+      expect(opened, 1);
+      expect(played, 0);
+
+      await tester.tap(find.byKey(ShelfBookCard.playKeyOf('book-1')));
+      expect(played, 1);
+      expect(opened, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('320dp + 大字号：网格卡片与列表行都不溢出', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final BookSummary book = testSummary(
+        title: '长夜行舟',
+        author: '沈砚',
+        narrator: '白露',
+        description: '夜航灯影下打捞旧事的航行',
+        tags: <String>['武侠'],
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+        totalChapters: 4,
+        missingChapters: 1,
+      );
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: <BookSummary>[book],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(ShelfPage.layoutToggleKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(ShelfBookRow), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

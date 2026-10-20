@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/player/player_page.dart';
+import 'package:tometone/ui/pages/shelf/shelf_book_card.dart';
+import 'package:tometone/ui/pages/shelf/shelf_book_row.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
-import 'package:tometone/ui/widgets/book_cover.dart';
 
 /// 书架（《架构需求文档》§2.1）。
 ///
@@ -44,6 +44,9 @@ class ShelfPage extends ConsumerStatefulWidget {
 
   /// 书籍网格。
   static const Key gridKey = Key('shelf-grid');
+
+  /// 书籍列表。
+  static const Key listKey = Key('shelf-list');
 
   /// 空态里「去书库添加目录」的引导按钮。
   static const Key goToLibraryKey = Key('shelf-open-library');
@@ -183,7 +186,9 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
             (width - AppSpacing.lg * 2 - AppSpacing.md * (columns - 1)) /
             columns;
         final double textScale = MediaQuery.textScalerOf(context).scale(1);
-        final double textBlock = 92 * (textScale < 1 ? 1 : textScale);
+        // 卡片正文块高度（书名 + 作者·演播 + 一句简介 + 进度 + 缺失提示）：
+        // 按最坏情况（含元信息行与缺失提示）预留，避免大字号下溢出。
+        final double textBlock = 116 * (textScale < 1 ? 1 : textScale);
         final SliverGridDelegate delegate =
             SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
@@ -269,7 +274,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                   },
                 ),
               )
-            else
+            else if (_layout == ShelfLayout.grid)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
@@ -283,13 +288,60 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                   itemCount: visibleBooks.length,
                   itemBuilder: (BuildContext context, int index) {
                     final BookSummary book = visibleBooks[index];
-                    return _ShelfTile(
+                    return ShelfBookCard(
                       book: book,
-                      onTap: () => unawaited(
+                      onOpen: () => unawaited(
                         _openBook(
                           context,
                           book,
                           rootUriById[book.libraryRootId],
+                        ),
+                      ),
+                      onPlay: () => unawaited(
+                        _openBook(
+                          context,
+                          book,
+                          rootUriById[book.libraryRootId],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                ),
+                sliver: SliverList.builder(
+                  key: ShelfPage.listKey,
+                  itemCount: visibleBooks.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final BookSummary book = visibleBooks[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == visibleBooks.length - 1
+                            ? 0
+                            : AppSpacing.md,
+                      ),
+                      child: ShelfBookRow(
+                        book: book,
+                        onOpen: () => unawaited(
+                          _openBook(
+                            context,
+                            book,
+                            rootUriById[book.libraryRootId],
+                          ),
+                        ),
+                        onPlay: () => unawaited(
+                          _openBook(
+                            context,
+                            book,
+                            rootUriById[book.libraryRootId],
+                          ),
                         ),
                       ),
                     );
@@ -888,137 +940,5 @@ class _ShelfError extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// 一本书的网格项。
-class _ShelfTile extends ConsumerWidget {
-  const _ShelfTile({required this.book, required this.onTap});
-
-  final BookSummary book;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    final String meta = _progressLabel(book);
-    final CoverArt? coverArt = ref
-        .watch(
-          coverArtProvider(
-            CoverArtKey(rootId: book.libraryRootId, coverPath: book.coverPath),
-          ),
-        )
-        .value;
-    final String missing = book.missingChapters > 0
-        ? '${book.missingChapters} 章缺失'
-        : '';
-    final String semanticsLabel = <String>[
-      '《${book.title}》',
-      if (book.author != null && book.author!.trim().isNotEmpty)
-        book.author!.trim(),
-      meta,
-      if (missing.isNotEmpty) missing,
-    ].join('，');
-
-    return Semantics(
-      button: true,
-      label: semanticsLabel,
-      child: ExcludeSemantics(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadii.md,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              AspectRatio(
-                aspectRatio: 1,
-                child: LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    return BookCover(
-                      title: book.title,
-                      size: constraints.maxWidth,
-                      coverPath: coverArt is CoverArtFile
-                          ? coverArt.absolutePath
-                          : null,
-                      coverImage: coverArt is CoverArtBytes
-                          ? MemoryImage(coverArt.bytes)
-                          : null,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                book.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: text.titleSmall?.copyWith(height: 1.35),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                meta,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              if (missing.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                  child: Row(
-                    children: <Widget>[
-                      Icon(
-                        Icons.link_off_rounded,
-                        size: 12,
-                        color: scheme.tertiary,
-                      ),
-                      const SizedBox(width: AppSpacing.xxs),
-                      Expanded(
-                        child: Text(
-                          missing,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.labelSmall?.copyWith(
-                            color: scheme.tertiary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static String _progressLabel(BookSummary book) {
-    if (book.hasProgress) {
-      final String? chapter = book.progressChapterTitle?.trim();
-      if (chapter == null || chapter.isEmpty) {
-        return '在听 · 继续收听';
-      }
-      return '在听 · $chapter';
-    }
-    final Duration total = book.totalDuration;
-    if (total > Duration.zero) {
-      return '未听 · ${_formatSpan(total)}';
-    }
-    return '未听';
-  }
-
-  static String _formatSpan(Duration duration) {
-    final int hours = duration.inHours;
-    final int minutes = duration.inMinutes.remainder(60);
-    if (hours > 0) {
-      return minutes > 0 ? '$hours 小时 $minutes 分' : '$hours 小时';
-    }
-    if (duration.inMinutes > 0) {
-      return '${duration.inMinutes} 分钟';
-    }
-    return '不足 1 分钟';
   }
 }
