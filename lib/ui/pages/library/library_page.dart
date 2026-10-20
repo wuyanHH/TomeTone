@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/ui/pages/library/library_browser_page.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
@@ -129,6 +130,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               root: root,
               scan: scans[root.id] ?? const RootScanState(),
               onScan: () => _scan(root),
+              onOpen: () => _openRoot(root),
               onRename: () => unawaited(_renameRoot(root)),
               onRemove: () => unawaited(_removeRoot(root)),
               onDismissResult: () =>
@@ -160,6 +162,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     _showNotice('已添加「$addedName」。点这一行的「扫描」开始建立书目。');
     // 列表以重新查询为准：不复用弹层里输入的路径拼一条假记录。
     ref.invalidate(libraryRootsProvider);
+  }
+
+  /// 进入这个根的只读目录浏览。
+  ///
+  /// 浏览页自己持有 provider 并在退出时释放；书库页只负责把根传过去。
+  void _openRoot(LibraryRootView root) {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(builder: (_) => LibraryBrowserPage(root: root)),
+      ),
+    );
   }
 
   /// 重命名：只改展示名，目录与书目都不动。

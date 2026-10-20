@@ -9,14 +9,16 @@ import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
+import 'package:tometone/ui/pages/library/library_root_location.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
+import 'package:tometone/ui/widgets/scroll_marquee_text.dart';
 
 /// 书库根区块的共享件（书库页使用）。
 ///
 /// 这里是「来源与扫描」的交互主场，不是设置项的搬家终点：
 /// - 添加是一个入口（页首 `+`，空态是主按钮），弹层里再分两条路；
 /// - 删除、重命名属于单个根的管理动作，收进卡片的 `⋮` 菜单；
-/// - 扫描是这一页的主要动作，留在卡片上一等公民的位置。
+/// - 点卡片本身进入只读目录浏览，扫描留在卡片上是这一页的主要动作。
 ///
 /// 所有写操作都只动数据库登记：**不移动、不重命名、不删除用户的任何文件**
 /// （《架构需求文档》§9.2）。
@@ -206,15 +208,8 @@ abstract final class LibraryRootsKeys {
   /// 某个书库根的管理菜单（`⋮`）。
   static Key rootMenuKey(String rootId) => Key('library-root-menu-$rootId');
 
-  /// 管理菜单里的「查看位置」（完整来源 + 复制）。
-  static Key viewLocationRootKey(String rootId) =>
-      Key('library-root-location-$rootId');
-
-  /// 「查看位置」弹层。
-  static const Key locationDialogKey = Key('library-location-dialog');
-
-  /// 「查看位置」弹层里的复制按钮。
-  static const Key copyLocationKey = Key('library-location-copy');
+  /// 某个书库根卡片本身（点它进入只读目录浏览）。
+  static Key rootCardKey(String rootId) => Key('library-root-card-$rootId');
 
   /// 管理菜单里的「重命名」。
   static Key renameRootKey(String rootId) => Key('library-root-rename-$rootId');
@@ -522,17 +517,17 @@ class LibraryRootsEmpty extends StatelessWidget {
   }
 }
 
-/// 一个书库根：名称与操作在上，最近扫描时间在下，扫描进度与结果按需出现。
+/// 一个书库根：名字与可读位置在上，扫描与菜单在下，进度与结果按需出现。
 ///
-/// 列表上只留「名字 + 最近扫描」：类型标签（`saf` / `本地目录`）与原始来源
-/// 都不再铺在这里 —— 用户不需要在列表上区分两种根，排障用的完整来源收进
-/// `⋮` 的「查看位置」（`showRootLocationDialog`）。
+/// 路径用 [ScrollMarqueeText] 单行滚动：多层目录能完整展开，又不会换行把卡片
+/// 撑高。点卡片本身进入只读浏览；扫描与 `⋮` 是独立手势，不会误触发进入。
 class LibraryRootCard extends StatefulWidget {
   /// 创建根卡片。
   const LibraryRootCard({
     required this.root,
     required this.scan,
     required this.onScan,
+    required this.onOpen,
     required this.onRename,
     required this.onRemove,
     required this.onDismissResult,
@@ -547,6 +542,9 @@ class LibraryRootCard extends StatefulWidget {
 
   /// 触发扫描（一等操作，带进度与禁用状态）。
   final VoidCallback onScan;
+
+  /// 进入这个根的只读目录浏览。
+  final VoidCallback onOpen;
 
   /// 打开重命名弹窗。
   final VoidCallback onRename;
@@ -569,7 +567,6 @@ class _LibraryRootCardState extends State<LibraryRootCard> {
   static const Duration _successLinger = Duration(seconds: 6);
 
   static const double _badgeSize = 44;
-  static const double _detailIndent = _badgeSize + AppSpacing.md;
 
   Timer? _autoDismiss;
 
@@ -627,18 +624,24 @@ class _LibraryRootCardState extends State<LibraryRootCard> {
     final TextTheme text = Theme.of(context).textTheme;
     final LibraryRootView root = widget.root;
     final RootScanState scan = widget.scan;
+    final String location = readableLibraryRootLocation(root);
     final String lastScan = root.lastScanAt == null
         ? '从未扫描'
         : '上次扫描 · ${_formatTimestamp(root.lastScanAt!)}';
+    final Color muted = scheme.onSurfaceVariant;
 
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadii.lg,
-          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        ),
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadii.lg,
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: InkWell(
+        key: LibraryRootsKeys.rootCardKey(root.id),
+        onTap: widget.onOpen,
+        // 卡片整体可点，但读屏只把「上半张」当作一个入口；扫描、菜单
+        // 仍是各自独立的按钮，避免被外层合成一个说不清的巨型按钮。
+        excludeFromSemantics: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
@@ -649,70 +652,97 @@ class _LibraryRootCardState extends State<LibraryRootCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              Semantics(
+                button: true,
+                label: '打开书库根「${root.displayName}」，位置 $location',
+                onTap: widget.onOpen,
+                child: ExcludeSemantics(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer,
+                          borderRadius: AppRadii.md,
+                        ),
+                        child: SizedBox.square(
+                          dimension: _badgeSize,
+                          child: Icon(
+                            Icons.folder_open_rounded,
+                            size: 22,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              root.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.titleMedium,
+                            ),
+                            const SizedBox(height: AppSpacing.xxs),
+                            Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.place_outlined,
+                                  size: 12,
+                                  color: muted,
+                                ),
+                                const SizedBox(width: AppSpacing.xxs),
+                                Expanded(
+                                  child: ScrollMarqueeText(
+                                    text: location,
+                                    style: text.labelSmall?.copyWith(
+                                      color: muted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: muted.withValues(alpha: 0.7),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: <Widget>[
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: AppRadii.md,
-                    ),
-                    child: SizedBox.square(
-                      dimension: _badgeSize,
-                      child: Icon(
-                        Icons.folder_open_rounded,
-                        size: 22,
-                        color: scheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
+                  Icon(Icons.schedule_rounded, size: 12, color: muted),
+                  const SizedBox(width: AppSpacing.xxs),
                   Expanded(
                     child: Text(
-                      root.displayName,
+                      lastScan,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium,
+                      style: text.labelSmall?.copyWith(color: muted),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.xs),
+                  const SizedBox(width: AppSpacing.sm),
                   _ScanButton(
                     root: root,
                     scanning: scan.scanning,
                     onScan: widget.onScan,
                   ),
+                  const SizedBox(width: AppSpacing.xxs),
                   _RootMenuButton(
                     root: root,
                     onRename: widget.onRename,
                     onRemove: widget.onRemove,
                   ),
                 ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: _detailIndent,
-                  right: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: 12,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpacing.xxs),
-                    Expanded(
-                      child: Text(
-                        lastScan,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               if (scan.scanning) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
@@ -723,9 +753,7 @@ class _LibraryRootCardState extends State<LibraryRootCard> {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   '正在扫描…大书库可能需要几十秒。',
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  style: text.labelSmall?.copyWith(color: muted),
                 ),
               ],
               AnimatedSize(
@@ -782,9 +810,6 @@ class _LibraryRootCardState extends State<LibraryRootCard> {
 
 /// 单个根的管理动作。
 enum _RootMenuAction {
-  /// 查看完整来源（路径 / tree URI），可整体复制。
-  viewLocation,
-
   /// 重命名（只改展示名）。
   rename,
 
@@ -814,8 +839,6 @@ class _RootMenuButton extends StatelessWidget {
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (_RootMenuAction action) {
         switch (action) {
-          case _RootMenuAction.viewLocation:
-            unawaited(showRootLocationDialog(context, root: root));
           case _RootMenuAction.rename:
             onRename();
           case _RootMenuAction.remove:
@@ -824,12 +847,6 @@ class _RootMenuButton extends StatelessWidget {
       },
       itemBuilder: (BuildContext context) {
         return <PopupMenuEntry<_RootMenuAction>>[
-          PopupMenuItem<_RootMenuAction>(
-            key: LibraryRootsKeys.viewLocationRootKey(root.id),
-            value: _RootMenuAction.viewLocation,
-            child: const _MenuRow(icon: Icons.place_outlined, label: '查看位置'),
-          ),
-          const PopupMenuDivider(),
           PopupMenuItem<_RootMenuAction>(
             key: LibraryRootsKeys.renameRootKey(root.id),
             value: _RootMenuAction.rename,
@@ -890,6 +907,7 @@ class _ScanButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       enabled: !scanning,
@@ -901,8 +919,10 @@ class _ScanButton extends StatelessWidget {
           key: LibraryRootsKeys.scanKey(root.id),
           onPressed: scanning ? null : onScan,
           style: OutlinedButton.styleFrom(
+            foregroundColor: scheme.primary,
             minimumSize: const Size(0, AppSizes.minTouchTarget),
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            side: BorderSide(color: scheme.primary.withValues(alpha: 0.45)),
           ),
           child: scanning
               ? const Row(
@@ -916,7 +936,14 @@ class _ScanButton extends StatelessWidget {
                     Text('扫描中'),
                   ],
                 )
-              : const Text('扫描'),
+              : const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(Icons.radar_rounded, size: 18),
+                    SizedBox(width: AppSpacing.xs),
+                    Text('扫描'),
+                  ],
+                ),
         ),
       ),
     );
@@ -1221,85 +1248,6 @@ class _SafErrorPanel extends StatelessWidget {
   }
 }
 
-/// 「查看位置」弹层：列表上不再铺原始来源，需要排障时从这里看完整值并复制。
-///
-/// 显示的是 `root.uri` 原始值（本地路径或 SAF tree URI），不加工、不翻译，
-/// 排障时能整段复制走。
-Future<void> showRootLocationDialog(
-  BuildContext context, {
-  required LibraryRootView root,
-}) {
-  return showDialog<void>(
-    context: context,
-    builder: (BuildContext context) => _RootLocationDialog(root: root),
-  );
-}
-
-class _RootLocationDialog extends StatelessWidget {
-  const _RootLocationDialog({required this.root});
-
-  final LibraryRootView root;
-
-  Future<void> _copy(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: root.uri));
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已复制位置')));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return AlertDialog(
-      key: LibraryRootsKeys.locationDialogKey,
-      title: const Text('查看位置'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '「${root.displayName}」的完整来源：',
-            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: AppRadii.sm,
-            ),
-            child: Text(
-              root.uri,
-              style: text.bodySmall?.copyWith(color: scheme.onSurface),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '这个完整来源平时不用看，只在排障（例如排查扫描不到文件）时用。',
-            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
-        ),
-        FilledButton.icon(
-          key: LibraryRootsKeys.copyLocationKey,
-          onPressed: () => unawaited(_copy(context)),
-          icon: const Icon(Icons.copy_rounded, size: 18),
-          label: const Text('复制'),
-        ),
-      ],
-    );
-  }
-}
-
 /// 移除一个书库根会连带清掉的书目范围（`onDelete: cascade` 的后果）。
 @immutable
 class LibraryRemovalImpact {
@@ -1360,10 +1308,10 @@ Future<bool> showRemoveRootDialog(
           children: <Widget>[
             Text('「${root.displayName}」', style: text.titleMedium),
             const SizedBox(height: AppSpacing.xxs),
-            // 弹窗要算固有宽度，这里用两行截断展示来源；完整来源在
-            // 「查看位置」里可以整段复制。
+            // 弹窗要算固有宽度，这里用两行截断展示可读位置；目录再深，
+            // 也不必在确认弹窗里铺一整串授权 URI。
             Text(
-              root.uri,
+              readableLibraryRootLocation(root),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),

@@ -6,7 +6,40 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ## [未发布]
 
-暂无。
+### 新增
+
+- **书库根只读目录浏览**（`lib/ui/pages/library/library_browser_page.dart`）：
+  点书库列表里的根卡片即可进入该目录，像文件管理器一样逐层查看文件夹与文件；
+  面包屑与返回键都先回上一级，根层才退出。列目录只走 `StorageProvider`，不解析书目、
+  不接播放队列，也没有重命名 / 删除 / 新建 —— 浏览本身不修改任何用户文件。
+  文件夹在前、文件在后按名称排序；音频文件带独立图标，点击只提示「只读浏览」。
+  加载 / 空目录 / 各类 `StorageError` 都有对应中文文案与重试入口。
+- **书库根可读位置**（`lib/ui/pages/library/library_root_location.dart`）：
+  SAF tree URI 不再以 `content://…` 原样出现，而是翻译成 `内部存储/Audiobooks`、
+  `文档/…`、`下载/…`、`存储卡/…` 这类可读位置；本地根保留完整盘符路径。
+  未知 provider 与坏编码逐级回退到展示名，绝不抛异常。
+- **单行滚动文本**（`lib/ui/widgets/scroll_marquee_text.dart`）：
+  放得下时完全静止；路径过长时按「停留 → 滚动 → 停留」循环展示完整内容，
+  不换行、不撑高卡片；系统开启「减少动态效果」时退化为省略号静态文本。
+
+### 优化
+
+- **书库根卡片信息层级重排**（`lib/ui/pages/library/library_roots.dart`）：
+  名称与可读位置占满整行，位置在名称正下方；「上次扫描」移到卡片底行左侧，
+  扫描与 `⋮` 收到底行右侧对齐，二者保持独立手势与 ≥44dp 触控目标。
+  扫描按钮改为带雷达图标的描边按钮，仍是卡片上的主要动作，但不再压过书名。
+  320dp 窄屏与长名称 / 长路径下不再拥挤或溢出。
+
+### 移除
+
+- `⋮` 菜单里的「查看位置」及对应弹层、复制按钮与测试键：位置已经直接展示在卡片上，
+  原始 URI 不再需要单独入口。移除确认弹窗也改用可读位置，不再铺原始来源。
+
+### 测试
+
+- 新增 `test/ui/library_browser_page_test.dart`、`test/ui/library_root_location_test.dart`、
+  `test/ui/scroll_marquee_text_test.dart`；同步 `test/ui/library_page_test.dart`
+  的卡片、窄屏与进入浏览页用例。`flutter analyze` 无问题，`flutter test` 493 项全部通过。
 
 ## [0.2.0-beta.1] - 2026-10-19
 

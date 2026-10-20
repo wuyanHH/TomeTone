@@ -10,9 +10,11 @@ import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/contracts/storage/directory_picker.dart';
+import 'package:tometone/contracts/storage/fake_storage_provider.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
+import 'package:tometone/ui/pages/library/library_browser_page.dart';
 import 'package:tometone/ui/pages/library/library_page.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -171,6 +173,21 @@ class _FakeLibraryQueries implements LibraryQueries {
   }) async {}
 }
 
+/// 在测试里临时关掉动效：滚动文本是无限循环动画，`pumpAndSettle` 等不到头。
+class _ReduceMotion extends StatelessWidget {
+  const _ReduceMotion({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: child,
+    );
+  }
+}
+
 ScanReport _report({
   int booksSeen = 24,
   int booksAdded = 3,
@@ -226,6 +243,9 @@ void main() {
   });
 
   /// 把书库页塞进最小应用，并注入假的服务与可变的书库根列表。
+  ///
+  /// [reduceMotion] 只给「带超长本地路径」的用例用：长路径会触发滚动文本，
+  /// 无限循环的动画会让 `pumpAndSettle` 永远等不到静止帧。
   Future<ProviderContainer> pumpLibrary(
     WidgetTester tester, {
     required List<LibraryRootView> Function() roots,
@@ -233,8 +253,13 @@ void main() {
     DirectoryPicker? picker,
     LibraryQueries? queries,
     void Function()? onRootsQuery,
+    bool reduceMotion = false,
+    double viewportWidth = 400,
   }) async {
     usePhoneViewport(tester);
+    if (viewportWidth != 400) {
+      tester.view.physicalSize = Size(viewportWidth, 800);
+    }
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
         libraryRootsProvider.overrideWith((Ref ref) async {
@@ -252,10 +277,11 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    final Widget page = LibraryPage(suggestedRootPath: suggestedPath);
     await tester.pumpWidget(
       testApp(
         container,
-        Scaffold(body: LibraryPage(suggestedRootPath: suggestedPath)),
+        Scaffold(body: reduceMotion ? _ReduceMotion(child: page) : page),
       ),
     );
     await tester.pumpAndSettle();
@@ -330,7 +356,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('列表：卡片只留名字与最近扫描时间，不铺类型标签与原始来源', (WidgetTester tester) async {
+  testWidgets('列表：名称下展示可读位置，原始 SAF URI 不再上列表', (WidgetTester tester) async {
     const String safUri =
         'content://com.android.externalstorage.documents/tree/primary%3AAudiobooks';
     await pumpLibrary(
@@ -348,6 +374,7 @@ void main() {
           displayName: 'com.tometone.app',
         ),
       ],
+      reduceMotion: true,
     );
 
     expect(find.byKey(LibraryRootsKeys.rootsListKey), findsOneWidget);
@@ -357,17 +384,110 @@ void main() {
     expect(find.text('上次扫描 · 2026-10-19 07:11'), findsOneWidget);
     expect(find.text('从未扫描'), findsOneWidget);
 
-    // 类型标签（`saf` / `本地目录`）与原始来源都不再出现在列表上。
+    // SAF 根翻成可读路径；本地根保留完整绝对路径（不只留末级目录）。
+    expect(find.text('内部存储/Audiobooks'), findsOneWidget);
+    expect(find.text('/data/user/0/com.tometone.app'), findsOneWidget);
+    expect(find.textContaining('content://'), findsNothing);
+
+    // 类型标签不再出现在列表上。
     expect(find.text('本地目录'), findsNothing);
     expect(find.text('saf'), findsNothing);
-    expect(find.textContaining('content://'), findsNothing);
-    expect(find.textContaining('/data/user/0'), findsNothing);
 
     // 触控目标 ≥48dp。
     expect(
       tester.getSize(find.byKey(LibraryRootsKeys.scanKey(testRootId))).height,
       greaterThanOrEqualTo(AppSizes.minTouchTarget),
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('窄屏 320dp：长名称与长路径不溢出，扫描与菜单仍有完整触控目标', (WidgetTester tester) async {
+    await pumpLibrary(
+      tester,
+      roots: () => <LibraryRootView>[
+        _root(
+          uri: r'E:\Projects\TomeTone\很长的目录\有声书\武侠\第二季\完整合集',
+          displayName: '一个名字非常长的书库根用于确认窄屏不会把文字挤破',
+        ),
+      ],
+      viewportWidth: 320,
+      reduceMotion: true,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byKey(LibraryRootsKeys.scanKey(testRootId))).height,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)))
+          .width,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(LibraryRootsKeys.rootCardKey(testRootId)))
+          .width,
+      lessThanOrEqualTo(320),
+    );
+  });
+
+  testWidgets('点卡片进入只读浏览；扫描与 `⋮` 各自独立，不会误触发进入', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final FakeStorageProvider browserProvider = FakeStorageProvider.fromPaths(
+      <String, int>{'001.mp3': 10},
+    );
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        libraryRootsProvider.overrideWith(
+          (Ref ref) async => const <LibraryRootView>[testRoot],
+        ),
+        booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+        libraryRootServiceProvider.overrideWithValue(service),
+        libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+        storageProviderFactoryProvider.overrideWithValue(
+          (String uri) => browserProvider,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      testApp(container, const Scaffold(body: LibraryPage())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.scanKey(testRootId)));
+    await tester.pump();
+    expect(
+      find.byType(LibraryBrowserPage),
+      findsNothing,
+      reason: '点扫描不能顺带进入浏览页',
+    );
+    // 结束扫描，避免不定长进度条让后面的 pumpAndSettle 永远等不到静止。
+    service.scanCompleters[testRootId]!.complete(_report());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(LibraryBrowserPage),
+      findsNothing,
+      reason: '点 `⋮` 不能顺带进入浏览页',
+    );
+    await tester.tapAt(const Offset(12, 12));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(LibraryRootsKeys.rootCardKey(testRootId)));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryBrowserPage), findsOneWidget);
+    expect(find.text('001.mp3'), findsOneWidget);
+    expect(find.text('/library'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryBrowserPage), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -394,6 +514,7 @@ void main() {
       tester,
       roots: () => roots,
       suggestedPath: temp.path,
+      reduceMotion: true,
     );
     expect(container.read(libraryRootsProvider).value, hasLength(1));
 
@@ -482,6 +603,7 @@ void main() {
         _root(uri: temp.path, displayName: '已有书库'),
       ],
       suggestedPath: temp.path,
+      reduceMotion: true,
     );
 
     await openAddSheet(tester, entry: LibraryRootsKeys.addRootButtonKey);
@@ -945,58 +1067,6 @@ void main() {
 
     await tester.pump(const Duration(seconds: 7));
     await tester.pumpAndSettle();
-  });
-
-  testWidgets('查看位置：`⋮` 菜单能看完整来源并整段复制', (WidgetTester tester) async {
-    const String safUri =
-        'content://com.android.externalstorage.documents/tree/primary%3AAudiobooks';
-    final List<MethodCall> clipboardCalls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (MethodCall call) async {
-        if (call.method == 'Clipboard.setData') {
-          clipboardCalls.add(call);
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
-
-    await pumpLibrary(
-      tester,
-      roots: () => <LibraryRootView>[
-        _root(uri: safUri, displayName: '本地书库', type: 'saf'),
-      ],
-    );
-
-    await tester.tap(find.byKey(LibraryRootsKeys.rootMenuKey(testRootId)));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(LibraryRootsKeys.viewLocationRootKey(testRootId)),
-      findsOneWidget,
-    );
-    expect(find.text('查看位置'), findsOneWidget);
-
-    await tester.tap(
-      find.byKey(LibraryRootsKeys.viewLocationRootKey(testRootId)),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(LibraryRootsKeys.locationDialogKey), findsOneWidget);
-    expect(find.text(safUri), findsOneWidget);
-
-    await tester.tap(find.byKey(LibraryRootsKeys.copyLocationKey));
-    await tester.pumpAndSettle();
-
-    expect(clipboardCalls, hasLength(1));
-    expect(clipboardCalls.single.arguments, <String, dynamic>{'text': safUri});
-    expect(find.text('已复制位置'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('移除：先给出影响范围与「不会删除文件」，确认后才级联清理', (WidgetTester tester) async {
