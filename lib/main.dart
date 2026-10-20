@@ -4,12 +4,15 @@ import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/contracts/media/media_source_resolver.dart';
+import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
+import 'package:tometone/modules/storage_local/local_book_metadata_file_store.dart';
 import 'package:tometone/modules/storage_local/local_media_source_resolver.dart';
 import 'package:tometone/modules/storage_local/local_storage_provider.dart';
+import 'package:tometone/modules/storage_saf/saf_book_metadata_file_store.dart';
 import 'package:tometone/modules/storage_saf/saf_media_source_resolver.dart';
 import 'package:tometone/modules/storage_saf/saf_storage_provider.dart';
 import 'package:tometone/platform/database_connection.dart';
@@ -38,6 +41,9 @@ void main() {
         databaseProvider.overrideWithValue(database),
         playbackEngineProvider.overrideWithValue(engine),
         storageProviderFactoryProvider.overrideWithValue(_createProvider),
+        bookMetadataFileStoreFactoryProvider.overrideWithValue(
+          _createMetadataStore,
+        ),
         mediaSourceResolverFactoryProvider.overrideWithValue(_createResolver),
         directoryPickerProvider.overrideWithValue(safBridge),
         // 书库根服务默认装配（`lib/app/providers/` 内）拿不到平台桥，
@@ -48,6 +54,7 @@ void main() {
             idGenerator: UlidIdGenerator(),
             providerFactory: _createProvider,
             authorization: safBridge,
+            metadataStoreFactory: _createMetadataStore,
           ),
         ),
       ],
@@ -65,6 +72,14 @@ StorageProvider _createProvider(String rootUri) {
     return SafStorageProvider(rootUri);
   }
   return LocalStorageProvider(rootUri);
+}
+
+/// 按根 URI 选 sidecar store：`content://` 走 SAF（只读），其余按本地绝对路径。
+BookMetadataFileStore _createMetadataStore(String rootUri) {
+  if (rootUri.startsWith('content://')) {
+    return SafBookMetadataFileStore(rootUri);
+  }
+  return LocalBookMetadataFileStore(rootUri);
 }
 
 /// 按根类型选媒体源 resolver：SAF 走 document URI，其余按本地绝对路径处理。

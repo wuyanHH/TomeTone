@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/directory_authorization.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/id_generator.dart';
@@ -27,6 +28,7 @@ class LibraryRootService {
     required IdGenerator idGenerator,
     required this._providerFactory,
     this._authorization,
+    this._metadataStoreFactory,
     DateTime Function()? clock,
   }) : _idGenerator = idGenerator,
        _clock = clock ?? DateTime.now,
@@ -40,6 +42,7 @@ class LibraryRootService {
   final IdGenerator _idGenerator;
   final StorageProviderFactory _providerFactory;
   final DirectoryAuthorization? _authorization;
+  final BookMetadataFileStoreFactory? _metadataStoreFactory;
   final DateTime Function() _clock;
   final LibraryScanner _scanner;
 
@@ -113,11 +116,13 @@ class LibraryRootService {
     }
 
     final provider = _providerFactory(root.uri);
+    final store = _metadataStoreFactory?.call(root.uri);
     try {
       return await _scanner.scanStructure(
         libraryRootId: root.id,
         provider: provider,
         sourceType: root.type,
+        metadataStore: store,
       );
     } finally {
       await provider.dispose();

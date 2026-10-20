@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/library/library_root_service.dart';
+import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/directory_authorization.dart';
 import 'package:tometone/domain/common/id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
+import 'package:tometone/domain/library/metadata/book_metadata.dart';
+import 'package:tometone/domain/library/metadata/book_metadata_codec.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/modules/storage_local/local_storage_provider.dart';
 
@@ -17,8 +21,7 @@ class _SeqIdGenerator implements IdGenerator {
 }
 
 /// 记录调用并可控返回 / 抛错的授权替身（不用 mock 框架）。
-class _FakeAuthorization implements DirectoryAuthorization {
-  _FakeAuthorization({this.result = true, this.throwOnRelease = false});
+class _FakeAuthorization implements DirectoryAuthorization {  _FakeAuthorization({this.result = true, this.throwOnRelease = false});
 
   final List<String> released = <String>[];
 
@@ -35,6 +38,24 @@ class _FakeAuthorization implements DirectoryAuthorization {
       throw StateError('release 失败（测试注入）');
     }
     return result;
+  }
+}
+
+/// 内存替身 sidecar store：按书根路径返回预置字节。
+class _FakeMetadataStore implements BookMetadataFileStore {
+  _FakeMetadataStore(this.files);
+
+  final Map<String, Uint8List> files;
+
+  @override
+  Future<Uint8List?> read(String bookRootPath) async => files[bookRootPath];
+
+  @override
+  Future<BookMetadataWriteStatus> write(
+    String bookRootPath,
+    Uint8List bytes,
+  ) async {
+    return BookMetadataWriteStatus.written;
   }
 }
 
@@ -288,6 +309,27 @@ void main() {
 
     test('未知书库根抛错', () async {
       await expectLater(service.scan('missing'), throwsStateError);
+    });
+
+    test('注入 metadataStoreFactory 时，扫描导入新书 sidecar', () async {
+      final store = _FakeMetadataStore(<String, Uint8List>{
+        '三体': BookMetadataCodec.encode(
+          const BookMetadataDraft(title: '三体（导入）'),
+          updatedAt: DateTime.utc(2026, 10, 18, 3),
+        ),
+      });
+      final withStore = LibraryRootService(
+        database: db,
+        idGenerator: _SeqIdGenerator(),
+        providerFactory: LocalStorageProvider.new,
+        metadataStoreFactory: (String uri) => store,
+      );
+
+      final id = await withStore.addLocalRoot(absolutePath: library.path);
+      await withStore.scan(id);
+
+      final books = await DriftLibraryQueries(db).listBooks();
+      expect(books.single.title, '三体（导入）', reason: 'scan 按根 URI 建 store 并传给扫描器');
     });
   });
 }

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:drift/drift.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
+import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/storage_entry.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/id_generator.dart';
@@ -9,6 +10,8 @@ import 'package:tometone/domain/library/cover/cover_resolver.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/media/media_metadata_reader.dart';
+import 'package:tometone/domain/library/metadata/book_metadata.dart';
+import 'package:tometone/domain/library/metadata/book_metadata_codec.dart';
 
 import 'media_format.dart';
 import 'path_normalizer.dart';
@@ -69,6 +72,7 @@ class LibraryScanner {
     required StorageProvider provider,
     int bookDepth = 1,
     String sourceType = 'local',
+    BookMetadataFileStore? metadataStore,
   }) async {
     if (_scanning) {
       throw StateError('同一扫描器上已有扫描在进行；同一书库根必须串行扫描');
@@ -89,13 +93,14 @@ class LibraryScanner {
 
       final snapshot = await _loadSnapshot(libraryRootId);
       final now = _clock().toUtc();
-      final plan = _buildPlan(
+      final plan = await _buildPlan(
         libraryRootId: libraryRootId,
         topology: topology,
         snapshot: snapshot,
         images: images,
         now: now,
         sourceType: sourceType,
+        metadataStore: metadataStore,
       );
 
       await _applyPlan(plan, libraryRootId: libraryRootId, now: now);
@@ -280,14 +285,15 @@ class LibraryScanner {
     return _Snapshot(books: books, volumes: volumes, chapters: chapters);
   }
 
-  _Plan _buildPlan({
+  Future<_Plan> _buildPlan({
     required String libraryRootId,
     required List<BookTopology> topology,
     required _Snapshot snapshot,
     required Map<String, List<String>> images,
     required DateTime now,
     required String sourceType,
-  }) {
+    BookMetadataFileStore? metadataStore,
+  }) async {
     final plan = _Plan();
     final booksByPath = <String, Book>{
       for (final book in snapshot.books) book.rootPath: book,
@@ -446,6 +452,15 @@ class LibraryScanner {
             updatedAt: now,
           ),
         );
+
+        // 只对本次新增的书读 sidecar：老书走详情页「从书根重新导入」，
+        // 避免每次扫描对上千本书做文件 IO。
+        final Uint8List? bytes = await metadataStore?.read(bookTopology.rootPath);
+        final BookMetadataDraft? draft =
+            bytes == null ? null : BookMetadataCodec.decode(bytes);
+        if (draft != null && !draft.isEmpty) {
+          plan.metadataOverrides.add((bookId: bookId, metadata: draft));
+        }
         continue;
       }
 
@@ -499,6 +514,29 @@ class LibraryScanner {
         // 顺序即外键依赖顺序：书 → 卷 → 章；更新放在插入之后。
         for (final companion in plan.bookInserts) {
           batch.insert(_database.books, companion);
+        }
+        // sidecar 覆盖层 + 标签：仅本次新增的书，紧随书插入同一事务（外键依赖）。
+        for (final override in plan.metadataOverrides) {
+          batch.insert(
+            _database.bookMetadataOverrides,
+            BookMetadataOverridesCompanion.insert(
+              bookId: override.bookId,
+              title: Value<String?>(override.metadata.title),
+              author: Value<String?>(override.metadata.author),
+              narrator: Value<String?>(override.metadata.narrator),
+              seriesName: Value<String?>(override.metadata.seriesName),
+              seriesIndex: Value<int?>(override.metadata.seriesIndex),
+              description: Value<String?>(override.metadata.description),
+              // manualEditedAt 不写（null）：扫描自动导入，不视为用户手改。
+              updatedAt: now,
+            ),
+          );
+          for (final tag in override.metadata.tags) {
+            batch.insert(
+              _database.bookTags,
+              BookTagsCompanion.insert(bookId: override.bookId, tag: tag),
+            );
+          }
         }
         for (final companion in plan.volumeInserts) {
           batch.insert(_database.volumes, companion);
@@ -618,6 +656,8 @@ class _Plan {
   final List<BooksCompanion> bookInserts = <BooksCompanion>[];
   final List<({String id, BooksCompanion data})> bookUpdates =
       <({String id, BooksCompanion data})>[];
+  final List<({String bookId, BookMetadataDraft metadata})> metadataOverrides =
+      <({String bookId, BookMetadataDraft metadata})>[];
   final List<VolumesCompanion> volumeInserts = <VolumesCompanion>[];
   final List<({String id, VolumesCompanion data})> volumeUpdates =
       <({String id, VolumesCompanion data})>[];

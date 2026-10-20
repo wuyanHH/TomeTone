@@ -1,6 +1,8 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
+import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/fake_storage_provider.dart';
 import 'package:tometone/contracts/storage/storage_entry.dart';
 import 'package:tometone/domain/common/id_generator.dart';
@@ -8,6 +10,9 @@ import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/media/media_metadata.dart';
 import 'package:tometone/domain/library/media/media_metadata_reader.dart';
+import 'package:tometone/domain/library/metadata/book_metadata.dart';
+import 'package:tometone/domain/library/metadata/book_metadata_codec.dart';
+import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/scan/library_scanner.dart';
 
 final DateTime _t0 = DateTime.utc(2026, 10, 18, 3);
@@ -34,6 +39,28 @@ class _MapMetadataReader implements MediaMetadataReader {
 
 AudioSourceRef _sourceOf(String filePath) =>
     LocalFileSource(uri: 'file:///books/$filePath');
+
+/// 内存替身 sidecar store：按书根路径返回预置字节，记录读调用。
+class _FakeMetadataStore implements BookMetadataFileStore {
+  _FakeMetadataStore(this.files);
+
+  final Map<String, Uint8List> files;
+  final List<String> readPaths = <String>[];
+
+  @override
+  Future<Uint8List?> read(String bookRootPath) async {
+    readPaths.add(bookRootPath);
+    return files[bookRootPath];
+  }
+
+  @override
+  Future<BookMetadataWriteStatus> write(
+    String bookRootPath,
+    Uint8List bytes,
+  ) async {
+    return BookMetadataWriteStatus.written;
+  }
+}
 
 void main() {
   late TomeToneDatabase db;
@@ -474,6 +501,79 @@ void main() {
         (await db.select(db.books).getSingle()).coverSourceType,
         CoverSource.bookRoot,
       );
+    });
+  });
+
+  group('sidecar 导入（仅本次新增的书）', () {
+    test('新书根下 sidecar 的 title/description/tags 进入覆盖层，摘要取 sidecar 名', () async {
+      await seedRoot();
+      final store = _FakeMetadataStore(<String, Uint8List>{
+        '三体': BookMetadataCodec.encode(
+          const BookMetadataDraft(
+            title: '三体（地球往事）',
+            description: '一部科幻',
+            tags: ['科幻', '长篇'],
+          ),
+          updatedAt: _t0,
+        ),
+      });
+
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: threeChapterProvider(),
+        metadataStore: store,
+      );
+
+      // 摘要（COALESCE 覆盖层）取 sidecar 的 title，而非目录名。
+      final summary = (await DriftLibraryQueries(db).listAllBooks()).single;
+      expect(summary.title, '三体（地球往事）');
+      expect(summary.description, '一部科幻');
+      expect(summary.tags, <String>['科幻', '长篇']);
+
+      // 覆盖层 manualEditedAt 为空（扫描自动写入，非手动）。
+      final overrides = await db.select(db.bookMetadataOverrides).get();
+      expect(overrides.single.manualEditedAt, isNull);
+    });
+
+    test('已手动编辑过的书重扫描后字段不变（不读 sidecar）', () async {
+      await seedRoot();
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: threeChapterProvider(),
+      );
+      final bookId = (await db.select(db.books).getSingle()).id;
+
+      // 手动编辑覆盖层。
+      await db
+          .into(db.bookMetadataOverrides)
+          .insert(
+            BookMetadataOverridesCompanion.insert(
+              bookId: bookId,
+              title: const Value<String?>('手填书名'),
+              manualEditedAt: Value<DateTime?>(_t0),
+              updatedAt: _t0,
+            ),
+          );
+
+      // 第二次扫描：sidecar 提供新 title，但书已存在 → 不读 sidecar。
+      final store = _FakeMetadataStore(<String, Uint8List>{
+        '三体': BookMetadataCodec.encode(
+          const BookMetadataDraft(title: '不该出现'),
+          updatedAt: _t0,
+        ),
+      });
+      await scanner.scanStructure(
+        libraryRootId: 'root-1',
+        provider: threeChapterProvider(),
+        metadataStore: store,
+      );
+
+      expect(store.readPaths, isEmpty, reason: '老书不读 sidecar，避免每次扫描上千次 IO');
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals(bookId)))
+          .getSingle();
+      expect(row.title, '手填书名');
+      expect(row.manualEditedAt, isNotNull);
     });
   });
 
