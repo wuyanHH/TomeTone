@@ -2748,6 +2748,18 @@ class $BookMetadataOverridesTable extends BookMetadataOverrides
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _manualEditedAtMeta = const VerificationMeta(
+    'manualEditedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> manualEditedAt =
+      GeneratedColumn<DateTime>(
+        'manual_edited_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -2768,6 +2780,7 @@ class $BookMetadataOverridesTable extends BookMetadataOverrides
     seriesName,
     seriesIndex,
     description,
+    manualEditedAt,
     updatedAt,
   ];
   @override
@@ -2832,6 +2845,15 @@ class $BookMetadataOverridesTable extends BookMetadataOverrides
         ),
       );
     }
+    if (data.containsKey('manual_edited_at')) {
+      context.handle(
+        _manualEditedAtMeta,
+        manualEditedAt.isAcceptableOrUnknown(
+          data['manual_edited_at']!,
+          _manualEditedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -2877,6 +2899,10 @@ class $BookMetadataOverridesTable extends BookMetadataOverrides
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       ),
+      manualEditedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}manual_edited_at'],
+      ),
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -2913,6 +2939,9 @@ class BookMetadataOverride extends DataClass
   /// 覆盖简介。
   final String? description;
 
+  /// 最近一次手动编辑时间（区分"扫描自动写入"与"用户手改"，用于不覆盖用户编辑）。
+  final DateTime? manualEditedAt;
+
   /// 最近更新时间。
   final DateTime updatedAt;
   const BookMetadataOverride({
@@ -2923,6 +2952,7 @@ class BookMetadataOverride extends DataClass
     this.seriesName,
     this.seriesIndex,
     this.description,
+    this.manualEditedAt,
     required this.updatedAt,
   });
   @override
@@ -2946,6 +2976,9 @@ class BookMetadataOverride extends DataClass
     }
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || manualEditedAt != null) {
+      map['manual_edited_at'] = Variable<DateTime>(manualEditedAt);
     }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -2972,6 +3005,9 @@ class BookMetadataOverride extends DataClass
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
+      manualEditedAt: manualEditedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manualEditedAt),
       updatedAt: Value(updatedAt),
     );
   }
@@ -2989,6 +3025,7 @@ class BookMetadataOverride extends DataClass
       seriesName: serializer.fromJson<String?>(json['seriesName']),
       seriesIndex: serializer.fromJson<int?>(json['seriesIndex']),
       description: serializer.fromJson<String?>(json['description']),
+      manualEditedAt: serializer.fromJson<DateTime?>(json['manualEditedAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -3003,6 +3040,7 @@ class BookMetadataOverride extends DataClass
       'seriesName': serializer.toJson<String?>(seriesName),
       'seriesIndex': serializer.toJson<int?>(seriesIndex),
       'description': serializer.toJson<String?>(description),
+      'manualEditedAt': serializer.toJson<DateTime?>(manualEditedAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -3015,6 +3053,7 @@ class BookMetadataOverride extends DataClass
     Value<String?> seriesName = const Value.absent(),
     Value<int?> seriesIndex = const Value.absent(),
     Value<String?> description = const Value.absent(),
+    Value<DateTime?> manualEditedAt = const Value.absent(),
     DateTime? updatedAt,
   }) => BookMetadataOverride(
     bookId: bookId ?? this.bookId,
@@ -3024,6 +3063,9 @@ class BookMetadataOverride extends DataClass
     seriesName: seriesName.present ? seriesName.value : this.seriesName,
     seriesIndex: seriesIndex.present ? seriesIndex.value : this.seriesIndex,
     description: description.present ? description.value : this.description,
+    manualEditedAt: manualEditedAt.present
+        ? manualEditedAt.value
+        : this.manualEditedAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   BookMetadataOverride copyWithCompanion(BookMetadataOverridesCompanion data) {
@@ -3041,6 +3083,9 @@ class BookMetadataOverride extends DataClass
       description: data.description.present
           ? data.description.value
           : this.description,
+      manualEditedAt: data.manualEditedAt.present
+          ? data.manualEditedAt.value
+          : this.manualEditedAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -3055,6 +3100,7 @@ class BookMetadataOverride extends DataClass
           ..write('seriesName: $seriesName, ')
           ..write('seriesIndex: $seriesIndex, ')
           ..write('description: $description, ')
+          ..write('manualEditedAt: $manualEditedAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -3069,6 +3115,7 @@ class BookMetadataOverride extends DataClass
     seriesName,
     seriesIndex,
     description,
+    manualEditedAt,
     updatedAt,
   );
   @override
@@ -3082,6 +3129,7 @@ class BookMetadataOverride extends DataClass
           other.seriesName == this.seriesName &&
           other.seriesIndex == this.seriesIndex &&
           other.description == this.description &&
+          other.manualEditedAt == this.manualEditedAt &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -3094,6 +3142,7 @@ class BookMetadataOverridesCompanion
   final Value<String?> seriesName;
   final Value<int?> seriesIndex;
   final Value<String?> description;
+  final Value<DateTime?> manualEditedAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const BookMetadataOverridesCompanion({
@@ -3104,6 +3153,7 @@ class BookMetadataOverridesCompanion
     this.seriesName = const Value.absent(),
     this.seriesIndex = const Value.absent(),
     this.description = const Value.absent(),
+    this.manualEditedAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3115,6 +3165,7 @@ class BookMetadataOverridesCompanion
     this.seriesName = const Value.absent(),
     this.seriesIndex = const Value.absent(),
     this.description = const Value.absent(),
+    this.manualEditedAt = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : bookId = Value(bookId),
@@ -3127,6 +3178,7 @@ class BookMetadataOverridesCompanion
     Expression<String>? seriesName,
     Expression<int>? seriesIndex,
     Expression<String>? description,
+    Expression<DateTime>? manualEditedAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -3138,6 +3190,7 @@ class BookMetadataOverridesCompanion
       if (seriesName != null) 'series_name': seriesName,
       if (seriesIndex != null) 'series_index': seriesIndex,
       if (description != null) 'description': description,
+      if (manualEditedAt != null) 'manual_edited_at': manualEditedAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3151,6 +3204,7 @@ class BookMetadataOverridesCompanion
     Value<String?>? seriesName,
     Value<int?>? seriesIndex,
     Value<String?>? description,
+    Value<DateTime?>? manualEditedAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -3162,6 +3216,7 @@ class BookMetadataOverridesCompanion
       seriesName: seriesName ?? this.seriesName,
       seriesIndex: seriesIndex ?? this.seriesIndex,
       description: description ?? this.description,
+      manualEditedAt: manualEditedAt ?? this.manualEditedAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -3191,6 +3246,9 @@ class BookMetadataOverridesCompanion
     if (description.present) {
       map['description'] = Variable<String>(description.value);
     }
+    if (manualEditedAt.present) {
+      map['manual_edited_at'] = Variable<DateTime>(manualEditedAt.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -3210,7 +3268,221 @@ class BookMetadataOverridesCompanion
           ..write('seriesName: $seriesName, ')
           ..write('seriesIndex: $seriesIndex, ')
           ..write('description: $description, ')
+          ..write('manualEditedAt: $manualEditedAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BookTagsTable extends BookTags with TableInfo<$BookTagsTable, BookTag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BookTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _tagMeta = const VerificationMeta('tag');
+  @override
+  late final GeneratedColumn<String> tag = GeneratedColumn<String>(
+    'tag',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [bookId, tag];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'book_tags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BookTag> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('tag')) {
+      context.handle(
+        _tagMeta,
+        tag.isAcceptableOrUnknown(data['tag']!, _tagMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tagMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId, tag};
+  @override
+  BookTag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BookTag(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      tag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag'],
+      )!,
+    );
+  }
+
+  @override
+  $BookTagsTable createAlias(String alias) {
+    return $BookTagsTable(attachedDatabase, alias);
+  }
+}
+
+class BookTag extends DataClass implements Insertable<BookTag> {
+  /// 对应书。
+  final String bookId;
+
+  /// 标签文本（已归一化）。
+  final String tag;
+  const BookTag({required this.bookId, required this.tag});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['tag'] = Variable<String>(tag);
+    return map;
+  }
+
+  BookTagsCompanion toCompanion(bool nullToAbsent) {
+    return BookTagsCompanion(bookId: Value(bookId), tag: Value(tag));
+  }
+
+  factory BookTag.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BookTag(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      tag: serializer.fromJson<String>(json['tag']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'tag': serializer.toJson<String>(tag),
+    };
+  }
+
+  BookTag copyWith({String? bookId, String? tag}) =>
+      BookTag(bookId: bookId ?? this.bookId, tag: tag ?? this.tag);
+  BookTag copyWithCompanion(BookTagsCompanion data) {
+    return BookTag(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      tag: data.tag.present ? data.tag.value : this.tag,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookTag(')
+          ..write('bookId: $bookId, ')
+          ..write('tag: $tag')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, tag);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BookTag &&
+          other.bookId == this.bookId &&
+          other.tag == this.tag);
+}
+
+class BookTagsCompanion extends UpdateCompanion<BookTag> {
+  final Value<String> bookId;
+  final Value<String> tag;
+  final Value<int> rowid;
+  const BookTagsCompanion({
+    this.bookId = const Value.absent(),
+    this.tag = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BookTagsCompanion.insert({
+    required String bookId,
+    required String tag,
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       tag = Value(tag);
+  static Insertable<BookTag> custom({
+    Expression<String>? bookId,
+    Expression<String>? tag,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (tag != null) 'tag': tag,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BookTagsCompanion copyWith({
+    Value<String>? bookId,
+    Value<String>? tag,
+    Value<int>? rowid,
+  }) {
+    return BookTagsCompanion(
+      bookId: bookId ?? this.bookId,
+      tag: tag ?? this.tag,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (tag.present) {
+      map['tag'] = Variable<String>(tag.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookTagsCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('tag: $tag, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3271,12 +3543,24 @@ class $PlaybackProgressTable extends PlaybackProgress
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _finishedAtMeta = const VerificationMeta(
+    'finishedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> finishedAt = GeneratedColumn<DateTime>(
+    'finished_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     bookId,
     chapterId,
     positionMs,
     updatedAt,
+    finishedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3322,6 +3606,12 @@ class $PlaybackProgressTable extends PlaybackProgress
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('finished_at')) {
+      context.handle(
+        _finishedAtMeta,
+        finishedAt.isAcceptableOrUnknown(data['finished_at']!, _finishedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -3347,6 +3637,10 @@ class $PlaybackProgressTable extends PlaybackProgress
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      finishedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}finished_at'],
+      ),
     );
   }
 
@@ -3369,11 +3663,15 @@ class PlaybackProgressData extends DataClass
 
   /// 最近更新时间 —— 书库"最近收听"排序依据。
   final DateTime updatedAt;
+
+  /// 听完（finished）时间；`null` 表示尚未听完。
+  final DateTime? finishedAt;
   const PlaybackProgressData({
     required this.bookId,
     required this.chapterId,
     required this.positionMs,
     required this.updatedAt,
+    this.finishedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3382,6 +3680,9 @@ class PlaybackProgressData extends DataClass
     map['chapter_id'] = Variable<String>(chapterId);
     map['position_ms'] = Variable<int>(positionMs);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || finishedAt != null) {
+      map['finished_at'] = Variable<DateTime>(finishedAt);
+    }
     return map;
   }
 
@@ -3391,6 +3692,9 @@ class PlaybackProgressData extends DataClass
       chapterId: Value(chapterId),
       positionMs: Value(positionMs),
       updatedAt: Value(updatedAt),
+      finishedAt: finishedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finishedAt),
     );
   }
 
@@ -3404,6 +3708,7 @@ class PlaybackProgressData extends DataClass
       chapterId: serializer.fromJson<String>(json['chapterId']),
       positionMs: serializer.fromJson<int>(json['positionMs']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      finishedAt: serializer.fromJson<DateTime?>(json['finishedAt']),
     );
   }
   @override
@@ -3414,6 +3719,7 @@ class PlaybackProgressData extends DataClass
       'chapterId': serializer.toJson<String>(chapterId),
       'positionMs': serializer.toJson<int>(positionMs),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'finishedAt': serializer.toJson<DateTime?>(finishedAt),
     };
   }
 
@@ -3422,11 +3728,13 @@ class PlaybackProgressData extends DataClass
     String? chapterId,
     int? positionMs,
     DateTime? updatedAt,
+    Value<DateTime?> finishedAt = const Value.absent(),
   }) => PlaybackProgressData(
     bookId: bookId ?? this.bookId,
     chapterId: chapterId ?? this.chapterId,
     positionMs: positionMs ?? this.positionMs,
     updatedAt: updatedAt ?? this.updatedAt,
+    finishedAt: finishedAt.present ? finishedAt.value : this.finishedAt,
   );
   PlaybackProgressData copyWithCompanion(PlaybackProgressCompanion data) {
     return PlaybackProgressData(
@@ -3436,6 +3744,9 @@ class PlaybackProgressData extends DataClass
           ? data.positionMs.value
           : this.positionMs,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      finishedAt: data.finishedAt.present
+          ? data.finishedAt.value
+          : this.finishedAt,
     );
   }
 
@@ -3445,13 +3756,15 @@ class PlaybackProgressData extends DataClass
           ..write('bookId: $bookId, ')
           ..write('chapterId: $chapterId, ')
           ..write('positionMs: $positionMs, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('finishedAt: $finishedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(bookId, chapterId, positionMs, updatedAt);
+  int get hashCode =>
+      Object.hash(bookId, chapterId, positionMs, updatedAt, finishedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3459,7 +3772,8 @@ class PlaybackProgressData extends DataClass
           other.bookId == this.bookId &&
           other.chapterId == this.chapterId &&
           other.positionMs == this.positionMs &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.finishedAt == this.finishedAt);
 }
 
 class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
@@ -3467,12 +3781,14 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
   final Value<String> chapterId;
   final Value<int> positionMs;
   final Value<DateTime> updatedAt;
+  final Value<DateTime?> finishedAt;
   final Value<int> rowid;
   const PlaybackProgressCompanion({
     this.bookId = const Value.absent(),
     this.chapterId = const Value.absent(),
     this.positionMs = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.finishedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PlaybackProgressCompanion.insert({
@@ -3480,6 +3796,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     required String chapterId,
     required int positionMs,
     required DateTime updatedAt,
+    this.finishedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : bookId = Value(bookId),
        chapterId = Value(chapterId),
@@ -3490,6 +3807,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     Expression<String>? chapterId,
     Expression<int>? positionMs,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? finishedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3497,6 +3815,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
       if (chapterId != null) 'chapter_id': chapterId,
       if (positionMs != null) 'position_ms': positionMs,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (finishedAt != null) 'finished_at': finishedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3506,6 +3825,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     Value<String>? chapterId,
     Value<int>? positionMs,
     Value<DateTime>? updatedAt,
+    Value<DateTime?>? finishedAt,
     Value<int>? rowid,
   }) {
     return PlaybackProgressCompanion(
@@ -3513,6 +3833,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
       chapterId: chapterId ?? this.chapterId,
       positionMs: positionMs ?? this.positionMs,
       updatedAt: updatedAt ?? this.updatedAt,
+      finishedAt: finishedAt ?? this.finishedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3532,6 +3853,9 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (finishedAt.present) {
+      map['finished_at'] = Variable<DateTime>(finishedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3545,6 +3869,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
           ..write('chapterId: $chapterId, ')
           ..write('positionMs: $positionMs, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('finishedAt: $finishedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4874,6 +5199,7 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
   late final $ChaptersTable chapters = $ChaptersTable(this);
   late final $BookMetadataOverridesTable bookMetadataOverrides =
       $BookMetadataOverridesTable(this);
+  late final $BookTagsTable bookTags = $BookTagsTable(this);
   late final $PlaybackProgressTable playbackProgress = $PlaybackProgressTable(
     this,
   );
@@ -4912,6 +5238,10 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
     'chapters_volume_index',
     'CREATE INDEX chapters_volume_index ON chapters (volume_id, chapter_index)',
   );
+  late final Index bookTagsTag = Index(
+    'book_tags_tag',
+    'CREATE INDEX book_tags_tag ON book_tags (tag)',
+  );
   late final Index playbackProgressUpdated = Index(
     'playback_progress_updated',
     'CREATE INDEX playback_progress_updated ON playback_progress (updated_at)',
@@ -4938,6 +5268,7 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
     volumes,
     chapters,
     bookMetadataOverrides,
+    bookTags,
     playbackProgress,
     perBookPrefs,
     listeningRecords,
@@ -4949,6 +5280,7 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
     chaptersBindingUnique,
     chaptersBookIndex,
     chaptersVolumeIndex,
+    bookTagsTag,
     playbackProgressUpdated,
     listeningRecordsStarted,
     listeningRecordsBook,
@@ -4997,6 +5329,13 @@ abstract class _$TomeToneDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('book_metadata_overrides', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('book_tags', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -5582,6 +5921,25 @@ final class $$BooksTableReferences
     );
   }
 
+  static MultiTypedResultKey<$BookTagsTable, List<BookTag>> _bookTagsRefsTable(
+    _$TomeToneDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.bookTags,
+    aliasName: 'books__id__book_tags__book_id',
+  );
+
+  $$BookTagsTableProcessedTableManager get bookTagsRefs {
+    final manager = $$BookTagsTableTableManager(
+      $_db,
+      $_db.bookTags,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$PlaybackProgressTable, List<PlaybackProgressData>>
   _playbackProgressRefsTable(_$TomeToneDatabase db) =>
       MultiTypedResultKey.fromTable(
@@ -5825,6 +6183,31 @@ class $$BooksTableFilterComposer
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> bookTagsRefs(
+    Expression<bool> Function($$BookTagsTableFilterComposer f) f,
+  ) {
+    final $$BookTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookTags,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.bookTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 
@@ -6178,6 +6561,31 @@ class $$BooksTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> bookTagsRefs<T extends Object>(
+    Expression<T> Function($$BookTagsTableAnnotationComposer a) f,
+  ) {
+    final $$BookTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookTags,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> playbackProgressRefs<T extends Object>(
     Expression<T> Function($$PlaybackProgressTableAnnotationComposer a) f,
   ) {
@@ -6272,6 +6680,7 @@ class $$BooksTableTableManager
             bool volumesRefs,
             bool chaptersRefs,
             bool bookMetadataOverridesRefs,
+            bool bookTagsRefs,
             bool playbackProgressRefs,
             bool perBookPrefsRefs,
             bool listeningRecordsRefs,
@@ -6378,6 +6787,7 @@ class $$BooksTableTableManager
                 volumesRefs = false,
                 chaptersRefs = false,
                 bookMetadataOverridesRefs = false,
+                bookTagsRefs = false,
                 playbackProgressRefs = false,
                 perBookPrefsRefs = false,
                 listeningRecordsRefs = false,
@@ -6388,6 +6798,7 @@ class $$BooksTableTableManager
                     if (volumesRefs) db.volumes,
                     if (chaptersRefs) db.chapters,
                     if (bookMetadataOverridesRefs) db.bookMetadataOverrides,
+                    if (bookTagsRefs) db.bookTags,
                     if (playbackProgressRefs) db.playbackProgress,
                     if (perBookPrefsRefs) db.perBookPrefs,
                     if (listeningRecordsRefs) db.listeningRecords,
@@ -6469,6 +6880,23 @@ class $$BooksTableTableManager
                                 table,
                                 p0,
                               ).bookMetadataOverridesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (bookTagsRefs)
+                        await $_getPrefetchedData<Book, $BooksTable, BookTag>(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._bookTagsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).bookTagsRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.bookId == item.id,
@@ -6563,6 +6991,7 @@ typedef $$BooksTableProcessedTableManager =
         bool volumesRefs,
         bool chaptersRefs,
         bool bookMetadataOverridesRefs,
+        bool bookTagsRefs,
         bool playbackProgressRefs,
         bool perBookPrefsRefs,
         bool listeningRecordsRefs,
@@ -7859,6 +8288,7 @@ typedef $$BookMetadataOverridesTableCreateCompanionBuilder =
       Value<String?> seriesName,
       Value<int?> seriesIndex,
       Value<String?> description,
+      Value<DateTime?> manualEditedAt,
       required DateTime updatedAt,
       Value<int> rowid,
     });
@@ -7871,6 +8301,7 @@ typedef $$BookMetadataOverridesTableUpdateCompanionBuilder =
       Value<String?> seriesName,
       Value<int?> seriesIndex,
       Value<String?> description,
+      Value<DateTime?> manualEditedAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -7945,6 +8376,11 @@ class $$BookMetadataOverridesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get manualEditedAt => $composableBuilder(
+    column: $table.manualEditedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
@@ -8013,6 +8449,11 @@ class $$BookMetadataOverridesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get manualEditedAt => $composableBuilder(
+    column: $table.manualEditedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -8072,6 +8513,11 @@ class $$BookMetadataOverridesTableAnnotationComposer
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get manualEditedAt => $composableBuilder(
+    column: $table.manualEditedAt,
     builder: (column) => column,
   );
 
@@ -8148,6 +8594,7 @@ class $$BookMetadataOverridesTableTableManager
                 Value<String?> seriesName = const Value.absent(),
                 Value<int?> seriesIndex = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<DateTime?> manualEditedAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BookMetadataOverridesCompanion(
@@ -8158,6 +8605,7 @@ class $$BookMetadataOverridesTableTableManager
                 seriesName: seriesName,
                 seriesIndex: seriesIndex,
                 description: description,
+                manualEditedAt: manualEditedAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -8170,6 +8618,7 @@ class $$BookMetadataOverridesTableTableManager
                 Value<String?> seriesName = const Value.absent(),
                 Value<int?> seriesIndex = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<DateTime?> manualEditedAt = const Value.absent(),
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
               }) => BookMetadataOverridesCompanion.insert(
@@ -8180,6 +8629,7 @@ class $$BookMetadataOverridesTableTableManager
                 seriesName: seriesName,
                 seriesIndex: seriesIndex,
                 description: description,
+                manualEditedAt: manualEditedAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -8251,12 +8701,265 @@ typedef $$BookMetadataOverridesTableProcessedTableManager =
       BookMetadataOverride,
       PrefetchHooks Function({bool bookId})
     >;
+typedef $$BookTagsTableCreateCompanionBuilder = BookTagsCompanion Function({
+  required String bookId,
+  required String tag,
+  Value<int> rowid,
+});
+typedef $$BookTagsTableUpdateCompanionBuilder = BookTagsCompanion Function({
+  Value<String> bookId,
+  Value<String> tag,
+  Value<int> rowid,
+});
+
+final class $$BookTagsTableReferences
+    extends BaseReferences<_$TomeToneDatabase, $BookTagsTable, BookTag> {
+  $$BookTagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BooksTable _bookIdTable(_$TomeToneDatabase db) =>
+      db.books.createAlias('book_tags__book_id__books__id');
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<String>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BookTagsTableFilterComposer
+    extends Composer<_$TomeToneDatabase, $BookTagsTable> {
+  $$BookTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookTagsTableOrderingComposer
+    extends Composer<_$TomeToneDatabase, $BookTagsTable> {
+  $$BookTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookTagsTableAnnotationComposer
+    extends Composer<_$TomeToneDatabase, $BookTagsTable> {
+  $$BookTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get tag =>
+      $composableBuilder(column: $table.tag, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookTagsTableTableManager
+    extends
+        RootTableManager<
+          _$TomeToneDatabase,
+          $BookTagsTable,
+          BookTag,
+          $$BookTagsTableFilterComposer,
+          $$BookTagsTableOrderingComposer,
+          $$BookTagsTableAnnotationComposer,
+          $$BookTagsTableCreateCompanionBuilder,
+          $$BookTagsTableUpdateCompanionBuilder,
+          (BookTag, $$BookTagsTableReferences),
+          BookTag,
+          PrefetchHooks Function({bool bookId})
+        > {
+  $$BookTagsTableTableManager(_$TomeToneDatabase db, $BookTagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BookTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BookTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BookTagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> bookId = const Value.absent(),
+            Value<String> tag = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => BookTagsCompanion(bookId: bookId, tag: tag, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                required String tag,
+                Value<int> rowid = const Value.absent(),
+              }) => BookTagsCompanion.insert(
+                bookId: bookId,
+                tag: tag,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BookTagsTable, BookTag>(table),
+                  $$BookTagsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.bookId,
+                        referencedTable: $$BookTagsTableReferences._bookIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$BookTagsTableReferences
+                            ._bookIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BookTagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$TomeToneDatabase,
+      $BookTagsTable,
+      BookTag,
+      $$BookTagsTableFilterComposer,
+      $$BookTagsTableOrderingComposer,
+      $$BookTagsTableAnnotationComposer,
+      $$BookTagsTableCreateCompanionBuilder,
+      $$BookTagsTableUpdateCompanionBuilder,
+      (BookTag, $$BookTagsTableReferences),
+      BookTag,
+      PrefetchHooks Function({bool bookId})
+    >;
 typedef $$PlaybackProgressTableCreateCompanionBuilder =
     PlaybackProgressCompanion Function({
       required String bookId,
       required String chapterId,
       required int positionMs,
       required DateTime updatedAt,
+      Value<DateTime?> finishedAt,
       Value<int> rowid,
     });
 typedef $$PlaybackProgressTableUpdateCompanionBuilder =
@@ -8265,6 +8968,7 @@ typedef $$PlaybackProgressTableUpdateCompanionBuilder =
       Value<String> chapterId,
       Value<int> positionMs,
       Value<DateTime> updatedAt,
+      Value<DateTime?> finishedAt,
       Value<int> rowid,
     });
 
@@ -8335,6 +9039,11 @@ class $$PlaybackProgressTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get finishedAt => $composableBuilder(
+    column: $table.finishedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$BooksTableFilterComposer get bookId {
     final $$BooksTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -8401,6 +9110,11 @@ class $$PlaybackProgressTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get finishedAt => $composableBuilder(
+    column: $table.finishedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$BooksTableOrderingComposer get bookId {
     final $$BooksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8464,6 +9178,11 @@ class $$PlaybackProgressTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get finishedAt => $composableBuilder(
+    column: $table.finishedAt,
+    builder: (column) => column,
+  );
 
   $$BooksTableAnnotationComposer get bookId {
     final $$BooksTableAnnotationComposer composer = $composerBuilder(
@@ -8546,12 +9265,14 @@ class $$PlaybackProgressTableTableManager
                 Value<String> chapterId = const Value.absent(),
                 Value<int> positionMs = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> finishedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion(
                 bookId: bookId,
                 chapterId: chapterId,
                 positionMs: positionMs,
                 updatedAt: updatedAt,
+                finishedAt: finishedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8560,12 +9281,14 @@ class $$PlaybackProgressTableTableManager
                 required String chapterId,
                 required int positionMs,
                 required DateTime updatedAt,
+                Value<DateTime?> finishedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion.insert(
                 bookId: bookId,
                 chapterId: chapterId,
                 positionMs: positionMs,
                 updatedAt: updatedAt,
+                finishedAt: finishedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9678,6 +10401,8 @@ class $TomeToneDatabaseManager {
       $$ChaptersTableTableManager(_db, _db.chapters);
   $$BookMetadataOverridesTableTableManager get bookMetadataOverrides =>
       $$BookMetadataOverridesTableTableManager(_db, _db.bookMetadataOverrides);
+  $$BookTagsTableTableManager get bookTags =>
+      $$BookTagsTableTableManager(_db, _db.bookTags);
   $$PlaybackProgressTableTableManager get playbackProgress =>
       $$PlaybackProgressTableTableManager(_db, _db.playbackProgress);
   $$PerBookPrefsTableTableManager get perBookPrefs =>

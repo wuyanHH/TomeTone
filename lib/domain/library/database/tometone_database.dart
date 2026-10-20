@@ -18,6 +18,7 @@ part 'tometone_database.g.dart';
     Volumes,
     Chapters,
     BookMetadataOverrides,
+    BookTags,
     PlaybackProgress,
     PerBookPrefs,
     ListeningRecords,
@@ -29,7 +30,7 @@ class TomeToneDatabase extends _$TomeToneDatabase {
   TomeToneDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,9 +40,18 @@ class TomeToneDatabase extends _$TomeToneDatabase {
     onUpgrade: (Migrator migrator, int from, int to) async {
       // §8.3 三条线之一：Drift Migration **必须手写**，禁止破坏性迁移（保用户数据）。
       //
-      // v1 是首个 schema，尚不存在历史版本；一旦 schemaVersion 提升，
-      // 必须在此按 `from → to` 增量实现迁移，而不是让用户丢库重建。
-      throw UnsupportedError('缺少 $from → $to 的数据库迁移步骤：禁止破坏性迁移（《架构需求文档》§8.3）');
+      // v1 → v2 只增列、增表，不改列、不删表、不重建库：
+      // - `book_metadata_overrides` 增 `manual_edited_at`；
+      // - `playback_progress` 增 `finished_at`；
+      // - 新建 `book_tags`。
+      if (from < 2) {
+        await migrator.addColumn(
+          bookMetadataOverrides,
+          bookMetadataOverrides.manualEditedAt,
+        );
+        await migrator.addColumn(playbackProgress, playbackProgress.finishedAt);
+        await migrator.createTable(bookTags);
+      }
     },
     beforeOpen: (OpeningDetails details) async {
       // SQLite 默认不启用外键约束，必须每个连接显式开启。

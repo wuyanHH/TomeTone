@@ -94,11 +94,11 @@ void main() {
   });
 
   group('schema', () {
-    test('schemaVersion 为 1', () {
-      expect(db.schemaVersion, 1);
+    test('schemaVersion 为 2', () {
+      expect(db.schemaVersion, 2);
     });
 
-    test('建库后 9 张业务表齐备', () async {
+    test('建库后 10 张业务表齐备', () async {
       final rows = await db
           .customSelect(
             "SELECT name FROM sqlite_master WHERE type = 'table' "
@@ -117,6 +117,7 @@ void main() {
           'volumes',
           'chapters',
           'book_metadata_overrides',
+          'book_tags',
           'playback_progress',
           'per_book_prefs',
           'listening_records',

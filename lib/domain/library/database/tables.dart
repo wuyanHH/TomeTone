@@ -226,11 +226,31 @@ class BookMetadataOverrides extends Table {
   /// 覆盖简介。
   TextColumn get description => text().nullable()();
 
+  /// 最近一次手动编辑时间（区分"扫描自动写入"与"用户手改"，用于不覆盖用户编辑）。
+  DateTimeColumn get manualEditedAt => dateTime().nullable()();
+
   /// 最近更新时间。
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{bookId};
+}
+
+/// 书标签（§2.1 书架元数据）：多值标签，一标签一行。
+///
+/// 主键 `(bookId, tag)` 天然去重：同书同标签只会有一行。
+/// 文本在写入前经 `normalizeTags` 归一化（去空、去首尾空格、大小写不敏感去重）。
+@TableIndex(name: 'book_tags_tag', columns: {#tag})
+class BookTags extends Table {
+  /// 对应书。
+  TextColumn get bookId =>
+      text().references(Books, #id, onDelete: KeyAction.cascade)();
+
+  /// 标签文本（已归一化）。
+  TextColumn get tag => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{bookId, tag};
 }
 
 /// 播放进度（§2.2「进度写入可靠性」）：每书一条，WAL + 关键事件立即写。
@@ -249,6 +269,9 @@ class PlaybackProgress extends Table {
 
   /// 最近更新时间 —— 书库"最近收听"排序依据。
   DateTimeColumn get updatedAt => dateTime()();
+
+  /// 听完（finished）时间；`null` 表示尚未听完。
+  DateTimeColumn get finishedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{bookId};
