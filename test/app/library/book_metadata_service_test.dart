@@ -101,6 +101,30 @@ void main() {
     );
   }
 
+  /// 预置一份手填覆盖层（manualEditedAt 非空），供「重新导入」语义断言用。
+  Future<void> seedManualOverride() async {
+    await db
+        .into(db.bookMetadataOverrides)
+        .insert(
+          BookMetadataOverridesCompanion.insert(
+            bookId: 'book-1',
+            title: const Value<String?>('旧标题'),
+            author: const Value<String?>('旧作者'),
+            description: const Value<String?>('旧简介'),
+            manualEditedAt: Value<DateTime?>(_t0),
+            updatedAt: _t0,
+          ),
+        );
+  }
+
+  /// sidecar 只含 title 与 description，不含 author（缺字段场景）。
+  void seedSidecarWithoutAuthor(_FakeStore store) {
+    store.files['三体'] = BookMetadataCodec.encode(
+      const BookMetadataDraft(title: '新标题', description: '新简介'),
+      updatedAt: _t0,
+    );
+  }
+
   group('save', () {
     test('写库（manual: true）并向可写 store 写入编码字节，返回 written', () async {
       await seedBook();
@@ -217,6 +241,53 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('overwriteManual: true 只覆盖 JSON 出现的字段，缺字段保留手填值、不清 manualEditedAt', () async {
+      await seedBook();
+      await seedManualOverride();
+
+      final store = _FakeStore();
+      seedSidecarWithoutAuthor(store);
+
+      final draft = await service(store).importFromBookRoot(
+        book: _book(),
+        rootUri: '/books',
+        overwriteManual: true,
+      );
+
+      expect(draft, isNotNull);
+      expect(draft!.title, '新标题');
+      expect(draft.description, '新简介');
+      expect(draft.author, isNull, reason: 'sidecar 未提供 author');
+
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals('book-1')))
+          .getSingle();
+      expect(row.title, '新标题', reason: 'JSON 出现的字段被覆盖');
+      expect(row.description, '新简介');
+      expect(row.author, '旧作者', reason: '缺字段（author）不清空手填值');
+      expect(row.manualEditedAt, isNotNull, reason: '重新导入不清 manualEditedAt');
+    });
+
+    test('overwriteManual: false 同样的 sidecar 不会覆盖 title/description（只填空语义）', () async {
+      await seedBook();
+      await seedManualOverride();
+
+      final store = _FakeStore();
+      seedSidecarWithoutAuthor(store);
+
+      await service(store).importFromBookRoot(
+        book: _book(),
+        rootUri: '/books',
+      );
+
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals('book-1')))
+          .getSingle();
+      expect(row.title, '旧标题', reason: '手动编辑过 → onlyFillEmpty no-op，不覆盖');
+      expect(row.description, '旧简介');
+      expect(row.author, '旧作者');
     });
 
     test('sidecar 为坏 JSON 时返回 null', () async {
