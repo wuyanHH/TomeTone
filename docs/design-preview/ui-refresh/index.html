@@ -1,0 +1,3023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TomeTone · 听书样式卷 · 书架 / 播放台 / 书源</title>
+<style>
+/* =========================================================================
+   TomeTone UI Refresh — static style sheet
+   Single file. No external fonts, images or CDN. All art is CSS / inline SVG.
+   Direction A: 宣纸旧卷 (paper)  ·  Direction B: 墨夜沉浸 (ink night)
+   ========================================================================= */
+
+:root{
+  --serif:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","Noto Serif SC","SimSun",serif;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+
+  --page-paper:#F1E8D7;
+  --page-paper-2:#E9DEC9;
+  --page-ink:#1E1810;
+  --page-muted:#796A54;
+  --page-line:#D5C4A5;
+  --zhu:#A83B2A;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:var(--sans);
+  background:#0B0907;
+  color:var(--page-ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+img,svg{display:block;}
+button{font:inherit;border:0;background:none;color:inherit;}
+a{color:inherit;}
+::selection{background:#C9A36A;color:#1B1207;}
+
+/* ---------- shared page furniture ---------- */
+.wrap{width:min(1280px,100%);margin:0 auto;padding:0 40px;}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+.serif{font-family:var(--serif);}
+
+.masthead{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(ellipse 60% 90% at 82% 12%,rgba(181,124,54,.22),transparent 62%),
+    radial-gradient(ellipse 50% 70% at 8% 92%,rgba(84,107,91,.18),transparent 64%),
+    #100D09;
+  color:#F3E9D7;
+  border-bottom:1px solid rgba(240,224,194,.14);
+}
+.masthead::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.76 0 0 0 0 0.58 0 0 0 .06 0'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>");
+}
+.masthead::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(240,224,194,.5),transparent);
+}
+.masthead-inner{
+  position:relative;z-index:2;
+  display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr);
+  gap:72px;align-items:end;
+  padding-top:74px;padding-bottom:60px;
+}
+.kicker{
+  font-size:10px;letter-spacing:.30em;text-transform:uppercase;
+  color:#B9A47F;display:flex;align-items:center;gap:12px;
+}
+.kicker::before{content:"";width:30px;height:1px;background:#A83B2A;}
+.masthead h1{
+  font-family:var(--serif);font-weight:600;
+  font-size:clamp(64px,8.4vw,118px);line-height:.94;letter-spacing:.07em;
+  margin:24px 0 26px;display:flex;flex-wrap:wrap;gap:0 .14em;
+}
+.masthead h1 .outline{
+  color:transparent;-webkit-text-stroke:1px rgba(243,233,215,.52);
+}
+.dek{
+  max-width:590px;font-size:14px;line-height:1.95;color:#C9B99D;
+}
+.dek b{color:#F3E9D7;font-weight:600;}
+.masthead-meta{
+  display:flex;flex-wrap:wrap;gap:12px 28px;margin-top:38px;
+  padding-top:20px;border-top:1px solid rgba(240,224,194,.16);
+  font-size:10px;letter-spacing:.16em;color:#8E7C60;
+}
+.masthead-meta span{display:flex;align-items:center;gap:7px;}
+.masthead-meta i{width:4px;height:4px;border-radius:50%;background:#A83B2A;display:inline-block;}
+.masthead-aside{
+  display:flex;flex-direction:column;align-items:flex-end;gap:26px;padding-bottom:6px;
+}
+.stamp{
+  width:64px;height:64px;border:1px solid rgba(168,59,42,.8);
+  background:rgba(168,59,42,.12);
+  display:grid;place-items:center;color:#E8C9B8;
+  font-family:var(--serif);font-size:31px;line-height:1;
+  box-shadow:inset 0 0 0 4px #100D09,inset 0 0 0 5px rgba(168,59,42,.45);
+  transform:rotate(-3deg);
+}
+.vertical-note{
+  writing-mode:vertical-rl;font-family:var(--serif);font-size:13px;
+  letter-spacing:.42em;color:#A08D6D;
+}
+.masthead-toc{
+  display:flex;flex-direction:column;align-items:flex-end;gap:9px;
+  margin-top:4px;
+}
+.masthead-toc a{
+  font-size:10px;letter-spacing:.14em;text-decoration:none;color:#B9A47F;
+  display:flex;align-items:center;gap:9px;transition:color .2s ease;
+}
+.masthead-toc a:hover{color:#F3E9D7;}
+.masthead-toc a span{font-family:var(--mono);font-size:9px;color:#75664E;}
+
+/* ---------- overview ---------- */
+.overview{
+  position:relative;background:var(--page-paper);color:var(--page-ink);
+  padding:76px 0 84px;overflow:hidden;
+}
+.overview::before{
+  content:"";position:absolute;inset:0;opacity:.5;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.36 0 0 0 0 0.24 0 0 0 .045 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+}
+.overview .wrap{position:relative;z-index:1;}
+.sec-head{
+  display:grid;grid-template-columns:120px minmax(0,1fr) 300px;gap:28px;
+  align-items:start;padding-top:22px;border-top:1px solid var(--page-line);
+}
+.sec-num{
+  font-family:var(--serif);font-size:46px;line-height:1;color:#B7A184;
+  letter-spacing:.04em;
+}
+.sec-head h2{
+  font-family:var(--serif);font-size:clamp(30px,3.3vw,44px);font-weight:600;
+  letter-spacing:.03em;line-height:1.25;
+}
+.sec-head h2 em{font-style:normal;color:#8A5A20;}
+.sec-desc{font-size:12.5px;line-height:1.9;color:#6F5E48;}
+.sec-desc b{color:#2C2115;font-weight:600;}
+
+.ia-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:38px;}
+.ia-card{
+  background:rgba(255,252,246,.72);
+  border:1px solid #D9C9AC;border-radius:18px;
+  padding:24px 24px 22px;position:relative;overflow:hidden;
+}
+.ia-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,#8A5A20,#B98A4A 40%,rgba(185,138,74,0));
+}
+.ia-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+.ia-top .idx{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:#9C8769;}
+.ia-top .tag{
+  font-size:9px;letter-spacing:.13em;color:#7C5A2A;
+  border:1px solid #D5BE97;background:#F8ECCF;border-radius:999;padding:3px 8px;
+}
+.ia-card h3{font-family:var(--serif);font-size:22px;font-weight:600;margin-top:18px;letter-spacing:.04em;}
+.ia-card .lead{font-size:11.5px;line-height:1.85;color:#6E5C45;margin-top:7px;min-height:43px;}
+.ia-flow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:18px;}
+.ia-flow .node{
+  font-size:9.5px;line-height:1;color:#4A3A27;background:#F4EAD8;
+  border:1px solid #E0D0B4;border-radius:5px;padding:6px 7px;
+}
+.ia-flow .node.hot{background:#2A2015;color:#F7EEDD;border-color:#2A2015;}
+.ia-flow .arrow{font-size:9px;color:#B5A083;}
+.ia-card .fix{
+  margin-top:20px;padding-top:13px;border-top:1px dashed #DCCCB0;
+  font-size:10px;line-height:1.6;color:#8A5A20;letter-spacing:.02em;
+}
+
+.compare{
+  margin-top:26px;border:1px solid #D5C4A5;border-radius:18px;overflow:hidden;
+  display:grid;grid-template-columns:1fr 1fr;
+}
+.cmp{
+  padding:30px 30px 28px;position:relative;overflow:hidden;
+}
+.cmp-a{background:#F8EFDF;}
+.cmp-a::after{
+  content:"A";position:absolute;right:18px;bottom:-38px;font-family:var(--serif);
+  font-size:160px;line-height:1;color:rgba(138,90,32,.08);
+}
+.cmp-b{
+  background:
+    radial-gradient(circle at 82% 18%,rgba(143,211,190,.16),transparent 48%),
+    #101614;
+  color:#E8EDE6;
+}
+.cmp-b::after{
+  content:"B";position:absolute;right:18px;bottom:-38px;font-family:var(--serif);
+  font-size:160px;line-height:1;color:rgba(143,211,190,.08);
+}
+.cmp .eyebrow{font-size:9px;letter-spacing:.24em;text-transform:uppercase;opacity:.55;}
+.cmp h3{font-family:var(--serif);font-size:26px;font-weight:600;margin-top:12px;letter-spacing:.06em;}
+.cmp p{font-size:12px;line-height:1.95;margin-top:10px;max-width:430px;position:relative;z-index:1;}
+.cmp-a p{color:#6C5A43;}
+.cmp-b p{color:#A9B8B0;}
+.cmp .keys{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px;position:relative;z-index:1;}
+.cmp .keys span{
+  font-size:9px;letter-spacing:.08em;border-radius:999;padding:5px 9px;
+  border:1px solid rgba(139,120,96,.4);color:#7A664C;
+}
+.cmp-b .keys span{border-color:rgba(143,211,190,.26);color:#8FD3BE;}
+.one-liner{
+  grid-column:1/-1;background:#241C12;color:#EFE5D2;
+  padding:19px 30px;display:flex;align-items:center;gap:20px;
+  font-family:var(--serif);font-size:16px;letter-spacing:.04em;line-height:1.6;
+}
+.one-liner::before{
+  content:"差异";font-family:var(--sans);font-size:9px;letter-spacing:.2em;
+  color:#C7A26A;border:1px solid rgba(199,162,106,.45);border-radius:999;
+  padding:5px 9px;flex:none;
+}
+
+.token-board{
+  margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:18px;
+}
+.token-set{
+  border:1px solid #D5C4A5;border-radius:16px;padding:22px 24px;
+  background:rgba(255,252,246,.5);
+}
+.token-set.dark{background:#121816;border-color:rgba(143,211,190,.2);color:#E8EDE6;}
+.token-set h4{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.06em;}
+.token-set .sub{font-size:10px;color:#8A775C;margin-top:5px;line-height:1.7;}
+.token-set.dark .sub{color:#93A49B;}
+.swatches{display:flex;gap:0;margin-top:18px;border-radius:9px;overflow:hidden;border:1px solid rgba(0,0,0,.08);}
+.swatch{flex:1;height:48px;position:relative;}
+.swatch span{
+  position:absolute;left:6px;bottom:5px;font-family:var(--mono);font-size:7px;
+  letter-spacing:.02em;color:rgba(255,255,255,.72);
+}
+.swatch.dark-txt span{color:rgba(30,22,12,.62);}
+.type-row{
+  margin-top:16px;display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  padding-top:14px;border-top:1px dashed rgba(139,120,96,.35);
+}
+.type-row .sample{font-family:var(--serif);font-size:20px;letter-spacing:.08em;}
+.type-row .meta{font-size:9px;letter-spacing:.08em;color:#9A876C;text-align:right;line-height:1.7;}
+.token-set.dark .type-row{border-color:rgba(143,211,190,.22);}
+.token-set.dark .meta{color:#7F9389;}
+
+/* ---------- direction sections ---------- */
+.direction{position:relative;}
+.dir-a{
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 0%,rgba(255,255,255,.6),transparent 60%),
+    var(--page-paper-2);
+  padding:86px 0 100px;color:#1E1810;
+}
+.dir-a::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='170' height='170'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.48 0 0 0 0 0.38 0 0 0 0 0.25 0 0 0 .05 0'/></filter><rect width='170' height='170' filter='url(%23n)'/></svg>");
+}
+.dir-b{
+  background:
+    radial-gradient(ellipse 55% 30% at 82% 12%,rgba(72,128,112,.20),transparent 64%),
+    radial-gradient(ellipse 52% 26% at 8% 58%,rgba(51,78,72,.16),transparent 68%),
+    #090D0C;
+  padding:92px 0 110px;color:#E8EDE6;
+  border-top:1px solid rgba(143,211,190,.16);
+}
+.dir-b .wrap{position:relative;z-index:1;}
+.dir-head{
+  display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);
+  gap:60px;align-items:end;margin-bottom:66px;
+  padding-bottom:34px;border-bottom:1px solid rgba(139,120,96,.4);
+}
+.dir-b .dir-head{border-color:rgba(143,211,190,.2);}
+.dir-eyebrow{display:flex;align-items:center;gap:14px;font-size:9.5px;letter-spacing:.26em;color:#806C50;}
+.dir-b .dir-eyebrow{color:#7F9389;}
+.dir-eyebrow::before{content:"";width:38px;height:1px;background:#A83B2A;}
+.dir-b .dir-eyebrow::before{background:#8FD3BE;}
+.dir-title{
+  font-family:var(--serif);font-size:clamp(52px,6vw,82px);font-weight:600;
+  line-height:1.05;letter-spacing:.08em;margin-top:17px;
+  display:flex;align-items:flex-start;gap:18px;
+}
+.dir-title .letter{
+  font-family:var(--serif);font-size:20px;letter-spacing:.1em;color:#A83B2A;
+  border:1px solid rgba(168,59,42,.4);border-radius:50%;width:38px;height:38px;
+  display:grid;place-items:center;margin-top:8px;flex:none;
+}
+.dir-b .dir-title .letter{color:#8FD3BE;border-color:rgba(143,211,190,.4);}
+.dir-sub{
+  font-family:var(--serif);font-size:16px;letter-spacing:.12em;color:#8A775C;margin-top:16px;
+}
+.dir-b .dir-sub{color:#A9B8B0;}
+.dir-copy{font-size:12.5px;line-height:2;color:#6F5E48;max-width:360px;}
+.dir-b .dir-copy{color:#93A49B;}
+.dir-copy b{color:#2C2115;font-weight:600;}
+.dir-b .dir-copy b{color:#E8EDE6;}
+.dir-keywords{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px;}
+.dir-keywords span{
+  font-size:9px;letter-spacing:.1em;padding:5px 9px;border-radius:999;
+  border:1px solid rgba(139,120,96,.45);color:#7A664C;
+}
+.dir-b .dir-keywords span{border-color:rgba(143,211,190,.25);color:#8FD3BE;}
+
+.plates{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:70px 44px;justify-items:center;
+}
+.dir-b .plates{gap:76px 44px;}
+.plate{display:flex;flex-direction:column;align-items:center;gap:26px;width:100%;}
+.plate-note{width:390px;max-width:100%;}
+.plate-head{display:flex;align-items:baseline;gap:12px;}
+.plate-no{
+  font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:#A83B2A;
+  border-top:1px solid rgba(168,59,42,.55);padding-top:6px;
+}
+.dir-b .plate-no{color:#8FD3BE;border-color:rgba(143,211,190,.45);}
+.plate-head h3{
+  font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:.05em;
+}
+.plate-sub{font-size:9px;letter-spacing:.12em;color:#8D7A5E;margin-left:auto;}
+.dir-b .plate-sub{color:#72857C;}
+.plate-note p{
+  font-size:11.5px;line-height:1.95;color:#6A5942;margin-top:11px;
+}
+.dir-b .plate-note p{color:#9DAEA5;}
+.plate-note .fixes{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:13px;
+}
+.plate-note .fixes span{
+  font-size:9px;letter-spacing:.04em;color:#8A5A20;
+  background:rgba(182,137,74,.10);border:1px solid rgba(138,90,32,.22);
+  padding:4px 8px;border-radius:4px;
+}
+.dir-b .plate-note .fixes span{
+  color:#8FD3BE;background:rgba(143,211,190,.07);border-color:rgba(143,211,190,.22);
+}
+
+/* ---------- device frame ---------- */
+.device{
+  position:relative;width:410px;padding:10px;border-radius:55px;flex:none;
+  background:linear-gradient(145deg,#5A4A35 0%,#2A2118 26%,#16110B 58%,#0D0A07 100%);
+  box-shadow:
+    0 44px 90px -30px rgba(29,19,7,.62),
+    0 16px 32px -16px rgba(29,19,7,.45),
+    inset 0 0 0 1px rgba(255,244,224,.22),
+    inset 0 1px 1px rgba(255,255,255,.24);
+  transition:transform .45s cubic-bezier(.2,.75,.25,1),box-shadow .45s ease;
+}
+.device:hover{transform:translateY(-5px);box-shadow:0 58px 110px -30px rgba(29,19,7,.7),0 18px 38px -16px rgba(29,19,7,.5),inset 0 0 0 1px rgba(255,244,224,.3),inset 0 1px 1px rgba(255,255,255,.3);}
+.dir-b .device{
+  background:linear-gradient(145deg,#3A4743 0%,#17201D 28%,#090C0B 66%,#050706 100%);
+  box-shadow:
+    0 50px 100px -32px rgba(0,0,0,.9),
+    0 0 0 1px rgba(143,211,190,.16),
+    0 0 70px -20px rgba(95,170,146,.24),
+    inset 0 0 0 1px rgba(200,230,218,.14),
+    inset 0 1px 1px rgba(255,255,255,.14);
+}
+.dir-b .device:hover{box-shadow:0 64px 120px -32px rgba(0,0,0,.95),0 0 0 1px rgba(143,211,190,.24),0 0 90px -18px rgba(95,170,146,.34),inset 0 0 0 1px rgba(200,230,218,.18);}
+.device::before{ /* power */
+  content:"";position:absolute;right:-2px;top:168px;width:3px;height:76px;
+  border-radius:0 3px 3px 0;background:#2C2418;box-shadow:inset 0 1px rgba(255,255,255,.1);
+}
+.dir-b .device::before{background:#1B2522;}
+.device::after{ /* volume */
+  content:"";position:absolute;left:-2px;top:150px;width:3px;height:52px;
+  border-radius:3px 0 0 3px;background:#2C2418;
+  box-shadow:0 66px 0 #2C2418;
+}
+.dir-b .device::after{background:#1B2522;box-shadow:0 66px 0 #1B2522;}
+
+.screen{
+  position:relative;width:390px;height:844px;border-radius:45px;overflow:hidden;
+  display:flex;flex-direction:column;isolation:isolate;
+}
+.screen::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.28);
+  z-index:70;
+}
+.island{
+  position:absolute;top:11px;left:50%;transform:translateX(-50%);
+  width:94px;height:25px;border-radius:15px;background:#060605;z-index:65;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.4);
+}
+.home{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  width:132px;height:5px;border-radius:99px;background:currentColor;opacity:.22;z-index:60;
+}
+
+/* status bar */
+.sb{
+  height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:0 25px 0 27px;position:relative;z-index:50;
+  font-size:11px;font-weight:600;letter-spacing:.02em;
+}
+.sb .time{font-family:var(--sans);}
+.sb .status-icons{display:flex;align-items:center;gap:5px;opacity:.9;}
+.sb svg{width:14px;height:14px;}
+.battery{width:20px;height:10px;border:1px solid currentColor;border-radius:2.5px;position:relative;opacity:.85;}
+.battery::before{content:"";position:absolute;inset:1.5px;right:4px;background:currentColor;border-radius:1px;}
+.battery::after{content:"";position:absolute;right:-3px;top:2.6px;width:2px;height:4px;background:currentColor;border-radius:0 1px 1px 0;opacity:.7;}
+
+/* common screen components */
+.icon-btn{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;
+}
+.icon{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.icon.fill{fill:currentColor;stroke:none;}
+.icon.sm{width:15px;height:15px;}
+.icon.lg{width:23px;height:23px;}
+.eyebrow{font-size:8.5px;letter-spacing:.2em;color:#8B7860;text-transform:uppercase;}
+.eyebrow.serif{font-family:var(--serif);text-transform:none;letter-spacing:.18em;}
+
+/* scroll fade */
+.fade-bottom{
+  position:absolute;left:0;right:0;bottom:0;height:74px;pointer-events:none;z-index:20;
+  background:linear-gradient(180deg,rgba(251,246,236,0),rgba(251,246,236,.92) 78%,#FBF6EC);
+}
+
+/* =========================================================================
+   THEME A — 宣纸旧卷
+   ========================================================================= */
+.theme-a{
+  --bg:#FBF6EC;
+  --bg-deep:#F3E9D7;
+  --surface:#FFFCF5;
+  --surface-2:#F7EFE0;
+  --surface-3:#F0E4CF;
+  --ink:#221A11;
+  --ink-2:#5C4B38;
+  --ink-3:#8B7860;
+  --ink-4:#A9977E;
+  --line:#DCCCB0;
+  --line-soft:rgba(139,120,96,.22);
+  --amber:#8A5A20;
+  --amber-2:#B27C36;
+  --amber-soft:#F4DFB9;
+  --zhu:#A5332A;
+  --zhu-soft:#E9C6BA;
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(ellipse 75% 40% at 15% 0%,rgba(255,255,255,.85),transparent 60%),
+    radial-gradient(ellipse 65% 45% at 90% 100%,rgba(151,112,60,.11),transparent 65%),
+    repeating-linear-gradient(0deg,rgba(120,90,50,.022) 0 1px,transparent 1px 3px);
+  font-family:var(--sans);
+}
+.theme-a::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.62;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.33 0 0 0 0 0.21 0 0 0 .05 0'/></filter><rect width='150' height='150' filter='url(%23p)'/></svg>");
+}
+.theme-a > *{position:relative;z-index:1;}
+
+.seal{
+  width:31px;height:31px;flex:none;display:grid;place-items:center;
+  background:var(--zhu);color:#FFF4E8;border-radius:4px;
+  font-family:var(--serif);font-size:16px;line-height:1;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 2px 4px rgba(88,32,20,.18);
+  letter-spacing:0;
+}
+.seal.ghost{background:transparent;color:var(--zhu);border:1px solid rgba(165,51,42,.55);box-shadow:none;}
+.seal.ink{background:var(--ink);color:#FBF6EC;}
+
+/* A shelf header */
+.a-content{flex:1;overflow:hidden;padding:0 20px;position:relative;}
+.a-head{display:flex;align-items:center;gap:11px;padding:7px 0 13px;}
+.a-head-txt{min-width:0;flex:1;}
+.a-head-txt .eyebrow{font-family:var(--serif);margin-bottom:3px;}
+.a-title{font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:.05em;line-height:1.1;}
+.a-head .count-badge{
+  font-size:9px;letter-spacing:.08em;color:var(--ink-3);
+  border:1px solid var(--line);border-radius:999;padding:4px 8px;white-space:nowrap;
+}
+.a-head .head-actions{display:flex;align-items:center;gap:2px;}
+
+.a-search{
+  height:41px;display:flex;align-items:center;gap:9px;padding:0 13px;
+  border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,252,245,.72);color:var(--ink-3);font-size:11px;
+  box-shadow:0 1px 0 rgba(255,255,255,.6) inset;
+}
+.a-search .icon{width:16px;height:16px;color:var(--ink-3);}
+.a-search .search-hint{flex:1;letter-spacing:.01em;}
+.a-search .search-go{
+  font-size:9px;letter-spacing:.08em;color:var(--amber);
+  border-left:1px solid var(--line);padding-left:9px;
+}
+
+.chips{display:flex;gap:6px;overflow:hidden;padding:11px 0 3px;}
+.chip{
+  height:28px;padding:0 11px;border:1px solid var(--line);border-radius:999;
+  display:flex;align-items:center;gap:4px;font-size:10px;color:var(--ink-2);
+  white-space:nowrap;flex:none;background:rgba(255,252,245,.4);
+}
+.chip b{font-weight:500;font-size:8.5px;color:var(--ink-4);}
+.chip.on{background:var(--ink);color:#FBF6EC;border-color:var(--ink);box-shadow:0 4px 10px -4px rgba(34,26,17,.5);}
+.chip.on b{color:#C9B28E;}
+.chip .dot{width:4px;height:4px;border-radius:50%;background:var(--amber-2);}
+
+/* continue card */
+.a-continue{
+  margin-top:12px;border:1px solid var(--line);border-radius:15px;
+  background:linear-gradient(100deg,rgba(255,252,245,.92),rgba(247,239,224,.72));
+  padding:11px;display:flex;gap:12px;align-items:center;
+  box-shadow:0 10px 24px -18px rgba(61,39,10,.45);
+  position:relative;overflow:hidden;
+}
+.a-continue::after{
+  content:"续";position:absolute;right:-5px;top:-15px;font-family:var(--serif);
+  font-size:72px;color:rgba(138,90,32,.055);line-height:1;pointer-events:none;
+}
+.a-continue .cover{width:60px;height:80px;border-radius:8px;}
+.a-continue-body{flex:1;min-width:0;position:relative;z-index:1;}
+.a-continue .row1{display:flex;align-items:center;gap:6px;}
+.a-continue .tagline{font-size:8px;letter-spacing:.13em;color:var(--amber);}
+.a-continue .tagline::before{content:"";display:inline-block;width:14px;height:1px;background:var(--amber-2);vertical-align:middle;margin-right:5px;}
+.a-continue h3{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.04em;margin-top:4px;}
+.a-continue .chapter{font-size:9.5px;color:var(--ink-3);margin-top:3px;}
+.a-prog{height:3px;background:var(--line);border-radius:99px;margin-top:8px;overflow:hidden;}
+.a-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),var(--amber-2));border-radius:99px;}
+.a-continue .prog-meta{display:flex;justify-content:space-between;font-size:8px;color:var(--ink-3);margin-top:5px;letter-spacing:.04em;}
+.a-continue .prog-meta b{color:var(--amber);font-weight:600;}
+.play-mini{
+  width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--ink);color:#F7EDDA;box-shadow:0 6px 14px -6px rgba(34,26,17,.8);
+  position:relative;z-index:2;
+}
+.play-mini .icon{width:15px;height:15px;margin-left:1px;}
+
+.a-section{display:flex;align-items:flex-end;justify-content:space-between;padding:15px 0 10px;}
+.a-section h2{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.05em;margin-top:2px;}
+.view-toggle{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:rgba(255,252,245,.5);}
+.view-toggle span{width:27px;height:24px;display:grid;place-items:center;color:var(--ink-4);}
+.view-toggle span.on{background:var(--ink);color:#FBF6EC;}
+.view-toggle .icon{width:13px;height:13px;}
+
+/* grid cards */
+.a-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px;}
+.shelf-card{min-width:0;}
+.shelf-card .cover{width:100%;aspect-ratio:3/4;border-radius:9px;box-shadow:0 12px 22px -14px rgba(54,35,12,.6),inset 0 0 0 1px rgba(255,255,255,.12);}
+.shelf-card .card-title{
+  font-family:var(--serif);font-size:14.5px;font-weight:600;letter-spacing:.03em;
+  margin-top:8px;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;
+}
+.shelf-card .card-title .status-dot{width:4px;height:4px;border-radius:50%;background:var(--amber-2);flex:none;}
+.shelf-card .card-meta{font-size:8.5px;color:var(--ink-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.shelf-card .card-line{
+  font-size:9.5px;line-height:1.55;color:var(--ink-2);margin-top:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  height:30px;
+}
+.shelf-card .card-foot{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:8px;color:var(--ink-3);margin-top:4px;
+}
+.shelf-card .card-foot .pct{color:var(--amber);font-weight:600;}
+.card-prog{height:2px;background:var(--line-soft);border-radius:99px;margin-top:5px;overflow:hidden;}
+.card-prog i{display:block;height:100%;background:var(--amber-2);}
+
+/* A list cards */
+.a-list{display:flex;flex-direction:column;gap:9px;margin-top:2px;}
+.a-list-card{
+  display:flex;gap:12px;padding:10px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,252,245,.66);min-height:116px;
+}
+.a-list-card .cover{width:70px;height:94px;border-radius:7px;}
+.a-list-body{flex:1;min-width:0;display:flex;flex-direction:column;}
+.a-list-top{display:flex;align-items:flex-start;gap:8px;}
+.a-list-top h3{font-family:var(--serif);font-size:15.5px;font-weight:600;letter-spacing:.03em;line-height:1.25;}
+.a-list-top .st{margin-left:auto;font-size:7.5px;letter-spacing:.08em;color:var(--amber);border:1px solid rgba(138,90,32,.3);background:rgba(246,223,184,.5);border-radius:999;padding:3px 6px;flex:none;}
+.a-list-meta{font-size:8.5px;color:var(--ink-3);margin-top:2px;display:flex;gap:5px;align-items:center;}
+.a-list-line{font-size:9.5px;line-height:1.55;color:var(--ink-2);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.a-list-bottom{margin-top:auto;padding-top:5px;display:flex;align-items:center;gap:8px;}
+.a-list-bottom .a-prog{flex:1;margin-top:0;}
+.a-list-bottom .meta{font-size:8px;color:var(--ink-3);white-space:nowrap;}
+.a-list-bottom .meta b{color:var(--amber);}
+
+/* tab bar */
+.tabbar{
+  height:84px;flex:none;display:flex;align-items:flex-start;justify-content:space-around;
+  padding:9px 16px 0;position:relative;z-index:30;
+  background:rgba(250,244,232,.94);border-top:1px solid rgba(139,120,96,.22);
+  backdrop-filter:blur(14px);
+}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-4);width:66px;padding-top:3px;}
+.tab .icon{width:21px;height:21px;stroke-width:1.55;}
+.tab span{font-size:9px;letter-spacing:.08em;}
+.tab.on{color:var(--ink);}
+.tab.on .icon{color:var(--amber);}
+.tab.on span{font-weight:600;}
+.tab .nav-dot{width:3px;height:3px;border-radius:50%;background:var(--zhu);margin-top:-1px;opacity:0;}
+.tab.on .nav-dot{opacity:1;}
+.tabbar::after{content:"";position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:132px;height:5px;border-radius:99px;background:var(--ink);opacity:.18;}
+
+/* detail */
+.topbar{
+  height:45px;flex:none;display:flex;align-items:center;padding:0 12px;gap:8px;position:relative;z-index:30;
+}
+.topbar .title{flex:1;text-align:center;font-family:var(--serif);font-size:13px;letter-spacing:.14em;color:var(--ink-2);}
+.topbar .side{width:34px;display:flex;justify-content:center;}
+.topbar .side.right{justify-content:flex-end;}
+.topbar .icon-btn{color:var(--ink-2);}
+.detail-body{flex:1;overflow:hidden;padding:0 22px;position:relative;display:flex;flex-direction:column;}
+.detail-hero{position:relative;display:flex;justify-content:center;padding:7px 0 0;}
+.detail-hero::before{
+  content:"";position:absolute;width:280px;height:280px;top:-30px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.9),rgba(255,248,232,.35) 46%,transparent 68%);
+}
+.detail-hero::after{
+  content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+  width:190px;height:18px;border-radius:50%;background:rgba(70,45,15,.16);filter:blur(9px);
+}
+.detail-cover{position:relative;width:172px;aspect-ratio:3/4;z-index:1;}
+.detail-cover .cover{width:100%;height:100%;border-radius:7px;box-shadow:0 26px 44px -20px rgba(51,31,8,.65),0 4px 10px rgba(51,31,8,.22),inset 0 0 0 1px rgba(255,255,255,.14);}
+.detail-cover .cover::before{ /* paper edge */
+  content:"";position:absolute;inset:4px;border:1px solid rgba(255,245,225,.18);z-index:4;pointer-events:none;
+}
+.detail-cover .spine{position:absolute;left:0;top:0;bottom:0;width:7px;background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(255,255,255,.06));border-radius:7px 0 0 7px;z-index:5;}
+.detail-meta{text-align:center;margin-top:18px;position:relative;z-index:2;}
+.detail-meta .series{font-size:8.5px;letter-spacing:.22em;color:var(--amber);}
+.detail-meta h1{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.08em;margin-top:6px;}
+.detail-meta .byline{font-size:9.5px;color:var(--ink-3);margin-top:7px;letter-spacing:.02em;}
+.detail-meta .byline b{color:var(--ink-2);font-weight:500;}
+.detail-tags{display:flex;justify-content:center;gap:5px;margin-top:10px;flex-wrap:wrap;}
+.detail-tags span{font-size:8px;letter-spacing:.06em;color:var(--ink-2);border:1px solid var(--line);border-radius:999;padding:4px 8px;background:rgba(255,252,245,.45);}
+.detail-tags span.hot{color:var(--zhu);border-color:rgba(165,51,42,.28);background:rgba(244,217,203,.4);}
+.ornament{display:flex;align-items:center;gap:9px;margin:13px 0 10px;color:var(--ink-4);}
+.ornament::before,.ornament::after{content:"";height:1px;flex:1;background:var(--line);}
+.ornament i{width:4px;height:4px;transform:rotate(45deg);border:1px solid var(--ink-4);display:block;}
+.synopsis{font-size:10.5px;line-height:1.95;color:var(--ink-2);text-align:justify;}
+.synopsis::first-letter{font-family:var(--serif);font-size:14px;color:var(--amber);}
+.detail-links{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.detail-link{
+  border:1px solid var(--line);border-radius:10px;padding:8px 9px;
+  background:rgba(255,252,245,.5);display:flex;align-items:center;gap:7px;min-height:44px;
+}
+.detail-link .icon{color:var(--amber);width:16px;height:16px;flex:none;}
+.detail-link .dl{flex:1;min-width:0;}
+.detail-link .dl b{display:block;font-size:10px;font-weight:600;color:var(--ink);letter-spacing:.03em;}
+.detail-link .dl span{display:block;font-size:7.5px;color:var(--ink-3);margin-top:2px;}
+.detail-link .icon.sm{width:12px;height:12px;color:var(--ink-4);}
+.detail-cta{
+  position:absolute;left:0;right:0;bottom:0;z-index:35;
+  padding:12px 22px 24px;display:flex;gap:9px;align-items:center;
+  background:linear-gradient(180deg,rgba(251,246,236,0),rgba(251,246,236,.96) 36%,#FBF6EC 64%);
+}
+.btn-primary{
+  flex:1;height:48px;border-radius:999;background:linear-gradient(180deg,#9A6626,#7C4E1A);
+  color:#FFF6E7;display:flex;align-items:center;justify-content:center;gap:9px;
+  font-size:12px;font-weight:600;letter-spacing:.06em;
+  box-shadow:0 12px 24px -10px rgba(89,57,18,.65),inset 0 1px rgba(255,255,255,.18);
+}
+.btn-primary .icon{width:16px;height:16px;}
+.btn-square{
+  width:48px;height:48px;border-radius:50%;border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--ink-2);background:rgba(255,252,245,.7);
+}
+
+/* player A */
+.player-top{height:42px;flex:none;display:flex;align-items:center;padding:0 16px;position:relative;z-index:30;}
+.player-top .pt-center{flex:1;text-align:center;}
+.player-top .pt-center span{font-size:8.5px;letter-spacing:.26em;color:var(--ink-3);}
+.player-top .pt-center b{display:block;font-family:var(--serif);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--ink-2);margin-top:2px;}
+.player-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 22px 0;position:relative;overflow:hidden;}
+.player-halo{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:330px;height:330px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(210,169,105,.30),rgba(240,223,190,.12) 48%,transparent 70%);
+}
+.player-cover{position:relative;width:218px;aspect-ratio:1;border-radius:10px;z-index:2;}
+.player-cover .cover{width:100%;height:100%;border-radius:9px;box-shadow:0 30px 46px -24px rgba(47,28,6,.7),0 6px 14px rgba(47,28,6,.18),inset 0 0 0 1px rgba(255,255,255,.16);}
+.player-cover::before{
+  content:"";position:absolute;inset:-9px;border:1px solid rgba(138,90,32,.24);border-radius:13px;z-index:-1;
+}
+.player-cover::after{
+  content:"";position:absolute;inset:-9px 26px auto;height:8px;border-radius:0 0 50% 50%;
+  background:rgba(255,252,244,.8);filter:blur(2px);opacity:.7;
+}
+.player-title{text-align:center;margin-top:18px;position:relative;z-index:2;}
+.player-title .series{font-size:8px;letter-spacing:.24em;color:var(--amber);}
+.player-title h2{font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:.09em;margin-top:5px;line-height:1.2;}
+.player-title .ch{font-size:9.5px;color:var(--ink-3);margin-top:5px;letter-spacing:.04em;}
+.player-title .ch b{color:var(--ink-2);font-weight:500;}
+
+.chapter-progress{
+  width:100%;margin-top:13px;border:1px solid var(--line);border-radius:13px;
+  background:linear-gradient(100deg,rgba(255,252,245,.88),rgba(247,238,222,.66));
+  padding:10px 13px 10px;position:relative;z-index:2;
+  box-shadow:0 8px 20px -18px rgba(61,39,10,.45);
+}
+.cp-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.cp-top .label{font-size:8px;letter-spacing:.16em;color:var(--ink-3);}
+.cp-top .chapter-no{font-family:var(--mono);font-size:8px;color:var(--ink-3);letter-spacing:.02em;}
+.cp-top .chapter-no b{color:var(--amber);font-weight:600;}
+.cp-bar{
+  position:relative;height:9px;margin-top:9px;border-radius:99px;
+  background:linear-gradient(180deg,#E4D6BD,#EDE2CE);box-shadow:inset 0 1px 2px rgba(90,64,30,.15);
+}
+.cp-bar .ticks{position:absolute;inset:0;border-radius:99px;opacity:.55;
+  background:repeating-linear-gradient(90deg,transparent 0 calc(8.333% - 1px),rgba(139,120,96,.28) calc(8.333% - 1px) 8.333%);
+}
+.cp-bar .fill{
+  position:absolute;left:0;top:0;bottom:0;width:43%;border-radius:99px;
+  background:linear-gradient(90deg,#7C4E1A,#A9712C 62%,#C08B45);
+  box-shadow:0 0 10px rgba(169,113,44,.35);
+}
+.cp-bar .knob{
+  position:absolute;left:43%;top:50%;transform:translate(-50%,-50%);
+  width:17px;height:17px;border-radius:50%;background:#FFF9EE;
+  border:2px solid var(--zhu);box-shadow:0 2px 5px rgba(70,40,10,.3);
+}
+.cp-bar .knob::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--zhu);opacity:.8;}
+.cp-times{display:flex;align-items:center;justify-content:space-between;margin-top:5px;}
+.cp-times .t{font-family:var(--mono);font-size:9px;color:var(--ink-2);letter-spacing:.02em;}
+.cp-times .t.now{color:var(--amber);font-weight:600;}
+.cp-times .remain{font-size:8px;color:var(--ink-3);letter-spacing:.03em;}
+.cp-times .remain b{color:var(--zhu);font-weight:600;}
+
+.console{
+  width:100%;height:72px;margin-top:14px;border-radius:38px;position:relative;z-index:2;
+  background:linear-gradient(180deg,#32271B,#211A11);
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:center;
+  box-shadow:0 16px 30px -16px rgba(34,26,17,.75),inset 0 1px rgba(255,255,255,.10),inset 0 0 0 1px rgba(255,244,224,.06);
+}
+.console button{height:100%;display:grid;place-items:center;color:#E8D9C0;position:relative;}
+.console button + button::before{
+  content:"";position:absolute;left:0;top:23px;bottom:23px;width:1px;background:rgba(232,217,192,.11);
+}
+.console .icon{width:21px;height:21px;stroke-width:1.5;}
+.console .rew span,.console .fwd span{
+  position:absolute;font-family:var(--mono);font-size:6.5px;bottom:21px;letter-spacing:0;color:#E8D9C0;
+}
+.console .play{
+  width:49px;height:49px;border-radius:50%;background:linear-gradient(180deg,#C99A55,#A56C28);
+  color:#241809;justify-self:center;box-shadow:0 7px 16px -4px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.35);
+}
+.console .play .icon{width:20px;height:20px;margin-left:2px;}
+
+.player-tools{
+  width:100%;height:52px;margin-top:12px;border-radius:999;border:1px solid var(--line);
+  background:rgba(255,252,245,.55);display:grid;grid-template-columns:repeat(5,1fr);
+  position:relative;z-index:2;box-shadow:0 1px rgba(255,255,255,.6) inset;
+}
+.player-tools .tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-2);position:relative;}
+.player-tools .tool + .tool::before{content:"";position:absolute;left:0;top:15px;bottom:15px;width:1px;background:var(--line-soft);}
+.player-tools .tool .icon{width:15px;height:15px;color:var(--ink-2);stroke-width:1.5;}
+.player-tools .tool span{font-size:7.5px;letter-spacing:.03em;color:var(--ink-3);}
+.player-tools .tool b{font-size:8px;font-weight:600;color:var(--ink-2);letter-spacing:.02em;}
+.player-tools .tool.accent .icon{color:var(--zhu);}
+
+.mini-status{
+  width:100%;height:41px;margin-top:10px;border-radius:10px;background:rgba(47,37,24,.055);
+  display:flex;align-items:center;gap:8px;padding:0 10px;position:relative;z-index:2;
+}
+.mini-status .cover{width:22px;height:28px;border-radius:3px;}
+.mini-status .ms-txt{flex:1;min-width:0;}
+.mini-status .ms-txt b{display:block;font-size:8.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mini-status .ms-txt span{display:block;font-size:7px;color:var(--ink-3);margin-top:1px;letter-spacing:.03em;}
+.wave{display:flex;align-items:center;gap:1.5px;height:12px;}
+.wave i{display:block;width:2px;border-radius:2px;background:var(--amber-2);opacity:.7;}
+.wave i:nth-child(1){height:4px}.wave i:nth-child(2){height:9px}.wave i:nth-child(3){height:6px}.wave i:nth-child(4){height:11px}.wave i:nth-child(5){height:5px}
+.mini-status .saved{font-size:7px;color:var(--ink-3);letter-spacing:.04em;white-space:nowrap;}
+.mini-status .saved i{display:inline-block;width:4px;height:4px;border-radius:50%;background:#5C7A4A;margin-right:3px;vertical-align:middle;}
+
+/* lyrics */
+.lyr-head{text-align:center;padding:2px 0 6px;position:relative;z-index:2;}
+.lyr-head .k{font-size:8px;letter-spacing:.22em;color:var(--ink-3);}
+.lyr-head h2{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.1em;margin-top:4px;}
+.lyr-head .meta{font-size:8.5px;color:var(--ink-3);margin-top:4px;letter-spacing:.05em;}
+.lyr-head .meta em{font-style:normal;color:var(--amber);}
+.lyr-body{
+  flex:1;position:relative;overflow:hidden;padding:0 26px;
+  display:flex;flex-direction:column;justify-content:center;gap:19px;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);
+}
+.lyr-line{
+  text-align:center;font-family:var(--serif);font-size:13px;letter-spacing:.07em;
+  color:var(--ink-2);opacity:.32;line-height:1.65;position:relative;transition:opacity .3s;
+}
+.lyr-line.current{
+  font-size:20px;color:var(--amber);opacity:1;font-weight:600;letter-spacing:.11em;
+  line-height:1.55;text-shadow:0 1px 0 rgba(255,255,255,.65);
+}
+.lyr-line.current::before{
+  content:"";position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);
+  width:78px;height:5px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(165,51,42,.32),transparent 70%);
+}
+.lyr-line.current .seal-dot{
+  position:absolute;right:-2px;top:-8px;width:11px;height:11px;border-radius:2px;
+  background:var(--zhu);color:#FFF3E6;font-size:6px;display:grid;place-items:center;
+  font-family:var(--serif);transform:rotate(3deg);opacity:.85;
+}
+.lyr-time{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:-9px;}
+.lyr-time span{font-family:var(--mono);font-size:7px;color:var(--ink-4);letter-spacing:.08em;}
+.lyr-time::before,.lyr-time::after{content:"";width:20px;height:1px;background:var(--line-soft);}
+.lyr-auto{
+  display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;
+  font-size:7.5px;letter-spacing:.1em;color:var(--ink-3);
+}
+.lyr-auto i{width:5px;height:5px;border-radius:50%;background:var(--amber-2);box-shadow:0 0 0 3px rgba(178,124,54,.12);}
+.lyr-foot{
+  flex:none;margin-top:auto;padding:0 22px 20px;position:relative;z-index:20;
+}
+.lyr-foot .toolbar-line{display:flex;align-items:center;justify-content:space-between;padding:0 2px 8px;}
+.lyr-foot .toolbar-line .lbl{font-size:8px;letter-spacing:.1em;color:var(--ink-3);}
+.lyr-foot .toolbar-line .jump{
+  font-size:8px;letter-spacing:.05em;color:var(--amber);border:1px solid rgba(138,90,32,.26);
+  border-radius:999;padding:4px 9px;background:rgba(246,223,184,.32);display:flex;align-items:center;gap:4px;
+}
+.lyr-foot .toolbar-line .jump .icon{width:10px;height:10px;}
+.lyr-prog{height:3px;background:var(--line);border-radius:99px;position:relative;overflow:visible;}
+.lyr-prog i{display:block;height:100%;width:43%;background:var(--amber-2);border-radius:99px;}
+.lyr-prog::after{content:"";position:absolute;left:43%;top:50%;transform:translate(-50%,-50%);width:7px;height:7px;border-radius:50%;background:var(--zhu);border:1.5px solid #FFF8ED;}
+.lyr-foot .times{display:flex;justify-content:space-between;margin-top:5px;font-family:var(--mono);font-size:7.5px;color:var(--ink-3);}
+.lyr-controls{display:flex;align-items:center;justify-content:center;gap:30px;margin-top:7px;}
+.lyr-controls .lc{width:38px;height:38px;display:grid;place-items:center;color:var(--ink-2);}
+.lyr-controls .lc .icon{width:19px;height:19px;}
+.lyr-controls .lplay{
+  width:51px;height:51px;border-radius:50%;background:var(--ink);color:#FBF2E1;
+  display:grid;place-items:center;box-shadow:0 9px 20px -8px rgba(34,26,17,.7);
+}
+.lyr-controls .lplay .icon{width:19px;height:19px;margin-left:2px;}
+
+/* empty lyrics */
+.empty-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:0 26px;position:relative;overflow:hidden;}
+.empty-book{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);border-radius:12px;padding:9px 11px;background:rgba(255,252,245,.5);margin-top:4px;}
+.empty-book .cover{width:42px;height:56px;border-radius:4px;}
+.empty-book .eb{flex:1;min-width:0;}
+.empty-book .eb b{display:block;font-family:var(--serif);font-size:14px;font-weight:600;letter-spacing:.04em;}
+.empty-book .eb span{display:block;font-size:8.5px;color:var(--ink-3);margin-top:3px;}
+.empty-book .eb em{display:inline-block;font-style:normal;font-size:7.5px;color:var(--amber);margin-top:4px;letter-spacing:.04em;}
+.empty-art{position:relative;width:150px;height:150px;margin-top:27px;display:grid;place-items:center;}
+.empty-art .ring{
+  position:absolute;inset:0;border-radius:50%;border:1px solid rgba(138,90,32,.26);
+  background:radial-gradient(circle at 38% 32%,rgba(255,255,255,.9),rgba(246,232,208,.5) 56%,rgba(246,232,208,.1) 70%);
+}
+.empty-art .ring::before{content:"";position:absolute;inset:13px;border-radius:50%;border:1px dashed rgba(139,120,96,.36);}
+.empty-art .note{position:relative;color:var(--amber);opacity:.8;}
+.empty-art .note svg{width:48px;height:48px;stroke-width:1.1;}
+.empty-art .seal{position:absolute;right:17px;bottom:24px;transform:rotate(6deg);width:24px;height:24px;font-size:12px;}
+.empty-art .slash{position:absolute;left:58px;top:58px;width:34px;height:1px;background:var(--zhu);transform:rotate(-35deg);opacity:.55;}
+.empty-body h3{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:.06em;margin-top:20px;}
+.empty-body .empty-desc{font-size:10px;line-height:1.9;color:var(--ink-2);text-align:center;margin-top:8px;max-width:280px;}
+.empty-body .empty-desc b{color:var(--amber);font-weight:600;}
+.empty-actions{display:flex;gap:8px;margin-top:18px;width:100%;}
+.empty-actions .btn-primary{height:44px;font-size:11px;border-radius:999;flex:1;}
+.btn-ghost{
+  height:44px;flex:1;border:1px solid var(--line);border-radius:999;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:10.5px;color:var(--ink-2);background:rgba(255,252,245,.5);letter-spacing:.03em;
+}
+.btn-ghost .icon{width:14px;height:14px;color:var(--amber);}
+.empty-note{
+  margin-top:14px;font-size:8px;line-height:1.8;color:var(--ink-3);letter-spacing:.02em;
+  text-align:center;border-top:1px dashed var(--line);padding-top:10px;width:100%;
+}
+.empty-note b{color:var(--ink-2);font-weight:500;}
+.empty-controls{margin-top:auto;width:100%;padding:10px 0 16px;display:flex;align-items:center;justify-content:center;gap:28px;opacity:.65;}
+.empty-controls .ec{width:38px;height:38px;display:grid;place-items:center;color:var(--ink-2);}
+.empty-controls .eplay{width:48px;height:48px;border-radius:50%;background:var(--ink);color:#FBF2E1;display:grid;place-items:center;}
+
+/* =========================================================================
+   THEME B — 墨夜沉浸
+   ========================================================================= */
+.theme-b{
+  --bg:#0B0F0E;
+  --bg-2:#0F1513;
+  --surface:#141C19;
+  --surface-2:#182420;
+  --surface-3:#1E2B26;
+  --ink:#E8EDE6;
+  --ink-2:#B3C2BA;
+  --ink-3:#7F9389;
+  --ink-4:#5F7169;
+  --line:rgba(143,211,190,.17);
+  --line-soft:rgba(143,211,190,.10);
+  --jade:#8FD3BE;
+  --jade-2:#6FBFA6;
+  --jade-deep:#3B7A67;
+  --moon:#EAF1EC;
+  --danger:#E3A08F;
+  --amber:#D3AC74;
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 40% at 82% -4%,rgba(57,108,92,.30),transparent 62%),
+    radial-gradient(ellipse 55% 34% at 6% 42%,rgba(40,74,63,.16),transparent 66%),
+    linear-gradient(180deg,#0C1210 0%,#090D0C 55%,#080B0A 100%);
+  font-family:var(--sans);
+}
+.theme-b::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='d'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.62 0 0 0 0 0.78 0 0 0 0 0.70 0 0 0 .035 0'/></filter><rect width='160' height='160' filter='url(%23d)'/></svg>");
+}
+.theme-b > *{position:relative;z-index:1;}
+.theme-b .eyebrow{color:var(--ink-3);}
+.theme-b .seal{background:transparent;color:var(--jade);border:1px solid rgba(143,211,190,.45);box-shadow:none;}
+.theme-b .icon-btn{color:var(--ink-2);}
+.theme-b .cover{box-shadow:0 18px 40px -16px rgba(0,0,0,.85),0 0 28px -10px rgba(143,211,190,.20),inset 0 0 0 1px rgba(220,240,230,.10);}
+.theme-b .tabbar{background:rgba(12,17,15,.9);border-top:1px solid var(--line-soft);}
+.theme-b .tab{color:var(--ink-4);}
+.theme-b .tab.on{color:var(--moon);}
+.theme-b .tab.on .icon{color:var(--jade);}
+.theme-b .tab .nav-dot{background:var(--jade);}
+.theme-b .tabbar::after{background:var(--moon);opacity:.3;}
+
+/* B shelf */
+.b-content{flex:1;overflow:hidden;padding:0 20px;position:relative;}
+.b-head{display:flex;align-items:center;gap:11px;padding:8px 0 14px;}
+.b-head .seal{width:32px;height:32px;font-size:15px;border-radius:50%;}
+.b-head-txt{flex:1;min-width:0;}
+.b-head-txt .eyebrow{font-family:var(--serif);letter-spacing:.2em;font-size:8px;}
+.b-title{font-family:var(--serif);font-size:23px;font-weight:600;letter-spacing:.07em;margin-top:4px;}
+.b-count{font-family:var(--mono);font-size:8px;color:var(--ink-3);letter-spacing:.08em;border:1px solid var(--line);padding:4px 8px;border-radius:999;}
+.b-search{
+  height:41px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(20,29,26,.7);display:flex;align-items:center;gap:9px;padding:0 13px;
+  font-size:11px;color:var(--ink-3);box-shadow:inset 0 1px rgba(255,255,255,.03);
+}
+.b-search .icon{width:16px;height:16px;color:var(--ink-3);}
+.b-search .search-hint{flex:1;}
+.b-search .search-go{color:var(--jade);font-size:9px;letter-spacing:.08em;border-left:1px solid var(--line);padding-left:9px;}
+.theme-b .chips .chip{background:rgba(20,29,26,.5);border-color:var(--line);color:var(--ink-2);}
+.theme-b .chips .chip b{color:var(--ink-4);}
+.theme-b .chips .chip.on{background:var(--jade);border-color:var(--jade);color:#08211A;box-shadow:0 4px 16px -6px rgba(143,211,190,.5);}
+.theme-b .chips .chip.on b{color:#2B5B4B;}
+.theme-b .chips .chip .dot{background:var(--jade);}
+
+.b-hero{
+  position:relative;margin-top:12px;height:157px;border-radius:17px;overflow:hidden;
+  border:1px solid rgba(143,211,190,.20);
+  background:
+    radial-gradient(ellipse 60% 100% at 88% 18%,rgba(143,211,190,.24),transparent 62%),
+    linear-gradient(118deg,#17241F 0%,#101815 52%,#0C1210 100%);
+  box-shadow:0 16px 36px -20px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.05);
+}
+.b-hero .hero-wash{
+  position:absolute;right:-26px;top:-34px;width:168px;height:206px;border-radius:12px;
+  opacity:.5;filter:blur(13px);transform:rotate(7deg);
+}
+.b-hero .hero-wash .cover{width:100%;height:100%;}
+.b-hero .hero-grad{position:absolute;inset:0;background:linear-gradient(90deg,#101815 34%,rgba(16,24,21,.75) 60%,rgba(10,15,13,.18));}
+.b-hero .hero-inner{position:relative;z-index:2;display:flex;gap:12px;padding:13px 14px;height:100%;align-items:center;}
+.b-hero .cover{width:79px;height:105px;border-radius:7px;box-shadow:0 16px 28px -12px rgba(0,0,0,.9),0 0 24px -8px rgba(143,211,190,.35);}
+.b-hero-body{flex:1;min-width:0;}
+.b-hero .hlive{display:flex;align-items:center;gap:6px;font-size:7.5px;letter-spacing:.18em;color:var(--jade);}
+.b-hero .hlive i{width:5px;height:5px;border-radius:50%;background:var(--jade);box-shadow:0 0 0 3px rgba(143,211,190,.16);}
+.b-hero h3{font-family:var(--serif);font-size:20px;font-weight:600;letter-spacing:.05em;margin-top:6px;}
+.b-hero .hch{font-size:9px;color:var(--ink-2);margin-top:4px;letter-spacing:.02em;}
+.b-hero .hprog{height:3px;background:rgba(143,211,190,.18);border-radius:99px;margin-top:9px;overflow:hidden;}
+.b-hero .hprog i{display:block;height:100%;width:43%;background:linear-gradient(90deg,var(--jade-deep),var(--jade));border-radius:99px;box-shadow:0 0 8px rgba(143,211,190,.6);}
+.b-hero .hmeta{display:flex;justify-content:space-between;font-size:7.5px;color:var(--ink-3);margin-top:5px;letter-spacing:.04em;}
+.b-hero .hmeta b{color:var(--jade);font-weight:500;}
+.b-hero .hplay{
+  position:absolute;right:14px;bottom:14px;width:38px;height:38px;border-radius:50%;
+  background:var(--jade);color:#08211A;display:grid;place-items:center;z-index:3;
+  box-shadow:0 8px 20px -5px rgba(111,191,166,.55),inset 0 1px rgba(255,255,255,.45);
+}
+.b-hero .hplay .icon{width:15px;height:15px;margin-left:1px;}
+.b-section{display:flex;align-items:flex-end;justify-content:space-between;padding:14px 0 10px;}
+.b-section .eyebrow{font-size:7.5px;letter-spacing:.16em;}
+.b-section h2{font-family:var(--serif);font-size:16px;font-weight:600;letter-spacing:.06em;margin-top:2px;}
+.b-section .sort{font-size:8px;color:var(--ink-3);display:flex;align-items:center;gap:3px;letter-spacing:.04em;}
+.b-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px 13px;}
+.b-card .cover{width:100%;aspect-ratio:3/4;border-radius:9px;}
+.b-card .b-title-row{display:flex;align-items:center;gap:5px;margin-top:7px;}
+.b-card .b-title-row h3{font-family:var(--serif);font-size:14px;font-weight:600;letter-spacing:.03em;white-space:nowrap;overflow:hidden;}
+.b-card .b-meta{font-size:8px;color:var(--ink-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.b-card .b-line{font-size:9px;line-height:1.5;color:var(--ink-2);margin-top:4px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+.b-card .card-prog{background:rgba(143,211,190,.14);margin-top:5px;}
+.b-card .card-prog i{background:linear-gradient(90deg,var(--jade-deep),var(--jade));box-shadow:0 0 6px rgba(143,211,190,.4);}
+.b-card .b-foot{display:flex;justify-content:space-between;font-size:7px;color:var(--ink-3);margin-top:4px;letter-spacing:.04em;}
+.b-card .b-foot b{color:var(--jade);font-weight:500;}
+.b-fade{position:absolute;left:0;right:0;bottom:0;height:72px;pointer-events:none;z-index:20;background:linear-gradient(180deg,rgba(10,14,13,0),rgba(9,13,12,.92) 76%,#090D0C);}
+.b-nav{padding-top:10px;}
+.b-nav::after{background:var(--moon);opacity:.32;}
+
+/* B player */
+.b-player-screen{background-color:#080C0B;background-image:none;}
+.b-player-screen::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 42% at 50% 24%,rgba(89,154,133,.22),transparent 68%),
+    radial-gradient(ellipse 50% 30% at 82% 72%,rgba(45,80,69,.22),transparent 70%),
+    linear-gradient(180deg,#0C1210 0%,#080C0B 46%,#060908 100%);
+}
+.b-player-top{height:43px;flex:none;display:flex;align-items:center;padding:0 16px;position:relative;z-index:30;}
+.b-player-top .pt-center{flex:1;text-align:center;}
+.b-player-top .pt-center span{font-size:8px;letter-spacing:.28em;color:var(--ink-3);}
+.b-player-top .pt-center b{display:block;font-family:var(--serif);font-size:10.5px;font-weight:500;letter-spacing:.14em;color:var(--ink-2);margin-top:2px;}
+.b-player-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 22px 0;position:relative;overflow:hidden;z-index:1;}
+.b-cover-wrap{position:relative;width:240px;aspect-ratio:1;margin-top:5px;}
+.b-cover-wrap .glow{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:340px;height:340px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(143,211,190,.28),rgba(93,158,138,.12) 44%,transparent 68%);
+  filter:blur(7px);
+}
+.b-cover-wrap .glow-ring{
+  position:absolute;inset:-17px;border-radius:50%;border:1px solid rgba(143,211,190,.16);
+  pointer-events:none;
+}
+.b-cover-wrap .glow-ring::after{
+  content:"";position:absolute;inset:9px;border-radius:50%;border:1px dashed rgba(143,211,190,.11);
+}
+.b-cover-wrap .cover{position:relative;width:100%;height:100%;border-radius:9px;z-index:2;box-shadow:0 34px 60px -24px rgba(0,0,0,.95),0 0 46px -8px rgba(120,200,178,.18),inset 0 0 0 1px rgba(220,245,235,.14);}
+.b-cover-wrap .reflection{
+  position:absolute;left:8%;right:8%;bottom:-27px;height:24px;border-radius:50%;
+  background:rgba(0,0,0,.55);filter:blur(12px);
+}
+.b-player-title{text-align:center;margin-top:20px;position:relative;z-index:2;}
+.b-player-title .series{font-size:8px;letter-spacing:.26em;color:var(--jade);opacity:.8;}
+.b-player-title h2{font-family:var(--serif);font-size:26px;font-weight:600;letter-spacing:.09em;margin-top:5px;color:var(--moon);text-shadow:0 0 24px rgba(143,211,190,.18);}
+.b-player-title .ch{font-size:9px;color:var(--ink-3);margin-top:5px;letter-spacing:.06em;}
+.b-player-title .ch b{color:var(--ink-2);font-weight:500;}
+
+.b-progress{
+  width:100%;margin-top:14px;border-radius:14px;position:relative;z-index:2;
+  border:1px solid rgba(143,211,190,.18);
+  background:linear-gradient(110deg,rgba(23,35,31,.85),rgba(15,23,20,.7));
+  padding:10px 13px;
+  box-shadow:0 12px 28px -20px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter:blur(8px);
+}
+.b-progress .cp-top .label{color:var(--ink-3);}
+.b-progress .cp-top .chapter-no{color:var(--ink-3);}
+.b-progress .cp-top .chapter-no b{color:var(--jade);}
+.b-progress .cp-bar{height:8px;background:rgba(143,211,190,.12);box-shadow:inset 0 1px 2px rgba(0,0,0,.55);}
+.b-progress .cp-bar .ticks{opacity:.28;background:repeating-linear-gradient(90deg,transparent 0 calc(8.333% - 1px),rgba(143,211,190,.32) calc(8.333% - 1px) 8.333%);}
+.b-progress .cp-bar .fill{background:linear-gradient(90deg,#3E8C74,#8FD3BE);box-shadow:0 0 12px rgba(143,211,190,.55);}
+.b-progress .cp-bar .knob{background:#EAF6F0;border-color:var(--jade);box-shadow:0 0 12px rgba(143,211,190,.65);}
+.b-progress .cp-bar .knob::after{background:var(--jade);}
+.b-progress .cp-times .t{color:var(--ink-2);}
+.b-progress .cp-times .t.now{color:var(--jade);}
+.b-progress .cp-times .remain{color:var(--ink-3);}
+.b-progress .cp-times .remain b{color:var(--moon);font-weight:500;}
+
+.b-console{
+  width:100%;height:73px;margin-top:14px;border-radius:38px;position:relative;z-index:2;
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:center;
+  background:linear-gradient(180deg,rgba(30,45,40,.92),rgba(14,21,18,.94));
+  border:1px solid rgba(143,211,190,.20);
+  box-shadow:0 18px 36px -18px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.07),0 0 26px -16px rgba(143,211,190,.35);
+  backdrop-filter:blur(14px);
+}
+.b-console button{height:100%;display:grid;place-items:center;color:var(--ink-2);position:relative;}
+.b-console button + button::before{content:"";position:absolute;left:0;top:24px;bottom:24px;width:1px;background:rgba(143,211,190,.11);}
+.b-console .icon{width:21px;height:21px;stroke-width:1.45;}
+.b-console .rew span,.b-console .fwd span{position:absolute;bottom:21px;font-family:var(--mono);font-size:6.5px;color:var(--ink-2);}
+.b-console .play{
+  width:50px;height:50px;border-radius:50%;justify-self:center;color:#06221A;
+  background:linear-gradient(180deg,#AEE7D5,#74C5AC);
+  box-shadow:0 0 26px -4px rgba(143,211,190,.55),inset 0 1px rgba(255,255,255,.6);
+}
+.b-console .play .icon{width:20px;height:20px;margin-left:2px;}
+
+.b-tools{
+  position:absolute;left:22px;right:22px;bottom:114px;height:54px;border-radius:999;z-index:3;
+  display:grid;grid-template-columns:repeat(5,1fr);
+  background:rgba(20,31,27,.72);border:1px solid rgba(143,211,190,.18);
+  box-shadow:0 18px 40px -16px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.05);
+  backdrop-filter:blur(18px);
+}
+.b-tools .tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-2);position:relative;}
+.b-tools .tool + .tool::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:1px;background:rgba(143,211,190,.10);}
+.b-tools .icon{width:15px;height:15px;color:var(--ink-2);}
+.b-tools .tool span{font-size:7px;color:var(--ink-3);letter-spacing:.04em;}
+.b-tools .tool b{font-size:7.5px;font-weight:500;color:var(--ink-2);}
+.b-tools .tool.accent .icon{color:var(--jade);}
+.b-bottom-status{
+  position:absolute;left:22px;right:22px;bottom:82px;display:flex;align-items:center;gap:7px;
+  font-size:7px;color:var(--ink-4);letter-spacing:.05em;z-index:3;
+}
+.b-bottom-status i{width:4px;height:4px;border-radius:50%;background:var(--jade);box-shadow:0 0 0 3px rgba(143,211,190,.10);}
+.b-bottom-status .right{margin-left:auto;display:flex;align-items:center;gap:4px;}
+
+/* B lyrics */
+.b-lyr-screen{background:#080C0B;}
+.b-lyr-screen::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 34% at 50% 26%,rgba(83,146,126,.20),transparent 70%),
+    radial-gradient(ellipse 60% 40% at 50% 100%,rgba(33,61,52,.26),transparent 70%),
+    linear-gradient(180deg,#0A100E,#070B0A 60%,#050807);
+}
+.b-lyr-head{text-align:center;position:relative;z-index:2;padding:0 0 8px;}
+.b-lyr-head .k{font-size:7.5px;letter-spacing:.24em;color:var(--ink-3);}
+.b-lyr-head h2{font-family:var(--serif);font-size:16px;font-weight:500;letter-spacing:.1em;margin-top:5px;color:var(--ink);}
+.b-lyr-head .meta{font-size:8px;color:var(--ink-3);margin-top:4px;letter-spacing:.06em;}
+.b-lyr-head .meta em{font-style:normal;color:var(--jade);}
+.b-lyr-body{
+  flex:1;position:relative;overflow:hidden;padding:0 26px;z-index:2;
+  display:flex;flex-direction:column;justify-content:center;gap:21px;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 13%,#000 87%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 13%,#000 87%,transparent);
+}
+.b-lyr-body .lyr-line{color:var(--ink-2);opacity:.24;font-size:12.5px;}
+.b-lyr-body .lyr-line.current{
+  color:var(--moon);opacity:1;font-size:21px;text-shadow:0 0 20px rgba(143,211,190,.45);
+}
+.b-lyr-body .lyr-line.current::before{
+  background:radial-gradient(ellipse,rgba(143,211,190,.35),transparent 70%);
+  width:94px;height:7px;
+}
+.b-lyr-body .lyr-line.current .seal-dot{background:var(--jade);color:#062019;}
+.b-lyr-body .lyr-time span{color:var(--ink-4);}
+.b-lyr-body .lyr-time::before,.b-lyr-body .lyr-time::after{background:rgba(143,211,190,.14);}
+.b-lyr-body .lyr-auto{color:var(--ink-3);}
+.b-lyr-body .lyr-auto i{background:var(--jade);box-shadow:0 0 0 3px rgba(143,211,190,.12),0 0 10px rgba(143,211,190,.5);}
+.b-lyr-foot .jump{color:var(--jade);border-color:rgba(143,211,190,.26);background:rgba(143,211,190,.07);}
+.b-lyr-foot .toolbar-line .lbl{color:var(--ink-3);}
+.b-lyr-prog{background:rgba(143,211,190,.15);}
+.b-lyr-prog i{background:linear-gradient(90deg,var(--jade-deep),var(--jade));box-shadow:0 0 8px rgba(143,211,190,.5);}
+.b-lyr-prog::after{background:var(--moon);border-color:var(--jade);box-shadow:0 0 8px rgba(143,211,190,.7);}
+.b-lyr-controls .lc{color:var(--ink-2);}
+.b-lyr-controls .lplay{background:var(--jade);color:#062019;box-shadow:0 0 26px -6px rgba(143,211,190,.6);}
+
+/* B sources */
+.b-subpage-top{height:47px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:30;}
+.b-subpage-top .tb-title{flex:1;text-align:center;font-family:var(--serif);font-size:13px;letter-spacing:.12em;color:var(--ink-2);}
+.b-page-head{display:flex;align-items:flex-start;justify-content:space-between;padding:4px 0 12px;gap:10px;}
+.b-page-head .tt{min-width:0;}
+.b-page-head .eyebrow{font-family:var(--serif);font-size:8px;letter-spacing:.2em;}
+.b-page-head h1{font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:.06em;margin-top:4px;}
+.b-page-head .desc{font-size:8.5px;color:var(--ink-3);margin-top:4px;letter-spacing:.02em;}
+.add-round{
+  width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;
+  background:var(--jade);color:#062019;box-shadow:0 8px 20px -7px rgba(143,211,190,.55),inset 0 1px rgba(255,255,255,.4);
+}
+.add-round .icon{width:17px;height:17px;}
+.source-summary{
+  display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:10px;
+  border:1px solid var(--line-soft);background:rgba(20,30,27,.5);margin-bottom:11px;
+}
+.source-summary .ss{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--ink-2);letter-spacing:.02em;}
+.source-summary .ss i{width:5px;height:5px;border-radius:50%;background:var(--jade);}
+.source-summary .ss.warn i{background:var(--danger);}
+.source-summary .sep{width:1px;height:10px;background:var(--line);}
+.source-summary .right{margin-left:auto;font-size:7.5px;color:var(--ink-3);}
+.source-tabs{display:flex;gap:6px;margin-bottom:11px;}
+.source-tabs span{font-size:9px;padding:5px 10px;border-radius:999;border:1px solid var(--line);color:var(--ink-3);}
+.source-tabs span.on{background:rgba(143,211,190,.12);border-color:rgba(143,211,190,.38);color:var(--jade);}
+.source-list{display:flex;flex-direction:column;gap:8px;}
+.source-card{
+  border:1px solid var(--line);border-radius:13px;padding:10px 11px 9px;
+  background:linear-gradient(180deg,rgba(24,36,32,.72),rgba(16,24,21,.78));
+  position:relative;
+}
+.source-card.off{opacity:.72;}
+.source-card.error{border-color:rgba(227,160,143,.28);}
+.src-main{display:flex;gap:9px;align-items:flex-start;}
+.src-icon{
+  width:36px;height:36px;border-radius:10px;flex:none;display:grid;place-items:center;
+  font-family:var(--serif);font-size:16px;letter-spacing:0;
+  color:var(--jade);background:rgba(143,211,190,.09);
+  border:1px solid rgba(143,211,190,.20);
+}
+.src-icon.warm{color:var(--amber);background:rgba(211,172,116,.08);border-color:rgba(211,172,116,.22);}
+.src-icon.err{color:var(--danger);background:rgba(227,160,143,.07);border-color:rgba(227,160,143,.22);}
+.src-body{flex:1;min-width:0;}
+.src-title-row{display:flex;align-items:center;gap:6px;}
+.src-title-row h3{font-family:var(--serif);font-size:14px;font-weight:600;letter-spacing:.03em;}
+.src-badge{font-size:6.5px;letter-spacing:.05em;color:var(--ink-3);border:1px solid var(--line);border-radius:3px;padding:2px 4px;font-family:var(--mono);}
+.src-type{font-size:7.5px;color:var(--ink-3);margin-top:3px;letter-spacing:.02em;}
+.src-status{display:flex;align-items:center;gap:5px;font-size:7.5px;margin-top:5px;color:var(--ink-2);}
+.src-status i{width:4px;height:4px;border-radius:50%;background:var(--jade);box-shadow:0 0 0 2px rgba(143,211,190,.10);}
+.src-status span{color:var(--ink-3);}
+.source-card.error .src-status i{background:var(--danger);box-shadow:none;}
+.source-card.warn .src-status i{background:var(--amber);}
+.src-toggle{
+  width:33px;height:19px;border-radius:99px;background:rgba(143,211,190,.20);flex:none;
+  position:relative;margin-top:2px;border:1px solid rgba(143,211,190,.18);
+}
+.src-toggle::after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:var(--jade);box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.source-card.off .src-toggle{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.09);}
+.source-card.off .src-toggle::after{right:auto;left:2px;background:#6C7D74;}
+.src-actions{display:flex;align-items:center;gap:0;margin-top:7px;padding-top:7px;border-top:1px solid rgba(143,211,190,.08);}
+.src-actions span{display:flex;align-items:center;gap:3px;font-size:7px;color:var(--ink-3);padding:0 9px;letter-spacing:.02em;}
+.src-actions span:first-child{padding-left:1px;}
+.src-actions span + span{border-left:1px solid rgba(143,211,190,.10);}
+.src-actions .icon{width:10px;height:10px;}
+.src-actions .del{color:rgba(227,160,143,.8);margin-left:auto;}
+.source-add{
+  border:1px dashed rgba(143,211,190,.28);border-radius:11px;height:39px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:8.5px;color:var(--ink-3);letter-spacing:.04em;
+}
+.source-add .icon{width:13px;height:13px;color:var(--jade);}
+.source-foot{font-size:7px;line-height:1.7;color:var(--ink-4);margin-top:9px;text-align:center;letter-spacing:.03em;}
+
+/* B discover */
+.disc-source{
+  display:flex;align-items:center;gap:7px;margin-bottom:10px;
+  border:1px solid var(--line);border-radius:11px;padding:8px 11px;
+  background:rgba(20,30,27,.6);
+}
+.disc-source .ds-icon{width:25px;height:25px;border-radius:7px;display:grid;place-items:center;background:rgba(143,211,190,.10);color:var(--jade);font-family:var(--serif);font-size:12px;border:1px solid rgba(143,211,190,.18);}
+.disc-source .ds-txt{flex:1;min-width:0;}
+.disc-source .ds-txt b{display:block;font-size:9.5px;font-weight:600;letter-spacing:.02em;}
+.disc-source .ds-txt span{display:block;font-size:7px;color:var(--ink-3);margin-top:2px;}
+.disc-source .switch{
+  font-size:7.5px;color:var(--jade);display:flex;align-items:center;gap:3px;
+  border-left:1px solid var(--line);padding-left:9px;
+}
+.disc-source .icon{width:11px;height:11px;}
+.disc-search{display:flex;gap:7px;}
+.disc-search .field{
+  flex:1;height:42px;border:1px solid rgba(143,211,190,.32);border-radius:11px;
+  background:rgba(18,27,24,.75);display:flex;align-items:center;gap:8px;padding:0 11px;
+  box-shadow:0 0 18px -10px rgba(143,211,190,.35);
+}
+.disc-search .field .icon{width:15px;height:15px;color:var(--jade);}
+.disc-search .field b{font-size:11px;font-weight:500;color:var(--ink);letter-spacing:.04em;}
+.disc-search .field .caret{width:1px;height:13px;background:var(--jade);margin-left:-4px;opacity:.7;}
+.disc-search .go{
+  width:42px;height:42px;border-radius:11px;background:var(--jade);color:#062019;display:grid;place-items:center;
+  box-shadow:0 6px 16px -6px rgba(143,211,190,.5);
+}
+.disc-search .go .icon{width:17px;height:17px;}
+.disc-chips{display:flex;gap:6px;margin-top:9px;}
+.disc-chips span{font-size:8.5px;color:var(--ink-3);border:1px solid var(--line);border-radius:999;padding:4px 9px;}
+.disc-chips span.on{color:var(--jade);border-color:rgba(143,211,190,.34);background:rgba(143,211,190,.08);}
+.disc-meta{display:flex;align-items:center;justify-content:space-between;margin:12px 0 8px;}
+.disc-meta .count{font-size:8px;color:var(--ink-3);letter-spacing:.03em;}
+.disc-meta .count b{color:var(--ink-2);font-weight:500;}
+.disc-meta .sort{font-size:7.5px;color:var(--ink-3);display:flex;align-items:center;gap:3px;}
+.result-list{display:flex;flex-direction:column;gap:8px;}
+.result{
+  display:flex;gap:10px;padding:9px;border-radius:12px;
+  background:rgba(20,30,27,.55);border:1px solid var(--line-soft);
+  align-items:center;
+}
+.result .cover{width:53px;height:70px;border-radius:5px;flex:none;}
+.result-body{flex:1;min-width:0;}
+.result-body h3{font-family:var(--serif);font-size:13.5px;font-weight:600;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.result-body .rby{font-size:7.5px;color:var(--ink-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.result-body .rby b{color:var(--ink-2);font-weight:400;}
+.result-body .rline{display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;}
+.result-body .rline span{font-size:6.5px;color:var(--ink-3);letter-spacing:.02em;}
+.result-body .rline .pill{border:1px solid var(--line);border-radius:3px;padding:2px 4px;color:var(--ink-2);}
+.result-body .rline .src{color:var(--jade);opacity:.8;}
+.add-btn{
+  flex:none;height:26px;padding:0 9px;border-radius:999;border:1px solid rgba(143,211,190,.34);
+  color:var(--jade);font-size:7.5px;display:flex;align-items:center;gap:3px;background:rgba(143,211,190,.06);
+  letter-spacing:.02em;
+}
+.add-btn .icon{width:10px;height:10px;}
+.add-btn.done{border-color:var(--line);color:var(--ink-3);background:transparent;}
+.disc-foot{
+  margin-top:10px;border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;
+  display:flex;align-items:center;gap:7px;font-size:7.5px;color:var(--ink-3);
+}
+.disc-foot .icon{width:12px;height:12px;color:var(--jade);}
+.disc-foot b{color:var(--ink-2);font-weight:500;}
+.disc-foot span{margin-left:auto;color:var(--jade);display:flex;align-items:center;gap:2px;}
+
+/* B source form */
+.form-bg{position:absolute;inset:0;filter:blur(2.5px);opacity:.38;pointer-events:none;}
+.form-scrim{position:absolute;inset:0;background:rgba(3,6,5,.58);z-index:40;}
+.form-sheet{
+  position:absolute;left:0;right:0;bottom:0;height:704px;z-index:45;
+  border-radius:28px 28px 0 0;border-top:1px solid rgba(143,211,190,.26);
+  background:
+    radial-gradient(ellipse 80% 30% at 50% 0%,rgba(69,122,105,.18),transparent 65%),
+    #121B18;
+  box-shadow:0 -30px 90px rgba(0,0,0,.7),inset 0 1px rgba(255,255,255,.05);
+  padding:9px 22px 24px;display:flex;flex-direction:column;
+}
+.sheet-handle{width:40px;height:4px;border-radius:99px;background:rgba(143,211,190,.26);margin:0 auto 14px;}
+.form-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.form-head h2{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:.06em;}
+.form-head .fh-sub{font-size:8px;color:var(--ink-3);margin-top:4px;line-height:1.6;}
+.form-close{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--ink-3);flex:none;}
+.form-close .icon{width:14px;height:14px;}
+.form-field{margin-top:15px;}
+.form-label{display:flex;align-items:center;justify-content:space-between;font-size:8px;letter-spacing:.12em;color:var(--ink-3);margin-bottom:6px;}
+.form-label b{font-weight:500;color:var(--ink-2);letter-spacing:.04em;}
+.form-input{
+  height:44px;border-radius:10px;border:1px solid var(--line);background:rgba(20,30,27,.7);
+  display:flex;align-items:center;gap:8px;padding:0 11px;font-size:10.5px;color:var(--ink);
+}
+.form-input.focus{border-color:rgba(143,211,190,.5);box-shadow:0 0 0 3px rgba(143,211,190,.08);}
+.form-input .icon{width:14px;height:14px;color:var(--jade);flex:none;}
+.form-input .ph{color:var(--ink-4);}
+.form-input .caret{width:1px;height:14px;background:var(--jade);opacity:.75;}
+.form-input .tail{font-size:7.5px;color:var(--ink-3);margin-left:auto;white-space:nowrap;}
+.segmented{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:10px;background:rgba(8,13,11,.55);border:1px solid var(--line-soft);}
+.segmented span{height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:9px;color:var(--ink-3);}
+.segmented span.on{background:rgba(143,211,190,.12);border:1px solid rgba(143,211,190,.28);color:var(--jade);font-weight:500;}
+.segmented .icon{width:12px;height:12px;}
+.form-hint{font-size:7px;line-height:1.65;color:var(--ink-4);margin-top:5px;letter-spacing:.01em;}
+.import-row{display:flex;gap:6px;margin-top:6px;}
+.import-row span{
+  flex:1;height:28px;border-radius:7px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:4px;
+  font-size:7.5px;color:var(--ink-3);
+}
+.import-row span .icon{width:10px;height:10px;color:var(--jade);}
+.switch-row{
+  display:flex;align-items:center;gap:10px;padding:10px 0;margin-top:3px;
+  border-bottom:1px solid var(--line-soft);
+}
+.switch-row .sr-txt{flex:1;}
+.switch-row .sr-txt b{display:block;font-size:9.5px;font-weight:500;color:var(--ink);letter-spacing:.03em;}
+.switch-row .sr-txt span{display:block;font-size:7px;color:var(--ink-3);margin-top:2px;}
+.big-switch{
+  width:37px;height:21px;border-radius:99px;background:var(--jade);position:relative;flex:none;
+  box-shadow:0 0 14px -4px rgba(143,211,190,.6);
+}
+.big-switch::after{content:"";position:absolute;right:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#06231B;box-shadow:0 1px 3px rgba(0,0,0,.5);}
+.test-card{
+  margin-top:13px;border:1px solid rgba(143,211,190,.24);border-radius:11px;
+  background:linear-gradient(110deg,rgba(31,52,45,.6),rgba(20,32,28,.7));padding:10px 11px;
+}
+.test-top{display:flex;align-items:center;gap:7px;}
+.test-top .test-btn{
+  height:27px;padding:0 10px;border-radius:999;border:1px solid rgba(143,211,190,.34);
+  color:var(--jade);font-size:8px;display:flex;align-items:center;gap:4px;
+}
+.test-top .test-btn .icon{width:11px;height:11px;}
+.test-top .test-state{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--ink-2);}
+.test-top .test-state i{width:5px;height:5px;border-radius:50%;background:var(--jade);box-shadow:0 0 0 3px rgba(143,211,190,.12);}
+.test-top .test-time{margin-left:auto;font-family:var(--mono);font-size:7px;color:var(--ink-3);}
+.test-detail{font-size:7.5px;color:var(--ink-3);margin-top:7px;line-height:1.65;border-top:1px dashed rgba(143,211,190,.12);padding-top:7px;display:flex;gap:12px;}
+.test-detail b{color:var(--ink-2);font-weight:500;}
+.form-actions{margin-top:auto;display:flex;gap:8px;padding-top:14px;}
+.btn-cancel{
+  width:105px;height:46px;border-radius:999;border:1px solid var(--line);color:var(--ink-2);font-size:10px;
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-save{
+  flex:1;height:46px;border-radius:999;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:linear-gradient(180deg,#A9E2D0,#74C3AB);color:#06221A;font-size:10.5px;font-weight:600;letter-spacing:.05em;
+  box-shadow:0 12px 28px -10px rgba(111,191,166,.5),inset 0 1px rgba(255,255,255,.5);
+}
+.btn-save .icon{width:14px;height:14px;}
+
+/* =========================================================================
+   COVER ART — all CSS, fictional titles
+   ========================================================================= */
+.cover{
+  position:relative;overflow:hidden;isolation:isolate;
+  background:#26302E;border-radius:8px;
+  box-shadow:0 10px 22px -12px rgba(30,20,8,.5),inset 0 0 0 1px rgba(255,255,255,.09);
+}
+.cover::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:6;opacity:.35;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0 0.74 0 0 0 .30 0'/></filter><rect width='120' height='120' filter='url(%23c)'/></svg>");
+}
+.cover .art{position:absolute;z-index:1;}
+.cv-title{
+  position:absolute;left:12%;top:10%;z-index:4;writing-mode:vertical-rl;
+  font-family:var(--serif);font-size:13px;letter-spacing:.20em;line-height:1.1;
+  color:#F5EBD7;text-shadow:0 1px 4px rgba(0,0,0,.45);
+}
+.cv-sub{
+  position:absolute;right:10%;bottom:10%;z-index:4;writing-mode:vertical-rl;
+  font-size:6px;letter-spacing:.14em;color:rgba(255,248,234,.62);
+}
+.cv-seal{
+  position:absolute;left:12%;bottom:9%;z-index:4;width:14px;height:14px;border-radius:2px;
+  background:#A5332A;color:#FFF1E4;display:grid;place-items:center;
+  font-family:var(--serif);font-size:8px;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);
+}
+.cover.sm .cv-title{font-size:6.5px;letter-spacing:.08em;left:10%;top:8%;}
+.cover.sm .cv-seal{width:8px;height:8px;font-size:4.5px;left:10%;bottom:8%;border-radius:1px;}
+.cover.sm .cv-sub{display:none;}
+.cover.md .cv-title{font-size:9.5px;letter-spacing:.12em;}
+.cover.md .cv-seal{width:10px;height:10px;font-size:6px;}
+.cover.md .cv-sub{font-size:5px;}
+.cover.xs .cv-title{font-size:5px;letter-spacing:.04em;left:9%;top:8%;}
+.cover.xs .cv-seal{display:none;}
+.cover.xs .cv-sub{display:none;}
+
+/* night ferry */
+.cv-night{background:linear-gradient(155deg,#223744 0%,#1B2E3C 40%,#0E1820 100%);}
+.cv-night .art-moon{
+  top:12%;right:12%;width:33%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 38% 34%,#F8EDCE 0 40%,#DCC79A 72%,rgba(220,199,154,.05) 74%);
+  box-shadow:0 0 26px rgba(240,222,172,.32);
+}
+.cv-night .art-wave{
+  left:-16%;right:-16%;bottom:21%;height:34%;opacity:.62;
+  background:repeating-linear-gradient(180deg,transparent 0 8px,rgba(198,224,224,.28) 8px 9px);
+  transform:rotate(-4deg);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);
+}
+.cv-night .art-wave.w2{bottom:9%;height:24%;opacity:.35;transform:rotate(2deg);}
+.cv-night::before{
+  content:"";position:absolute;left:-20%;bottom:-34%;width:150%;height:70%;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(12,24,30,.9),transparent 66%);
+  z-index:1;
+}
+
+/* mountains */
+.cv-mtn{background:linear-gradient(160deg,#7A5030 0%,#A9703F 44%,#4A3324 76%,#2D2017 100%);}
+.cv-mtn .art-sun{
+  top:14%;right:16%;width:24%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 40% 38%,#F6E5B9,#CEAA6C 70%,rgba(206,170,108,.1) 72%);
+  box-shadow:0 0 26px rgba(240,214,160,.35);z-index:1;
+}
+.cv-mtn .art-peak{bottom:0;left:-4%;width:108%;}
+.cv-mtn .p1{height:45%;background:#3C2A1D;clip-path:polygon(0 100%,28% 36%,44% 62%,68% 12%,100% 100%);opacity:.9;z-index:2;}
+.cv-mtn .p2{height:30%;background:#2A1D14;clip-path:polygon(0 100%,18% 48%,46% 74%,72% 34%,100% 100%);opacity:.95;z-index:3;}
+.cv-mtn::after{opacity:.3;}
+
+/* lighthouse */
+.cv-fog{background:linear-gradient(160deg,#627571 0%,#8B9C95 44%,#3B4A47 78%,#25302E 100%);}
+.cv-fog .art-lighthouse{
+  bottom:0;left:43%;width:9%;height:53%;z-index:3;
+  background:linear-gradient(180deg,#F1EAD6 0%,#D7D0BA 24%,#AAB0A4 60%,#626F68 100%);
+  clip-path:polygon(36% 0,64% 0,100% 100%,0 100%);
+  box-shadow:0 0 18px rgba(250,240,210,.2);
+}
+.cv-fog .art-beam{
+  bottom:46%;left:47%;width:46%;height:15%;z-index:2;
+  background:linear-gradient(90deg,rgba(252,244,216,.55),rgba(252,244,216,0));
+  clip-path:polygon(0 38%,100% 0,100% 100%,0 62%);
+  transform-origin:0 50%;transform:rotate(-6deg);
+}
+.cv-fog .art-beam.b2{left:46%;width:34%;transform-origin:100% 50%;transform:rotate(186deg);opacity:.5;}
+.cv-fog .art-fogline{
+  left:0;right:0;bottom:24%;height:1px;background:rgba(243,248,240,.34);z-index:2;
+  box-shadow:0 12px 0 rgba(243,248,240,.22),0 25px 0 rgba(243,248,240,.14),0 -10px 0 rgba(243,248,240,.16);
+}
+.cv-fog::before{content:"";position:absolute;left:-10%;right:-10%;bottom:0;height:46%;background:linear-gradient(0deg,rgba(30,42,40,.8),transparent);z-index:1;}
+
+/* snow */
+.cv-snow{background:linear-gradient(160deg,#3E4C58 0%,#70808B 58%,#AAB5BA 100%);}
+.cv-snow .art-snow{
+  inset:0;z-index:1;opacity:.8;
+  background-image:
+    radial-gradient(circle,rgba(255,255,255,.82) 0 1px,transparent 1.3px),
+    radial-gradient(circle,rgba(255,255,255,.46) 0 1.4px,transparent 1.8px);
+  background-size:31px 37px,57px 63px;background-position:0 0,14px 19px;
+}
+.cv-snow .art-roof{
+  left:-10%;bottom:0;width:120%;height:34%;z-index:2;background:#2F3A42;
+  clip-path:polygon(0 100%,0 54%,22% 54%,22% 30%,48% 0,74% 30%,74% 58%,100% 58%,100% 100%);
+  opacity:.76;
+}
+.cv-snow::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(22,31,36,.55));z-index:1;}
+.cv-snow .cv-title{color:#F7F3E9;}
+
+/* spring hills */
+.cv-spring{background:linear-gradient(165deg,#2F4A36 0%,#5A7A51 52%,#C6B17A 130%);}
+.cv-spring .art-hill{left:-25%;right:-25%;bottom:-12%;border-radius:50% 50% 0 0;}
+.cv-spring .h1{height:56%;background:#25422F;opacity:.92;z-index:1;}
+.cv-spring .h2{height:41%;background:#456A45;left:-42%;opacity:.9;z-index:2;}
+.cv-spring .h3{height:27%;background:#7F9A62;left:-18%;z-index:3;opacity:.92;}
+.cv-spring .art-bird{top:22%;left:24%;width:9%;height:9%;border-top:1px solid rgba(248,240,216,.7);border-radius:50%;z-index:2;}
+.cv-spring::before{content:"";position:absolute;top:12%;left:16%;width:28%;height:28%;border-radius:50%;background:radial-gradient(circle,rgba(247,238,214,.30),transparent 70%);z-index:1;}
+
+/* letter */
+.cv-letter{background:linear-gradient(150deg,#23384A 0%,#3B5866 52%,#16232C 100%);}
+.cv-letter .art-env{
+  left:17%;bottom:17%;width:62%;height:39%;z-index:2;
+  border:1px solid rgba(236,220,190,.42);
+  transform:rotate(-7deg);
+  background:linear-gradient(180deg,rgba(235,220,190,.05),rgba(235,220,190,.01));
+}
+.cv-letter .art-env::before{
+  content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(34deg,transparent 49.5%,rgba(236,220,190,.42) 50%,transparent 50.5%),
+    linear-gradient(-34deg,transparent 49.5%,rgba(236,220,190,.42) 50%,transparent 50.5%);
+}
+.cv-letter .art-env::after{
+  content:"";position:absolute;right:9%;bottom:12%;width:11px;height:11px;border-radius:50%;
+  background:rgba(168,59,42,.8);
+}
+.cv-letter .art-star{top:16%;right:18%;width:2px;height:2px;border-radius:50%;background:#EFE4C8;box-shadow:12px 8px 0 rgba(239,228,200,.6),-16px 18px 0 rgba(239,228,200,.4),22px 32px 0 rgba(239,228,200,.5);z-index:3;}
+
+/* star raft */
+.cv-star{background:radial-gradient(circle at 70% 25%,#4A3B6A 0%,#231F38 42%,#0F0E1A 100%);}
+.cv-star .art-orbit{
+  left:16%;top:17%;width:68%;aspect-ratio:1;border-radius:50%;z-index:2;
+  border:1px solid rgba(214,196,240,.28);transform:rotate(-22deg);
+}
+.cv-star .art-orbit::after{
+  content:"";position:absolute;left:14%;top:12%;width:5px;height:5px;border-radius:50%;
+  background:#EFE2C8;box-shadow:0 0 10px rgba(239,226,200,.5);
+}
+.cv-star .art-dots{
+  inset:0;z-index:1;
+  background-image:radial-gradient(circle,rgba(238,230,210,.7) 0 1px,transparent 1.3px);
+  background-size:39px 47px;background-position:7px 11px;opacity:.5;
+}
+.cv-star .art-raft{
+  left:31%;bottom:27%;width:37%;height:4px;border-radius:2px;z-index:3;
+  background:rgba(211,172,116,.65);transform:rotate(-17deg);
+  box-shadow:0 -4px 0 rgba(211,172,116,.22);
+}
+
+/* ---------- reading order / footer ---------- */
+.order{
+  background:#100D09;color:#EFE5D2;padding:70px 0 58px;position:relative;overflow:hidden;
+}
+.order::before{
+  content:"";position:absolute;right:-80px;top:-120px;width:420px;height:420px;border-radius:50%;
+  border:1px solid rgba(201,162,106,.12);
+}
+.order .wrap{position:relative;z-index:1;}
+.order-top{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:end;padding-bottom:28px;border-bottom:1px solid rgba(240,224,194,.14);}
+.order h2{font-family:var(--serif);font-size:clamp(30px,3.6vw,44px);font-weight:600;letter-spacing:.06em;line-height:1.3;}
+.order h2 em{font-style:normal;color:#C9A26A;}
+.order p{font-size:12px;line-height:2;color:#A8947A;max-width:460px;}
+.order-list{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:32px;border-top:1px solid rgba(240,224,194,.1);}
+.order-item{display:flex;gap:14px;padding:20px 22px 20px 0;border-right:1px solid rgba(240,224,194,.1);align-items:flex-start;}
+.order-item:last-child{border-right:0;}
+.order-item .o-num{font-family:var(--serif);font-size:28px;line-height:1;color:#A83B2A;flex:none;}
+.order-item h3{font-family:var(--serif);font-size:16px;font-weight:600;letter-spacing:.05em;}
+.order-item p{font-size:10px;line-height:1.8;color:#8F7D63;margin-top:6px;}
+.order-item .o-tag{display:inline-block;margin-top:8px;font-size:8px;letter-spacing:.08em;color:#C9A26A;border:1px solid rgba(201,162,106,.28);border-radius:999;padding:3px 7px;}
+footer{background:#0B0907;color:#6E604D;padding:26px 0 34px;border-top:1px solid rgba(240,224,194,.08);}
+footer .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:9px;letter-spacing:.1em;}
+footer b{color:#A8947A;font-weight:500;}
+
+/* entrance motion */
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.masthead-inner,.ia-card,.cmp,.token-set,.plate{animation:rise .7s cubic-bezier(.2,.75,.25,1) both;}
+.ia-card:nth-child(2){animation-delay:.06s}
+.ia-card:nth-child(3){animation-delay:.12s}
+.plate:nth-child(2){animation-delay:.08s}
+.plate:nth-child(3){animation-delay:.12s}
+.plate:nth-child(4){animation-delay:.16s}
+.plate:nth-child(5){animation-delay:.2s}
+.plate:nth-child(6){animation-delay:.24s}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important;}
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:1100px){
+  .masthead-inner{grid-template-columns:1fr;gap:38px;align-items:start;}
+  .masthead-aside{align-items:flex-start;flex-direction:row;gap:24px;}
+  .masthead-toc{align-items:flex-start;}
+  .ia-grid{grid-template-columns:1fr 1fr;}
+  .sec-head{grid-template-columns:80px 1fr;gap:18px;}
+  .sec-desc{grid-column:2;}
+  .token-board{grid-template-columns:1fr;}
+}
+@media (max-width:940px){
+  .wrap{padding:0 26px;}
+  .plates{grid-template-columns:1fr;gap:64px;}
+  .dir-head{grid-template-columns:1fr;gap:24px;}
+  .compare{grid-template-columns:1fr;}
+  .ia-grid{grid-template-columns:1fr;}
+  .order-top{grid-template-columns:1fr;gap:20px;}
+  .order-list{grid-template-columns:1fr;}
+  .order-item{border-right:0;border-bottom:1px solid rgba(240,224,194,.1);}
+  .sec-head h2{font-size:30px;}
+}
+@media (max-width:520px){
+  .wrap{padding:0 16px;}
+  .masthead-inner{padding-top:52px;padding-bottom:44px;}
+  .masthead h1{font-size:58px;}
+  .device{width:358px;padding:8px;border-radius:48px;}
+  .screen{width:342px;height:740px;border-radius:40px;}
+  .plate-note{width:100%;}
+  .one-liner{flex-direction:column;align-items:flex-start;gap:10px;font-size:14px;}
+  .masthead-aside{flex-wrap:wrap;}
+  .vertical-note{display:none;}
+  /* screens still render at 390 logical px; scale down uniformly */
+  .device{overflow:hidden;}
+  .screen{transform:scale(.877);transform-origin:top left;margin-bottom:-91px;margin-right:-48px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ inline symbol library ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 12H4m6-6-6 6 6 6"/></symbol>
+    <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.6"/><path d="m16 16 4.4 4.4"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 4.8 20 12 8 19.2z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="7" y="5" width="3.4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="13.6" y="5" width="3.4" height="14" rx="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 5v14" /><path d="M19 6.5 9.2 12 19 17.5z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M18 5v14" /><path d="M5 6.5 14.8 12 5 17.5z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-rew" viewBox="0 0 24 24"><path d="M4.5 10.2A8 8 0 1 1 7 17.6"/><path d="M4 4.5v6h6"/><text x="12" y="15.5" text-anchor="middle" font-size="6.2" font-family="monospace" fill="currentColor" stroke="none">15</text></symbol>
+    <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M19.5 10.2A8 8 0 1 0 17 17.6"/><path d="M20 4.5v6h-6"/><text x="12" y="15.5" text-anchor="middle" font-size="6.2" font-family="monospace" fill="currentColor" stroke="none">30</text></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.4" height="6.4" rx="1.2"/><rect x="13.6" y="4" width="6.4" height="6.4" rx="1.2"/><rect x="4" y="13.6" width="6.4" height="6.4" rx="1.2"/><rect x="13.6" y="13.6" width="6.4" height="6.4" rx="1.2"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z"/></symbol>
+    <symbol id="i-speed" viewBox="0 0 24 24"><path d="M5 18a8 8 0 1 1 14 0"/><path d="m12 14 4.5-4.5"/><circle cx="12" cy="14" r="1.2" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M4 6h16M4 11h10M4 16h13M4 21h7"/></symbol>
+    <symbol id="i-chapters" viewBox="0 0 24 24"><path d="M5 4.5h11a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 4.5V17"/><path d="M9 9h6M9 12.5h4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3"/><path d="M12 7.4V12l3.2 2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.4A2.4 2.4 0 0 1 6.4 3H20v18H6.4A2.4 2.4 0 0 0 4 23.4z"/><path d="M4 3v18"/><path d="M8.5 7h7M8.5 10.5h5"/></symbol>
+    <symbol id="i-shelf" viewBox="0 0 24 24"><path d="M4 4v16M9 4v16M14 4v16M19 4v16"/><path d="M3 9h18M3 15h18"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 4.8-9 4.8-9-4.8z"/><path d="m3 12.4 9 4.8 9-4.8"/><path d="m3 16.9 9 4.8 9-4.8"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h3M11 17h9"/><circle cx="16" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15.5 4.5 4 4L8 20H4v-4z"/><path d="m13.5 6.5 4 4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 13h10l1-13"/><path d="M10.5 11v5M13.5 11v5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 1 0-5.7-5.7l-1.3 1.3"/><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 1 0 5.7 5.7l1.3-1.3"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 6v5h-5"/><path d="M19.2 11A7.5 7.5 0 1 0 20 15"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 4h11v17L12 17l-5.5 4z"/></symbol>
+    <symbol id="i-source" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5a14 14 0 0 1 0 17M12 3.5a14 14 0 0 0 0 17"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6.5L20 4v11.5"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="15.5" r="2.5"/></symbol>
+    <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 15V4m0 0 4 4m-4-4L8 8"/><path d="M4 14v5.5h16V14"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="11" cy="18" r="2" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .4-8A6 6 0 0 0 6 11.5 3.3 3.3 0 0 0 7 18Z"/><path d="m9.5 14 1.8 1.8L15 12"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v11h-17z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18l-1.8-5.4L4.5 10.8 10.2 9z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3"/><path d="M4 12h16M12 3.7c2.5 2.5 2.5 14.1 0 16.6M12 3.7c-2.5 2.5-2.5 14.1 0 16.6"/></symbol>
+    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V13M10 20V6M15 20V10M20 20V4"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ MASTHEAD ============ -->
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <div class="masthead-main">
+      <p class="kicker">TomeTone · UI Refresh · 2026 秋</p>
+      <h1><span>听书</span><span class="outline">样式卷</span></h1>
+      <p class="dek">书架、播放台与书源发现的三块重整。<b>两套气质，同一套信息秩序</b>——先把「找得到、看得懂、听得下去」做好，再谈风格。</p>
+      <div class="masthead-meta">
+        <span><i></i>12 帧静态稿</span>
+        <span>390 × 844</span>
+        <span>宣纸旧卷 / 墨夜沉浸</span>
+        <span>离线单文件</span>
+      </div>
+    </div>
+    <aside class="masthead-aside">
+      <div class="stamp">样</div>
+      <p class="vertical-note">书架 · 播放台 · 书源</p>
+      <nav class="masthead-toc">
+        <a href="#overview"><span>00</span>总览与信息架构</a>
+        <a href="#direction-a"><span>A</span>宣纸旧卷 · 六帧</a>
+        <a href="#direction-b"><span>B</span>墨夜沉浸 · 六帧</a>
+        <a href="#reading-order"><span>→</span>建议观看顺序</a>
+      </nav>
+    </aside>
+  </div>
+</header>
+
+<!-- ============ OVERVIEW ============ -->
+<section class="overview" id="overview">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">00</div>
+      <div>
+        <p class="kicker" style="color:#8A5A20;margin-bottom:12px">Overview / 信息架构</p>
+        <h2>三块改动，<em>一句话说清</em></h2>
+      </div>
+      <p class="sec-desc">不是换一层皮。书架解决「<b>信息杂、没分类、没简介</b>」，播放台解决「<b>进度不突出、按钮散</b>」，书源页补上「<b>来源不可管理、发现入口缺失</b>」。</p>
+    </div>
+
+    <div class="ia-grid">
+      <article class="ia-card">
+        <div class="ia-top"><span class="idx">01 / SHELF</span><span class="tag">看与听</span></div>
+        <h3>书架：从一墙封面<br>到可扫读的藏书目录</h3>
+        <p class="lead">先给「归属感」，再给「入口」，最后才是书。状态筛选让七册书也有秩序，一句简介负责在点开前回答「这本书讲什么」。</p>
+        <div class="ia-flow">
+          <span class="node hot">藏馆题头</span><span class="arrow">→</span>
+          <span class="node">搜索</span><span class="arrow">→</span>
+          <span class="node">在听 / 未听 / 已完 / 系列</span><span class="arrow">→</span>
+          <span class="node">续听卡</span><span class="arrow">→</span>
+          <span class="node hot">双列</span><span class="arrow">/</span><span class="node">单列信息卡</span>
+        </div>
+        <p class="fix">每张卡同时回答：封面、书名、作者·演播、一句简介、听到哪。</p>
+      </article>
+
+      <article class="ia-card">
+        <div class="ia-top"><span class="idx">02 / PLAYER</span><span class="tag">专注播放</span></div>
+        <h3>播放台：从按钮各就各位<br>到一个控制面</h3>
+        <p class="lead">封面、书名、章名一路向下，视线落点只有一个：章节进度。五个高频键收进同一条深色控制台，次级操作退成一条工具条。</p>
+        <div class="ia-flow">
+          <span class="node hot">封面</span><span class="arrow">→</span>
+          <span class="node">书名 · 章名</span><span class="arrow">→</span>
+          <span class="node hot">章节进度 / 当前·总时长</span><span class="arrow">→</span>
+          <span class="node">五键一体</span><span class="arrow">→</span>
+          <span class="node">工具条</span><span class="arrow">→</span>
+          <span class="node">底部保存状态</span>
+        </div>
+        <p class="fix">进度条给足 8–9px 高与当前 / 总时长 / 本章剩余三组信息；倍速、守夜、章节、歌词、更多只占一行。</p>
+      </article>
+
+      <article class="ia-card">
+        <div class="ia-top"><span class="idx">03 / SOURCE</span><span class="tag">来源与发现</span></div>
+        <h3>书源 / 发现：从没有入口<br>到可管理的来源</h3>
+        <p class="lead">书源先是一份能读的清单：谁启用、最近成没成、有几本书。选中一个源，搜索、筛选、加入书库在同一条路径上完成。</p>
+        <div class="ia-flow">
+          <span class="node hot">书源列表</span><span class="arrow">→</span>
+          <span class="node">启用 / 最近状态</span><span class="arrow">→</span>
+          <span class="node">添加 / 编辑 / 删除</span><span class="arrow">→</span>
+          <span class="node hot">测试连接</span><span class="arrow">→</span>
+          <span class="node">发现搜索</span><span class="arrow">→</span>
+          <span class="node">加入书库</span>
+        </div>
+        <p class="fix">配置表单把「名称、类型、Legado 规则、启用、测试」收进一张弹层，保存前就知能不能用。</p>
+      </article>
+    </div>
+
+    <div class="compare">
+      <div class="cmp cmp-a">
+        <p class="eyebrow">Direction A</p>
+        <h3>宣纸旧卷 · 精修</h3>
+        <p>把界面做成一册摊开的线装书：纸、墨、朱砂。信息像批注一样留在页边，收藏感先于工具感。</p>
+        <div class="keys"><span>宣纸 #FBF6EC</span><span>墨 #221A11</span><span>琥珀 #8A5A20</span><span>朱砂 #A5332A</span></div>
+      </div>
+      <div class="cmp cmp-b">
+        <p class="eyebrow">Direction B</p>
+        <h3>墨夜沉浸 · 专注</h3>
+        <p>熄灯后的船舱：深墨退成背景，玉青只照亮正在听的那一句。工具不消失，但学会安静。</p>
+        <div class="keys"><span>深墨 #0B0F0E</span><span>月白 #EAF1EC</span><span>玉青 #8FD3BE</span><span>微光 #3B7A67</span></div>
+      </div>
+      <div class="one-liner">A 让内容「被收藏」，B 让内容「被沉浸」；A 依靠纸面层级，B 依靠光与留白。</div>
+    </div>
+
+    <div class="token-board">
+      <div class="token-set">
+        <h4>A · 纸面 token</h4>
+        <p class="sub">沿用现有「琥珀旧卷」浅色盘，只补足纸纹、书封边与朱砂印记；不改语义角色。</p>
+        <div class="swatches">
+          <div class="swatch" style="background:#FBF6EC"><span class="mono" style="color:#8B7860">FBF6EC</span></div>
+          <div class="swatch" style="background:#F2E8D6"><span class="mono" style="color:#8B7860">F2E8D6</span></div>
+          <div class="swatch" style="background:#8A5A20"><span>8A5A20</span></div>
+          <div class="swatch" style="background:#A5332A"><span>A5332A</span></div>
+          <div class="swatch" style="background:#221A11"><span>221A11</span></div>
+        </div>
+        <div class="type-row">
+          <span class="sample">长夜行舟</span>
+          <span class="meta">标题 · 宋体 600<br>正文 · 系统无衬线 / 1.75 行高</span>
+        </div>
+      </div>
+      <div class="token-set dark">
+        <h4>B · 夜色 token</h4>
+        <p class="sub">深墨底上只用玉青与月白做层级；暖琥珀只留给封面本身，界面不再发黄。</p>
+        <div class="swatches">
+          <div class="swatch" style="background:#0B0F0E"><span>0B0F0E</span></div>
+          <div class="swatch" style="background:#141C19"><span>141C19</span></div>
+          <div class="swatch" style="background:#3B7A67"><span>3B7A67</span></div>
+          <div class="swatch" style="background:#8FD3BE"><span style="color:#0B2A20">8FD3BE</span></div>
+          <div class="swatch dark-txt" style="background:#EAF1EC"><span>EAF1EC</span></div>
+        </div>
+        <div class="type-row">
+          <span class="sample" style="color:#EAF1EC">长夜行舟</span>
+          <span class="meta" style="color:#7F9389">标题仍是宋体<br>信息密度更低，光只服务于当前内容</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DIRECTION A ============ -->
+<section class="direction dir-a" id="direction-a">
+  <div class="wrap">
+    <div class="dir-head">
+      <div>
+        <p class="dir-eyebrow">Direction A · 六帧</p>
+        <h2 class="dir-title"><span class="letter">A</span>宣纸旧卷</h2>
+        <p class="dir-sub">Paper &amp; ink · 精修现有国风</p>
+      </div>
+      <div>
+        <p class="dir-copy">延续现有<b>宣纸底、墨色文字、琥珀主色</b>，只把层级拉开：题头有藏馆气，书封有纸边，数字与进度用宋体 + 等宽字对齐。朱砂只做「印章、当前句、关键剩余量」三件事。</p>
+        <div class="dir-keywords"><span>宣纸纹理</span><span>宋体标题</span><span>琥珀进度</span><span>朱砂印记</span><span>留白与页边</span></div>
+      </div>
+    </div>
+
+    <div class="plates">
+
+      <!-- A01 SHELF GRID -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-a">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">21:07</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="a-content">
+              <header class="a-head">
+                <div class="seal">藏</div>
+                <div class="a-head-txt">
+                  <div class="eyebrow">听雨斋 · 藏馆</div>
+                  <h1 class="a-title">我的书架</h1>
+                </div>
+                <div class="head-actions">
+                  <span class="count-badge">七册 · 二册在听</span>
+                  <button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button>
+                </div>
+              </header>
+
+              <div class="a-search">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <span class="search-hint">搜书名、作者或演播</span>
+                <span class="search-go">搜索</span>
+              </div>
+
+              <div class="chips">
+                <span class="chip on">全部 <b>7</b></span>
+                <span class="chip"><i class="dot"></i>在听 <b>2</b></span>
+                <span class="chip">未听 <b>3</b></span>
+                <span class="chip">已完 <b>1</b></span>
+                <span class="chip">系列 <b>1</b></span>
+              </div>
+
+              <div class="a-continue">
+                <div class="cover cv-night md">
+                  <span class="cv-title">长夜行舟</span><span class="cv-seal">沈</span>
+                  <i class="art art-moon"></i><i class="art art-wave"></i>
+                </div>
+                <div class="a-continue-body">
+                  <div class="row1"><span class="tagline">续听 · 已听 42%</span></div>
+                  <h3>长夜行舟</h3>
+                  <div class="chapter">第二章 · 灯下有人　<span style="color:#A9977E">剩 15:28</span></div>
+                  <div class="a-prog"><i style="width:42%"></i></div>
+                  <div class="prog-meta"><span>第 2 / 12 章</span><span><b>42%</b> · 全书剩 3 小时 52 分</span></div>
+                </div>
+                <span class="play-mini"><svg class="icon"><use href="#i-play"/></svg></span>
+              </div>
+
+              <div class="a-section">
+                <div>
+                  <div class="eyebrow">全部藏书</div>
+                  <h2>最近打开</h2>
+                </div>
+                <div class="view-toggle">
+                  <span class="on"><svg class="icon"><use href="#i-grid"/></svg></span>
+                  <span><svg class="icon"><use href="#i-list"/></svg></span>
+                </div>
+              </div>
+
+              <div class="a-grid">
+                <div class="shelf-card">
+                  <div class="cover cv-mtn">
+                    <span class="cv-title">山海拾遗</span><span class="cv-sub">八卷 · 拾遗</span><span class="cv-seal">陆</span>
+                    <i class="art art-sun"></i><i class="art art-peak p1"></i><i class="art art-peak p2"></i>
+                  </div>
+                  <div class="card-title"><span class="status-dot"></span>山海拾遗</div>
+                  <div class="card-meta">陆青梧 著 · 白露 演播</div>
+                  <div class="card-line">沿着山海经的旧注，去八座不在地图上的城，拾回一段没人讲完的传说。</div>
+                  <div class="card-prog"><i style="width:68%"></i></div>
+                  <div class="card-foot"><span>第 5 卷 · 已听 68%</span><span class="pct">2h18m</span></div>
+                </div>
+
+                <div class="shelf-card">
+                  <div class="cover cv-fog">
+                    <span class="cv-title">雾中灯塔</span><span class="cv-sub">潮汐纪事</span><span class="cv-seal">江</span>
+                    <i class="art art-lighthouse"></i><i class="art art-beam"></i><i class="art art-beam b2"></i><i class="art art-fogline"></i>
+                  </div>
+                  <div class="card-title"><span class="status-dot"></span>雾中灯塔</div>
+                  <div class="card-meta">江照 著 · 陈屿 演播</div>
+                  <div class="card-line">守塔人每晚写一封不会寄出的信，直到雾里有人回信。</div>
+                  <div class="card-prog"><i style="width:12%"></i></div>
+                  <div class="card-foot"><span>第 1 章 · 未听完</span><span class="pct">12%</span></div>
+                </div>
+
+                <div class="shelf-card">
+                  <div class="cover cv-snow">
+                    <span class="cv-title">雪落长安</span><span class="cv-sub">长安三夜</span><span class="cv-seal">温</span>
+                    <i class="art art-snow"></i><i class="art art-roof"></i>
+                  </div>
+                  <div class="card-title"><span class="status-dot"></span>雪落长安</div>
+                  <div class="card-meta">温酒 著 · 苏晚 演播</div>
+                  <div class="card-line">一封从长安寄出的旧信，把三个人的雪夜重新落回同一座城。</div>
+                  <div class="card-prog"><i style="width:0"></i></div>
+                  <div class="card-foot"><span>未听 · 12 章</span><span>6h02m</span></div>
+                </div>
+
+                <div class="shelf-card">
+                  <div class="cover cv-spring">
+                    <span class="cv-title">春山慢</span><span class="cv-seal">江</span>
+                    <i class="art art-hill h1"></i><i class="art art-hill h2"></i><i class="art art-hill h3"></i>
+                  </div>
+                  <div class="card-title"><span class="status-dot"></span>春山慢</div>
+                  <div class="card-meta">江照 著 · 林间 演播</div>
+                  <div class="card-line">山寺的钟一天只响一次，她数了七年，终于等到下山的人。</div>
+                  <div class="card-prog"><i style="width:100%"></i></div>
+                  <div class="card-foot"><span>已听完 · 2026.09.28</span><span>完</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="fade-bottom"></div>
+            <nav class="tabbar">
+              <div class="tab on"><svg class="icon"><use href="#i-shelf"/></svg><span>书架</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-layers"/></svg><span>书库</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-clock"/></svg><span>纪年</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-settings"/></svg><span>设置</span><i class="nav-dot"></i></div>
+            </nav>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">A-01</span><h3>书架 · 双列藏书格</h3><span class="plate-sub">SHELF / GRID</span></div>
+          <p>题头—搜索—状态筛选—续听卡—藏书格，五层只做一件事：先回答「我有多少、哪些在听」，再让人扫到具体一本。卡片固定露出封面、书名、作者·演播、一句简介、进度五件事，简介不再藏进详情页。</p>
+          <div class="fixes"><span>信息杂 → 五层分区</span><span>没分类 → 五类筛选</span><span>没简介 → 卡片一句话</span></div>
+        </div>
+      </article>
+
+      <!-- A02 SHELF LIST -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-a">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">21:07</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="a-content">
+              <header class="a-head" style="padding-top:9px;padding-bottom:11px">
+                <div class="seal ghost">书</div>
+                <div class="a-head-txt">
+                  <div class="eyebrow">听雨斋 · 藏书</div>
+                  <h1 class="a-title" style="font-size:22px">七册藏书</h1>
+                </div>
+                <button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button>
+              </header>
+
+              <div class="a-search">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <span class="search-hint">搜书名、作者或演播</span>
+                <span class="search-go">搜索</span>
+              </div>
+
+              <div class="chips">
+                <span class="chip on">全部 <b>7</b></span>
+                <span class="chip"><i class="dot"></i>在听 <b>2</b></span>
+                <span class="chip">未听 <b>3</b></span>
+                <span class="chip">已完 <b>1</b></span>
+                <span class="chip">系列 <b>1</b></span>
+              </div>
+
+              <div class="a-section">
+                <div>
+                  <div class="eyebrow">信息优先 · 单列</div>
+                  <h2>最近打开</h2>
+                </div>
+                <div class="view-toggle">
+                  <span><svg class="icon"><use href="#i-grid"/></svg></span>
+                  <span class="on"><svg class="icon"><use href="#i-list"/></svg></span>
+                </div>
+              </div>
+
+              <div class="a-list">
+                <div class="a-list-card">
+                  <div class="cover cv-night sm">
+                    <span class="cv-title">长夜行舟</span><span class="cv-seal">沈</span>
+                    <i class="art art-moon"></i><i class="art art-wave"></i>
+                  </div>
+                  <div class="a-list-body">
+                    <div class="a-list-top"><h3>长夜行舟</h3><span class="st">在听</span></div>
+                    <div class="a-list-meta">沈砚舟 著 · 顾行舟 演播 <span style="color:#C0AD90">·</span> 山河夜航</div>
+                    <div class="a-list-line">十二个夜晚，十二座码头。船夫载着一封没有收件人的旧信，驶向十年前那场大水。</div>
+                    <div class="a-list-bottom">
+                      <div class="a-prog"><i style="width:42%"></i></div>
+                      <span class="meta"><b>42%</b> · 剩 3h52m</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="a-list-card">
+                  <div class="cover cv-mtn sm">
+                    <span class="cv-title">山海拾遗</span><span class="cv-seal">陆</span>
+                    <i class="art art-sun"></i><i class="art art-peak p1"></i><i class="art art-peak p2"></i>
+                  </div>
+                  <div class="a-list-body">
+                    <div class="a-list-top"><h3>山海拾遗</h3><span class="st">在听</span></div>
+                    <div class="a-list-meta">陆青梧 著 · 白露 演播 <span style="color:#C0AD90">·</span> 八卷</div>
+                    <div class="a-list-line">沿着山海经的旧注，去八座不在地图上的城，拾回一段没人讲完的传说。</div>
+                    <div class="a-list-bottom">
+                      <div class="a-prog"><i style="width:68%"></i></div>
+                      <span class="meta"><b>68%</b> · 剩 1h09m</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="a-list-card">
+                  <div class="cover cv-fog sm">
+                    <span class="cv-title">雾中灯塔</span><span class="cv-seal">江</span>
+                    <i class="art art-lighthouse"></i><i class="art art-beam"></i><i class="art art-fogline"></i>
+                  </div>
+                  <div class="a-list-body">
+                    <div class="a-list-top"><h3>雾中灯塔</h3><span class="st">未听</span></div>
+                    <div class="a-list-meta">江照 著 · 陈屿 演播 <span style="color:#C0AD90">·</span> 24 章</div>
+                    <div class="a-list-line">守塔人每晚写一封不会寄出的信，直到雾里有人回信。</div>
+                    <div class="a-list-bottom">
+                      <div class="a-prog"><i style="width:0"></i></div>
+                      <span class="meta">未开始 · 5h36m</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="a-list-card">
+                  <div class="cover cv-spring sm">
+                    <span class="cv-title">春山慢</span><span class="cv-seal">江</span>
+                    <i class="art art-hill h1"></i><i class="art art-hill h2"></i><i class="art art-hill h3"></i>
+                  </div>
+                  <div class="a-list-body">
+                    <div class="a-list-top"><h3>春山慢</h3><span class="st" style="color:#7C8A68;border-color:rgba(124,138,104,.3);background:rgba(214,224,199,.4)">已完</span></div>
+                    <div class="a-list-meta">江照 著 · 林间 演播 <span style="color:#C0AD90">·</span> 16 章</div>
+                    <div class="a-list-line">山寺的钟一天只响一次，她数了七年，终于等到下山的人。</div>
+                    <div class="a-list-bottom">
+                      <div class="a-prog"><i style="width:100%;background:#7C8A68"></i></div>
+                      <span class="meta" style="color:#7C8A68">已听完 · 9 月 28 日</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="fade-bottom" style="height:40px"></div>
+            <nav class="tabbar">
+              <div class="tab on"><svg class="icon"><use href="#i-shelf"/></svg><span>书架</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-layers"/></svg><span>书库</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-clock"/></svg><span>纪年</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-settings"/></svg><span>设置</span><i class="nav-dot"></i></div>
+            </nav>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">A-02</span><h3>书架 · 单列信息卡</h3><span class="plate-sub">SHELF / LIST</span></div>
+          <p>同一套数据的另一种密度：一行一本书，封面只做识别，正文让给作者、演播、简介与剩余时长。适合「想找一本没听过的」而不是「想继续听」的场景，与 A-01 用右上角视图开关互通。</p>
+          <div class="fixes"><span>简介可扫读</span><span>剩余时长前置</span><span>双密度切换</span></div>
+        </div>
+      </article>
+
+      <!-- A03 DETAIL -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-a">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">21:08</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="topbar">
+              <button class="icon-btn"><svg class="icon"><use href="#i-back"/></svg></button>
+              <span class="title">书籍详情</span>
+              <div class="side right"><button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button></div>
+            </div>
+
+            <div class="detail-body">
+              <div class="detail-hero">
+                <div class="detail-cover">
+                  <div class="cover cv-night">
+                    <span class="cv-title">长夜行舟</span><span class="cv-sub">山河夜航 · 壹</span><span class="cv-seal">沈</span>
+                    <i class="art art-moon"></i><i class="art art-wave"></i><i class="art art-wave w2"></i>
+                  </div>
+                  <span class="spine"></span>
+                </div>
+              </div>
+
+              <div class="detail-meta">
+                <div class="series">山河夜航 · 系列之一</div>
+                <h1>长夜行舟</h1>
+                <div class="byline"><b>沈砚舟</b> 著　·　<b>顾行舟</b> 演播</div>
+                <div class="detail-tags">
+                  <span class="hot">在听 · 42%</span><span>文学</span><span>夜航</span><span>单播</span><span>6 小时 42 分</span>
+                </div>
+              </div>
+
+              <div class="ornament"><i></i></div>
+
+              <p class="synopsis">长夜行舟，是一册关于河流与告别的书。船夫沈砚舟在雾季接下最后一单渡客，却发现自己载的是一封没有收件人的旧信。十二个夜晚，十二座码头，每一个停靠都让他离那场十年前的大水更近一步。</p>
+
+              <div class="detail-links">
+                <div class="detail-link">
+                  <svg class="icon"><use href="#i-chapters"/></svg>
+                  <div class="dl"><b>章节目录</b><span>12 章 · 已听 5 章</span></div>
+                  <svg class="icon sm"><use href="#i-chev-r"/></svg>
+                </div>
+                <div class="detail-link">
+                  <svg class="icon"><use href="#i-layers"/></svg>
+                  <div class="dl"><b>卷册</b><span>2 卷 · 山河夜航</span></div>
+                  <svg class="icon sm"><use href="#i-chev-r"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-cta">
+              <button class="btn-primary"><svg class="icon"><use href="#i-play"/></svg>从第二章继续收听</button>
+              <button class="btn-square"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">A-03</span><h3>书籍详情 · 纸页式</h3><span class="plate-sub">BOOK / DETAIL</span></div>
+          <p>封面做成压在纸上的实物：纸边、书脊、投影都在。书名下先交代「谁写的、谁讲的、属于哪个系列」，再给标签与完整简介；章节目录与卷册并列成两张窄卡，不抢主按钮。</p>
+          <div class="fixes"><span>作者/演播/系列清楚</span><span>简介全文</span><span>章节入口独立</span></div>
+        </div>
+      </article>
+
+      <!-- A04 PLAYER -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-a">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">21:12</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="player-top">
+              <button class="icon-btn"><svg class="icon"><use href="#i-chev-d"/></svg></button>
+              <div class="pt-center"><span>正在播放</span><b>长夜行舟</b></div>
+              <button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button>
+            </div>
+
+            <div class="player-body">
+              <div class="player-halo"></div>
+
+              <div class="player-cover">
+                <div class="cover cv-night">
+                  <span class="cv-title">长夜行舟</span><span class="cv-sub">山河夜航 · 壹</span><span class="cv-seal">沈</span>
+                  <i class="art art-moon"></i><i class="art art-wave"></i><i class="art art-wave w2"></i>
+                </div>
+              </div>
+
+              <div class="player-title">
+                <div class="series">山河夜航 · 系列之一</div>
+                <h2>长夜行舟</h2>
+                <div class="ch"><b>第二章 · 灯下有人</b>　/　共 12 章</div>
+              </div>
+
+              <div class="chapter-progress">
+                <div class="cp-top">
+                  <span class="label">本章进度</span>
+                  <span class="chapter-no">第 <b>2</b> / 12 章</span>
+                </div>
+                <div class="cp-bar">
+                  <div class="ticks"></div>
+                  <div class="fill"></div>
+                  <div class="knob"></div>
+                </div>
+                <div class="cp-times">
+                  <span class="t now">13:12</span>
+                  <span class="remain">本章还剩 <b>15:28</b>　·　全书 42%</span>
+                  <span class="t">28:40</span>
+                </div>
+              </div>
+
+              <div class="console">
+                <button><svg class="icon"><use href="#i-prev"/></svg></button>
+                <button class="rew"><svg class="icon"><use href="#i-rew"/></svg><span>15</span></button>
+                <button class="play"><svg class="icon"><use href="#i-pause"/></svg></button>
+                <button class="fwd"><svg class="icon"><use href="#i-fwd"/></svg><span>30</span></button>
+                <button><svg class="icon"><use href="#i-next"/></svg></button>
+              </div>
+
+              <div class="player-tools">
+                <div class="tool"><b>1.0×</b><span>倍速</span></div>
+                <div class="tool"><svg class="icon"><use href="#i-moon"/></svg><span>守夜</span></div>
+                <div class="tool"><svg class="icon"><use href="#i-chapters"/></svg><span>章节</span></div>
+                <div class="tool accent"><svg class="icon"><use href="#i-lyrics"/></svg><span>歌词</span></div>
+                <div class="tool"><svg class="icon"><use href="#i-more"/></svg><span>更多</span></div>
+              </div>
+
+              <div class="mini-status">
+                <div class="cover cv-night xs"><span class="cv-title">长夜行舟</span><i class="art art-moon"></i></div>
+                <div class="ms-txt"><b>本机书库 · 长夜行舟</b><span>第 2 章 · 已缓冲 3 章</span></div>
+                <div class="wave"><i></i><i></i><i></i><i></i><i></i></div>
+                <span class="saved"><i></i>已保存 21:04</span>
+              </div>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">A-04</span><h3>播放台 · 一体控制面</h3><span class="plate-sub">PLAYER</span></div>
+          <p>进度不再是细线：单独成卡，给当前 / 总时长、本章剩余、全书百分比和 12 段刻线。五键装进同一枚墨色胶囊，拉开「播放」与「跳转」的层级；倍速、守夜、章节、歌词、更多压成一条工具条，底部只留一行保存状态。</p>
+          <div class="fixes"><span>进度条不突出 → 独立进度卡</span><span>按钮散 → 五键一体</span><span>设置少 → 一条工具条</span></div>
+        </div>
+      </article>
+
+      <!-- A05 LYRICS -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-a">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">21:15</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="topbar">
+              <button class="icon-btn"><svg class="icon"><use href="#i-back"/></svg></button>
+              <span class="title">歌词</span>
+              <div class="side right"><button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button></div>
+            </div>
+
+            <div class="lyr-head">
+              <div class="k">LRC · 逐句</div>
+              <h2>长夜行舟</h2>
+              <div class="meta">第二章 · 灯下有人　<em>•</em>　02:14 / 28:40</div>
+            </div>
+
+            <div class="lyr-body">
+              <div class="lyr-line">风从旧渡口吹来</div>
+              <div class="lyr-line">吹皱了一江月色</div>
+              <div class="lyr-time"><span>02:07</span></div>
+              <div class="lyr-line current"><span class="seal-dot">夜</span>我把名字写进船票</div>
+              <div class="lyr-line">让长夜替我保管</div>
+              <div class="lyr-line">若你也听见橹声</div>
+              <div class="lyr-line">就当我们从未走散</div>
+              <div class="lyr-line">灯一盏一盏退后</div>
+              <div class="lyr-line">天光在下一站等我</div>
+              <div class="lyr-auto"><i></i>逐句跟随 · 自动滚动</div>
+            </div>
+
+            <div class="lyr-foot">
+              <div class="toolbar-line">
+                <span class="lbl">本章歌词 · 本地 LRC　·　偏移 +0.2s</span>
+                <span class="jump"><svg class="icon"><use href="#i-chev-d"/></svg>回到当前句</span>
+              </div>
+              <div class="lyr-prog"><i></i></div>
+              <div class="times"><span>02:14</span><span>28:40</span></div>
+              <div class="lyr-controls">
+                <span class="lc"><svg class="icon"><use href="#i-prev"/></svg></span>
+                <span class="lc"><svg class="icon"><use href="#i-rew"/></svg></span>
+                <span class="lplay"><svg class="icon"><use href="#i-pause"/></svg></span>
+                <span class="lc"><svg class="icon"><use href="#i-fwd"/></svg></span>
+                <span class="lc"><svg class="icon"><use href="#i-next"/></svg></span>
+              </div>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">A-05</span><h3>歌词 · 逐句居中</h3><span class="plate-sub">LYRICS</span></div>
+          <p>只让当前句获得「墨色 + 朱砂印」的最高权重，其余句子退到 32% 透明度；上下渐隐暗示还有内容，视觉焦点始终落在屏幕中线。顶部保留书名与章节，底部沿用播放台的五键与进度，减少一次心智切换。</p>
+          <div class="fixes"><span>歌词缺失 → 独立页</span><span>当前句居中高亮</span><span>时间轴偏移可调</span></div>
+        </div>
+      </article>
+
+      <!-- A06 LYRICS EMPTY -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-a">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">21:16</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="topbar">
+              <button class="icon-btn"><svg class="icon"><use href="#i-back"/></svg></button>
+              <span class="title">歌词</span>
+              <div class="side right"><button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button></div>
+            </div>
+
+            <div class="empty-body">
+              <div class="empty-book">
+                <div class="cover cv-fog sm">
+                  <span class="cv-title">雾中灯塔</span><span class="cv-seal">江</span>
+                  <i class="art art-lighthouse"></i><i class="art art-beam"></i><i class="art art-fogline"></i>
+                </div>
+                <div class="eb">
+                  <b>雾中灯塔</b>
+                  <span>第一章 · 潮声从很远的地方来</span>
+                  <em>本册没有附带歌词文件</em>
+                </div>
+                <svg class="icon" style="width:15px;height:15px;color:#A9977E"><use href="#i-chev-r"/></svg>
+              </div>
+
+              <div class="empty-art">
+                <div class="ring"></div>
+                <div class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><use href="#i-note"/></svg></div>
+                <span class="slash"></span>
+                <span class="seal">缺</span>
+              </div>
+
+              <h3>这一卷还没有歌词</h3>
+              <p class="empty-desc">可以按音频自动生成逐句时间轴，或导入与音频同名的 <b>.lrc</b> 文件。生成只在本机进行，不上传音频。</p>
+
+              <div class="empty-actions">
+                <button class="btn-primary"><svg class="icon"><use href="#i-spark"/></svg>自动生成歌词</button>
+                <button class="btn-ghost"><svg class="icon"><use href="#i-import"/></svg>导入 .lrc</button>
+              </div>
+
+              <div class="empty-note">
+                上次尝试：未找到章节时间轴　·　支持 <b>.lrc / .srt</b>，编码 UTF-8<br>
+                生成后可逐句微调偏移，不会改动音频文件。
+              </div>
+
+              <div class="empty-controls">
+                <span class="ec"><svg class="icon"><use href="#i-prev"/></svg></span>
+                <span class="eplay"><svg class="icon"><use href="#i-play"/></svg></span>
+                <span class="ec"><svg class="icon"><use href="#i-next"/></svg></span>
+              </div>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">A-06</span><h3>歌词 · 空态与生成</h3><span class="plate-sub">LYRICS / EMPTY</span></div>
+          <p>空态不藏起来：先确认「哪本书、哪一章」，再解释为什么没有、能做什么。主按钮是「自动生成」，次按钮是「导入 LRC」，底部仍保留播放控制，用户不会因为缺歌词被迫退出这一页。</p>
+          <div class="fixes"><span>空态可理解</span><span>生成/导入双路径</span><span>不中断播放</span></div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ DIRECTION B ============ -->
+<section class="direction dir-b" id="direction-b">
+  <div class="wrap">
+    <div class="dir-head">
+      <div>
+        <p class="dir-eyebrow">Direction B · 六帧</p>
+        <h2 class="dir-title"><span class="letter">B</span>墨夜沉浸</h2>
+        <p class="dir-sub">Ink night · 熄灯后的专注播放</p>
+      </div>
+      <div>
+        <p class="dir-copy">同一套信息架构换一种光。深墨底上<b>只用玉青与月白</b>建立层级，暖色退回封面本身；卡片更少、间距更大，正在听的那一本像被一束光单独照亮。工具仍在拇指区，但不抢内容。</p>
+        <div class="dir-keywords"><span>深墨底</span><span>玉青光</span><span>月白文字</span><span>封面光晕</span><span>低密度</span></div>
+      </div>
+    </div>
+
+    <div class="plates">
+
+      <!-- B01 SHELF -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-b">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">23:41</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="b-content">
+              <header class="b-head">
+                <div class="seal">夜</div>
+                <div class="b-head-txt">
+                  <div class="eyebrow">夜航藏馆 · 23:41</div>
+                  <h1 class="b-title">我的书架</h1>
+                </div>
+                <span class="b-count">07 册 / 02 在听</span>
+              </header>
+
+              <div class="b-search">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <span class="search-hint">搜书名、作者或演播</span>
+                <span class="search-go">搜索</span>
+              </div>
+
+              <div class="chips">
+                <span class="chip on">全部 <b>7</b></span>
+                <span class="chip"><i class="dot"></i>在听 <b>2</b></span>
+                <span class="chip">未听 <b>3</b></span>
+                <span class="chip">已完 <b>1</b></span>
+                <span class="chip">系列 <b>1</b></span>
+              </div>
+
+              <div class="b-hero">
+                <div class="hero-wash">
+                  <div class="cover cv-night"><span class="cv-title">长夜行舟</span><i class="art art-moon"></i><i class="art art-wave"></i></div>
+                </div>
+                <div class="hero-grad"></div>
+                <div class="hero-inner">
+                  <div class="cover cv-night sm">
+                    <span class="cv-title">长夜行舟</span><span class="cv-seal">沈</span>
+                    <i class="art art-moon"></i><i class="art art-wave"></i>
+                  </div>
+                  <div class="b-hero-body">
+                    <div class="hlive"><i></i>正在续听 · 42%</div>
+                    <h3>长夜行舟</h3>
+                    <div class="hch">第二章 · 灯下有人</div>
+                    <div class="hprog"><i></i></div>
+                    <div class="hmeta"><span>第 2 / 12 章</span><span><b>剩 15:28</b> · 全书 3h52m</span></div>
+                  </div>
+                </div>
+                <span class="hplay"><svg class="icon"><use href="#i-play"/></svg></span>
+              </div>
+
+              <div class="b-section">
+                <div>
+                  <div class="eyebrow">夜色藏书</div>
+                  <h2>也值得在今晚打开</h2>
+                </div>
+                <span class="sort">按最近打开<svg class="icon" style="width:10px;height:10px"><use href="#i-chev-d"/></svg></span>
+              </div>
+
+              <div class="b-grid">
+                <div class="b-card">
+                  <div class="cover cv-mtn">
+                    <span class="cv-title">山海拾遗</span><span class="cv-sub">八卷 · 拾遗</span><span class="cv-seal">陆</span>
+                    <i class="art art-sun"></i><i class="art art-peak p1"></i><i class="art art-peak p2"></i>
+                  </div>
+                  <div class="b-title-row"><h3>山海拾遗</h3></div>
+                  <div class="b-meta">陆青梧 著 · 白露 演播</div>
+                  <div class="b-line">八座不在地图上的城，八段没讲完的传说。</div>
+                  <div class="card-prog"><i style="width:68%"></i></div>
+                  <div class="b-foot"><span>第 5 卷</span><span><b>68%</b> · 剩 1h09m</span></div>
+                </div>
+
+                <div class="b-card">
+                  <div class="cover cv-fog">
+                    <span class="cv-title">雾中灯塔</span><span class="cv-sub">潮汐纪事</span><span class="cv-seal">江</span>
+                    <i class="art art-lighthouse"></i><i class="art art-beam"></i><i class="art art-beam b2"></i><i class="art art-fogline"></i>
+                  </div>
+                  <div class="b-title-row"><h3>雾中灯塔</h3></div>
+                  <div class="b-meta">江照 著 · 陈屿 演播</div>
+                  <div class="b-line">守塔人写不会寄出的信，直到雾里有人回信。</div>
+                  <div class="card-prog"><i style="width:12%"></i></div>
+                  <div class="b-foot"><span>第 1 章</span><span><b>12%</b> · 剩 4h57m</span></div>
+                </div>
+
+                <div class="b-card">
+                  <div class="cover cv-snow">
+                    <span class="cv-title">雪落长安</span><span class="cv-seal">温</span>
+                    <i class="art art-snow"></i><i class="art art-roof"></i>
+                  </div>
+                  <div class="b-title-row"><h3>雪落长安</h3></div>
+                  <div class="b-meta">温酒 著 · 苏晚 演播</div>
+                  <div class="b-line">一封旧信，把三个人的雪夜落回同一座城。</div>
+                  <div class="card-prog"><i style="width:0"></i></div>
+                  <div class="b-foot"><span>未听</span><span>6h02m</span></div>
+                </div>
+
+                <div class="b-card">
+                  <div class="cover cv-spring">
+                    <span class="cv-title">春山慢</span><span class="cv-seal">江</span>
+                    <i class="art art-hill h1"></i><i class="art art-hill h2"></i><i class="art art-hill h3"></i>
+                  </div>
+                  <div class="b-title-row"><h3>春山慢</h3></div>
+                  <div class="b-meta">江照 著 · 林间 演播</div>
+                  <div class="b-line">山寺的钟一天响一次，她数了七年。</div>
+                  <div class="card-prog"><i style="width:100%"></i></div>
+                  <div class="b-foot"><span>已听完</span><span>09.28</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="b-fade"></div>
+            <nav class="tabbar b-nav">
+              <div class="tab on"><svg class="icon"><use href="#i-shelf"/></svg><span>书架</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-layers"/></svg><span>书库</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-clock"/></svg><span>纪年</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-settings"/></svg><span>设置</span><i class="nav-dot"></i></div>
+            </nav>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">B-01</span><h3>书架 · 夜色续听</h3><span class="plate-sub">SHELF / NIGHT</span></div>
+          <p>信息架构与 A-01 完全一致，只把「续听」从一张小卡放大成有封面光晕的沉浸卡：时间、章名、本章剩余在一眼内完成。其余藏书退到两列暗面，标题只留一句简介，让「今晚听什么」成为唯一问题。</p>
+          <div class="fixes"><span>正在听更沉浸</span><span>层级靠光不靠框</span><span>同构不同气质</span></div>
+        </div>
+      </article>
+
+      <!-- B02 PLAYER -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-b b-player-screen">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">23:52</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="b-player-top">
+              <button class="icon-btn"><svg class="icon"><use href="#i-chev-d"/></svg></button>
+              <div class="pt-center"><span>正在播放</span><b>山河夜航 · 第二章</b></div>
+              <button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button>
+            </div>
+
+            <div class="b-player-body">
+              <div class="b-cover-wrap">
+                <div class="glow"></div>
+                <div class="glow-ring"></div>
+                <div class="cover cv-night">
+                  <span class="cv-title">长夜行舟</span><span class="cv-sub">山河夜航 · 壹</span><span class="cv-seal">沈</span>
+                  <i class="art art-moon"></i><i class="art art-wave"></i><i class="art art-wave w2"></i>
+                </div>
+                <div class="reflection"></div>
+              </div>
+
+              <div class="b-player-title">
+                <div class="series">山河夜航 · 系列之一</div>
+                <h2>长夜行舟</h2>
+                <div class="ch"><b>第二章 · 灯下有人</b>　/　共 12 章</div>
+              </div>
+
+              <div class="b-progress">
+                <div class="cp-top">
+                  <span class="label">本章进度</span>
+                  <span class="chapter-no">第 <b>2</b> / 12 章</span>
+                </div>
+                <div class="cp-bar">
+                  <div class="ticks"></div>
+                  <div class="fill"></div>
+                  <div class="knob"></div>
+                </div>
+                <div class="cp-times">
+                  <span class="t now">13:12</span>
+                  <span class="remain">本章还剩 <b>15:28</b>　·　全书 42%</span>
+                  <span class="t">28:40</span>
+                </div>
+              </div>
+
+              <div class="b-console">
+                <button><svg class="icon"><use href="#i-prev"/></svg></button>
+                <button class="rew"><svg class="icon"><use href="#i-rew"/></svg><span>15</span></button>
+                <button class="play"><svg class="icon"><use href="#i-pause"/></svg></button>
+                <button class="fwd"><svg class="icon"><use href="#i-fwd"/></svg><span>30</span></button>
+                <button><svg class="icon"><use href="#i-next"/></svg></button>
+              </div>
+            </div>
+
+            <div class="b-tools">
+              <div class="tool"><b>1.0×</b><span>倍速</span></div>
+              <div class="tool"><svg class="icon"><use href="#i-moon"/></svg><span>守夜</span></div>
+              <div class="tool"><svg class="icon"><use href="#i-chapters"/></svg><span>章节</span></div>
+              <div class="tool accent"><svg class="icon"><use href="#i-lyrics"/></svg><span>歌词</span></div>
+              <div class="tool"><svg class="icon"><use href="#i-more"/></svg><span>更多</span></div>
+            </div>
+
+            <div class="b-bottom-status">
+              <i></i><span>离线缓存 · 已同步至 23:48</span>
+              <span class="right"><svg class="icon" style="width:11px;height:11px"><use href="#i-cloud"/></svg>本机书库</span>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">B-02</span><h3>播放台 · 电影感</h3><span class="plate-sub">PLAYER / CINEMA</span></div>
+          <p>封面被一圈极弱的玉青光晕托起，像暗房里唯一亮着的银幕。进度卡、五键控制台、悬浮工具条依次向拇指区收拢；工具条与底部状态都是半透明玻璃，内容和控件共享同一层夜色，而不是两块拼接的面板。</p>
+          <div class="fixes"><span>封面光晕聚焦</span><span>控制台一体化</span><span>工具条悬浮拇指区</span></div>
+        </div>
+      </article>
+
+      <!-- B03 LYRICS -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-b b-lyr-screen">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">23:56</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="topbar" style="z-index:30">
+              <button class="icon-btn"><svg class="icon"><use href="#i-back"/></svg></button>
+              <span class="title" style="color:#B3C2BA">歌词</span>
+              <div class="side right"><button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button></div>
+            </div>
+
+            <div class="b-lyr-head">
+              <div class="k">LRC · 逐句</div>
+              <h2>长夜行舟</h2>
+              <div class="meta">第二章 · 灯下有人　<em>•</em>　02:14 / 28:40</div>
+            </div>
+
+            <div class="b-lyr-body">
+              <div class="lyr-line">风从旧渡口吹来</div>
+              <div class="lyr-line">吹皱了一江月色</div>
+              <div class="lyr-time"><span>02:07</span></div>
+              <div class="lyr-line current"><span class="seal-dot">夜</span>我把名字写进船票</div>
+              <div class="lyr-line">让长夜替我保管</div>
+              <div class="lyr-line">若你也听见橹声</div>
+              <div class="lyr-line">就当我们从未走散</div>
+              <div class="lyr-line">灯一盏一盏退后</div>
+              <div class="lyr-line">天光在下一站等我</div>
+              <div class="lyr-auto"><i></i>逐句跟随 · 自动滚动</div>
+            </div>
+
+            <div class="lyr-foot b-lyr-foot">
+              <div class="toolbar-line">
+                <span class="lbl">本章歌词 · 本地 LRC　·　偏移 +0.2s</span>
+                <span class="jump"><svg class="icon"><use href="#i-chev-d"/></svg>回到当前句</span>
+              </div>
+              <div class="lyr-prog b-lyr-prog"><i></i></div>
+              <div class="times"><span>02:14</span><span>28:40</span></div>
+              <div class="lyr-controls b-lyr-controls">
+                <span class="lc"><svg class="icon"><use href="#i-prev"/></svg></span>
+                <span class="lc"><svg class="icon"><use href="#i-rew"/></svg></span>
+                <span class="lplay"><svg class="icon"><use href="#i-pause"/></svg></span>
+                <span class="lc"><svg class="icon"><use href="#i-fwd"/></svg></span>
+                <span class="lc"><svg class="icon"><use href="#i-next"/></svg></span>
+              </div>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">B-03</span><h3>歌词 · 夜色逐句</h3><span class="plate-sub">LYRICS / NIGHT</span></div>
+          <p>深色下当前句不再用琥珀，而是月白配一圈玉青微光，像字幕浮在暗处；前后句压到 24% 亮度，保留「上一句还在、下一句要来」的空间感。顶部与底部沿用 B-02 的控件语言，整条听读链路不换语法。</p>
+          <div class="fixes"><span>当前句更醒目</span><span>低亮环境不刺眼</span><span>与播放台同源</span></div>
+        </div>
+      </article>
+
+      <!-- B04 SOURCES -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-b">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">20:18</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="b-content">
+              <div class="b-page-head">
+                <div class="tt">
+                  <div class="eyebrow">书库 · 来源</div>
+                  <h1>书源</h1>
+                  <div class="desc">三处在用，一处等你修好</div>
+                </div>
+                <button class="add-round"><svg class="icon"><use href="#i-plus"/></svg></button>
+              </div>
+
+              <div class="source-summary">
+                <span class="ss"><i></i>3 个已启用</span>
+                <span class="sep"></span>
+                <span class="ss warn"><i></i>1 个连接异常</span>
+                <span class="right">最近同步 20:16</span>
+              </div>
+
+              <div class="source-tabs">
+                <span class="on">全部 4</span><span>已启用 3</span><span>已停用 1</span><span>异常 1</span>
+              </div>
+
+              <div class="source-list">
+                <div class="source-card">
+                  <div class="src-main">
+                    <div class="src-icon">松</div>
+                    <div class="src-body">
+                      <div class="src-title-row"><h3>松风馆</h3><span class="src-badge">LEGADO</span></div>
+                      <div class="src-type">网络书源 · 312 本 · 有声书</div>
+                      <div class="src-status"><i></i>连接正常 <span>· 2 分钟前同步 12 本</span></div>
+                    </div>
+                    <span class="src-toggle"></span>
+                  </div>
+                  <div class="src-actions">
+                    <span><svg class="icon"><use href="#i-edit"/></svg>编辑</span>
+                    <span><svg class="icon"><use href="#i-plug"/></svg>测试</span>
+                    <span class="del"><svg class="icon"><use href="#i-trash"/></svg>删除</span>
+                  </div>
+                </div>
+
+                <div class="source-card warn">
+                  <div class="src-main">
+                    <div class="src-icon warm">听</div>
+                    <div class="src-body">
+                      <div class="src-title-row"><h3>听雨阁</h3><span class="src-badge">LEGADO</span></div>
+                      <div class="src-type">网络书源 · 128 本 · 广播剧</div>
+                      <div class="src-status"><i></i>同步中 64% <span>· 已发现 3 本新书</span></div>
+                    </div>
+                    <span class="src-toggle"></span>
+                  </div>
+                  <div class="src-actions">
+                    <span><svg class="icon"><use href="#i-edit"/></svg>编辑</span>
+                    <span><svg class="icon"><use href="#i-refresh"/></svg>同步</span>
+                    <span class="del"><svg class="icon"><use href="#i-trash"/></svg>删除</span>
+                  </div>
+                </div>
+
+                <div class="source-card">
+                  <div class="src-main">
+                    <div class="src-icon">本</div>
+                    <div class="src-body">
+                      <div class="src-title-row"><h3>本机书库</h3><span class="src-badge">LOCAL</span></div>
+                      <div class="src-type">本机目录 · 7 册 · 无需联网</div>
+                      <div class="src-status"><i></i>已扫描 <span>· 今天 09:12 · 无缺失文件</span></div>
+                    </div>
+                    <span class="src-toggle"></span>
+                  </div>
+                  <div class="src-actions">
+                    <span><svg class="icon"><use href="#i-folder"/></svg>目录</span>
+                    <span><svg class="icon"><use href="#i-refresh"/></svg>重扫</span>
+                    <span class="del"><svg class="icon"><use href="#i-trash"/></svg>移除</span>
+                  </div>
+                </div>
+
+                <div class="source-card off error">
+                  <div class="src-main">
+                    <div class="src-icon err">雾</div>
+                    <div class="src-body">
+                      <div class="src-title-row"><h3>雾岛书屋</h3><span class="src-badge">LEGADO</span></div>
+                      <div class="src-type">网络书源 · 已停用 · 上次成功 9 月 12 日</div>
+                      <div class="src-status"><i></i>连接超时 <span>· 连续失败 2 次</span></div>
+                    </div>
+                    <span class="src-toggle"></span>
+                  </div>
+                  <div class="src-actions">
+                    <span><svg class="icon"><use href="#i-edit"/></svg>编辑</span>
+                    <span><svg class="icon"><use href="#i-plug"/></svg>重试</span>
+                    <span class="del"><svg class="icon"><use href="#i-trash"/></svg>删除</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="source-add"><svg class="icon"><use href="#i-plus"/></svg>添加书源 · Legado 规则 / 本机目录</div>
+              <div class="source-foot">启用后，该书源会出现在「发现」页的来源切换中</div>
+            </div>
+
+            <nav class="tabbar b-nav">
+              <div class="tab"><svg class="icon"><use href="#i-shelf"/></svg><span>书架</span><i class="nav-dot"></i></div>
+              <div class="tab on"><svg class="icon"><use href="#i-layers"/></svg><span>书库</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-clock"/></svg><span>纪年</span><i class="nav-dot"></i></div>
+              <div class="tab"><svg class="icon"><use href="#i-settings"/></svg><span>设置</span><i class="nav-dot"></i></div>
+            </nav>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">B-04</span><h3>书源 · 可管理清单</h3><span class="plate-sub">SOURCES</span></div>
+          <p>每个书源用一行回答三件事：是什么类型、最近成没成、能做什么。开关独立在右，编辑 / 测试 / 删除在卡片底部，异常源直接给出「连续失败 2 次」与「重试」，不用进详情猜。顶部汇总条先给全局健康度。</p>
+          <div class="fixes"><span>书源缺失 → 清单</span><span>最近状态可见</span><span>增删改同层</span></div>
+        </div>
+      </article>
+
+      <!-- B05 DISCOVER -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-b">
+            <div class="island"></div>
+            <div class="sb">
+              <span class="time">20:21</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="b-subpage-top">
+              <button class="icon-btn"><svg class="icon"><use href="#i-back"/></svg></button>
+              <span class="tb-title">发现</span>
+              <button class="icon-btn"><svg class="icon"><use href="#i-more"/></svg></button>
+            </div>
+
+            <div class="b-content" style="padding-top:2px">
+              <div class="disc-source">
+                <div class="ds-icon">松</div>
+                <div class="ds-txt"><b>松风馆</b><span>Legado 规则 · 312 本可用 · 2 分钟前同步</span></div>
+                <span class="switch">切换<svg class="icon"><use href="#i-chev-d"/></svg></span>
+              </div>
+
+              <div class="disc-search">
+                <div class="field">
+                  <svg class="icon"><use href="#i-search"/></svg>
+                  <b>长夜</b><span class="caret"></span>
+                  <span style="margin-left:auto;color:#5F7169"><svg class="icon" style="width:13px;height:13px"><use href="#i-close"/></svg></span>
+                </div>
+                <div class="go"><svg class="icon"><use href="#i-search"/></svg></div>
+              </div>
+
+              <div class="disc-chips">
+                <span class="on">全部</span><span>有声书 18</span><span>广播剧 4</span><span>系列 2</span>
+              </div>
+
+              <div class="disc-meta">
+                <span class="count">找到 <b>24</b> 条结果 · 来自松风馆</span>
+                <span class="sort">按相关度<svg class="icon" style="width:10px;height:10px"><use href="#i-chev-d"/></svg></span>
+              </div>
+
+              <div class="result-list">
+                <div class="result">
+                  <div class="cover cv-night sm">
+                    <span class="cv-title">长夜行舟</span><span class="cv-seal">沈</span>
+                    <i class="art art-moon"></i><i class="art art-wave"></i>
+                  </div>
+                  <div class="result-body">
+                    <h3>长夜行舟</h3>
+                    <div class="rby">沈砚舟 著 · <b>顾行舟 演播</b></div>
+                    <div class="rline"><span class="pill">全 12 集</span><span>6h42m</span><span class="src">松风馆</span></div>
+                  </div>
+                  <button class="add-btn done"><svg class="icon"><use href="#i-check"/></svg>已在书架</button>
+                </div>
+
+                <div class="result">
+                  <div class="cover cv-night sm">
+                    <span class="cv-title">长夜渡</span><span class="cv-seal">顾</span>
+                    <i class="art art-moon"></i><i class="art art-wave"></i>
+                  </div>
+                  <div class="result-body">
+                    <h3>长夜渡口</h3>
+                    <div class="rby">顾南枝 著 · <b>云舟 演播</b></div>
+                    <div class="rline"><span class="pill">全 28 集</span><span>11h20m</span><span class="src">松风馆</span><span>同系列</span></div>
+                  </div>
+                  <button class="add-btn"><svg class="icon"><use href="#i-plus"/></svg>加入</button>
+                </div>
+
+                <div class="result">
+                  <div class="cover cv-fog sm">
+                    <span class="cv-title">长夜灯塔</span><span class="cv-seal">江</span>
+                    <i class="art art-lighthouse"></i><i class="art art-beam"></i><i class="art art-fogline"></i>
+                  </div>
+                  <div class="result-body">
+                    <h3>雾中灯塔 · 长夜篇</h3>
+                    <div class="rby">江照 著 · <b>陈屿 演播</b></div>
+                    <div class="rline"><span class="pill">全 24 集</span><span>9h06m</span><span class="src">松风馆</span></div>
+                  </div>
+                  <button class="add-btn"><svg class="icon"><use href="#i-plus"/></svg>加入</button>
+                </div>
+
+                <div class="result">
+                  <div class="cover cv-letter sm">
+                    <span class="cv-title">长夜信</span><span class="cv-seal">周</span>
+                    <i class="art art-env"></i><i class="art art-star"></i>
+                  </div>
+                  <div class="result-body">
+                    <h3>长夜来信</h3>
+                    <div class="rby">周渡 著 · <b>沈知 演播</b></div>
+                    <div class="rline"><span class="pill">更新至 18 集</span><span>连载中</span><span class="src">松风馆</span></div>
+                  </div>
+                  <button class="add-btn"><svg class="icon"><use href="#i-plus"/></svg>加入</button>
+                </div>
+              </div>
+
+              <div class="disc-foot">
+                <svg class="icon"><use href="#i-globe"/></svg>
+                <span><b>同一关键词</b>还在听雨阁、雾岛书屋中搜索</span>
+                <span>换源<svg class="icon" style="width:10px;height:10px"><use href="#i-chev-r"/></svg></span>
+              </div>
+            </div>
+            <div class="home"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">B-05</span><h3>发现 · 来源内搜索</h3><span class="plate-sub">DISCOVER</span></div>
+          <p>先确认「在哪个源里搜」，再给搜索框与类型筛选；结果行固定封面、书名、作者、演播、集数、来源和加入动作，六件事一行读完。已入库的直接标记「已在书架」，底部保留一键换源，搜索不会走死。</p>
+          <div class="fixes"><span>来源可见</span><span>结果信息齐全</span><span>加入书库一步</span></div>
+        </div>
+      </article>
+
+      <!-- B06 SOURCE FORM -->
+      <article class="plate">
+        <div class="device">
+          <div class="screen theme-b">
+            <div class="island" style="z-index:80"></div>
+            <div class="sb" style="z-index:75">
+              <span class="time">20:24</span>
+              <span class="status-icons">
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 17h2M9 13v4M14 9v8M19 4v13" stroke-width="2.2"/></svg>
+                <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 10a12 12 0 0 1 16 0M7 13a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>
+                <span class="battery"></span>
+              </span>
+            </div>
+
+            <div class="form-bg">
+              <div class="b-content" style="padding-top:10px">
+                <div class="b-page-head">
+                  <div class="tt"><div class="eyebrow">书库 · 来源</div><h1>书源</h1><div class="desc">三处在用，一处等你修好</div></div>
+                  <button class="add-round"><svg class="icon"><use href="#i-plus"/></svg></button>
+                </div>
+                <div class="source-summary"><span class="ss"><i></i>3 个已启用</span><span class="sep"></span><span class="ss warn"><i></i>1 个连接异常</span><span class="right">最近同步 20:16</span></div>
+                <div class="source-tabs"><span class="on">全部 4</span><span>已启用 3</span><span>已停用 1</span><span>异常 1</span></div>
+                <div class="source-list">
+                  <div class="source-card"><div class="src-main"><div class="src-icon">松</div><div class="src-body"><div class="src-title-row"><h3>松风馆</h3><span class="src-badge">LEGADO</span></div><div class="src-type">网络书源 · 312 本 · 有声书</div><div class="src-status"><i></i>连接正常 <span>· 2 分钟前</span></div></div><span class="src-toggle"></span></div></div>
+                  <div class="source-card"><div class="src-main"><div class="src-icon warm">听</div><div class="src-body"><div class="src-title-row"><h3>听雨阁</h3><span class="src-badge">LEGADO</span></div><div class="src-type">网络书源 · 128 本 · 广播剧</div><div class="src-status"><i></i>同步中 64%</div></div><span class="src-toggle"></span></div></div>
+                  <div class="source-card"><div class="src-main"><div class="src-icon">本</div><div class="src-body"><div class="src-title-row"><h3>本机书库</h3><span class="src-badge">LOCAL</span></div><div class="src-type">本机目录 · 7 册</div><div class="src-status"><i></i>已扫描</div></div><span class="src-toggle"></span></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="form-scrim"></div>
+
+            <div class="form-sheet">
+              <div class="sheet-handle"></div>
+              <div class="form-head">
+                <div>
+                  <h2>添加书源</h2>
+                  <div class="fh-sub">先测试，再保存。规则只在本机解析，不上传链接。</div>
+                </div>
+                <span class="form-close"><svg class="icon"><use href="#i-close"/></svg></span>
+              </div>
+
+              <div class="form-field">
+                <div class="form-label"><span>名称</span><b>必填</b></div>
+                <div class="form-input focus">
+                  <span>松风馆</span><span class="caret"></span>
+                  <span class="tail">0 / 24</span>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <div class="form-label"><span>类型</span><b>决定解析方式</b></div>
+                <div class="segmented">
+                  <span class="on"><svg class="icon"><use href="#i-link"/></svg>Legado 规则</span>
+                  <span><svg class="icon"><use href="#i-folder"/></svg>本机目录</span>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <div class="form-label"><span>Legado 规则</span><b>JSON / 分享链接</b></div>
+                <div class="form-input">
+                  <svg class="icon"><use href="#i-link"/></svg>
+                  <span style="font-family:var(--mono);font-size:8px;color:#B3C2BA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">https://legado.example/rules/songfeng.json</span>
+                  <span class="tail" style="color:#8FD3BE">粘贴</span>
+                </div>
+                <div class="import-row">
+                  <span><svg class="icon"><use href="#i-import"/></svg>从剪贴板导入</span>
+                  <span><svg class="icon"><use href="#i-link"/></svg>识别分享链接</span>
+                  <span><svg class="icon"><use href="#i-folder"/></svg>选择文件</span>
+                </div>
+                <div class="form-hint">支持 Legado 3.x 书源格式；导入后可编辑规则名与请求头。</div>
+              </div>
+
+              <div class="switch-row">
+                <div class="sr-txt"><b>启用这个书源</b><span>保存后立即出现在「发现」的来源切换中</span></div>
+                <span class="big-switch"></span>
+              </div>
+
+              <div class="test-card">
+                <div class="test-top">
+                  <span class="test-btn"><svg class="icon"><use href="#i-plug"/></svg>测试连接</span>
+                  <span class="test-state"><i></i>连接成功</span>
+                  <span class="test-time">128 ms</span>
+                </div>
+                <div class="test-detail"><span>找到 <b>312 本</b> 有声书</span><span>示例：《长夜行舟》</span><span>规则版本 <b>3.2</b></span></div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn-cancel">取消</button>
+                <button class="btn-save"><svg class="icon"><use href="#i-check"/></svg>保存并启用</button>
+              </div>
+            </div>
+            <div class="home" style="z-index:85"></div>
+          </div>
+        </div>
+        <div class="plate-note">
+          <div class="plate-head"><span class="plate-no">B-06</span><h3>书源 · 配置弹层</h3><span class="plate-sub">SOURCE / FORM</span></div>
+          <p>配置表单不跳页：从书源清单底部升起，保留背景语境。字段按「叫什么 → 什么类型 → 规则从哪来 → 是否启用 → 能不能连」排列，测试结果在保存前就给出书目数与延迟，避免存下一个坏源。</p>
+          <div class="fixes"><span>Legado 规则导入</span><span>启用开关</span><span>测试连接前置</span></div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ READING ORDER ============ -->
+<section class="order" id="reading-order">
+  <div class="wrap">
+    <div class="order-top">
+      <div>
+        <p class="kicker" style="color:#8E7C60;margin-bottom:14px">Review order</p>
+        <h2>如果要先看四屏，<br><em>按这个顺序。</em></h2>
+      </div>
+      <p>先看播放台，因为它承担最集中的问题（进度、按钮、工具条）；再看书架两种密度，判断信息量与「简介」是否值得常驻；最后用书源两屏确认新增链路。A / B 不必二选一，可以先定结构，再定气质。</p>
+    </div>
+    <div class="order-list">
+      <div class="order-item">
+        <span class="o-num">一</span>
+        <div><h3>A-04 / B-02 播放台</h3><p>看章节进度卡与五键控制台是否一眼成立，再对比纸面与夜色两种光感。</p><span class="o-tag">最优先</span></div>
+      </div>
+      <div class="order-item">
+        <span class="o-num">二</span>
+        <div><h3>A-01 / A-02 书架</h3><p>双列回答「继续听什么」，单列回答「这本书讲什么」，确认默认密度。</p><span class="o-tag">结构判断</span></div>
+      </div>
+      <div class="order-item">
+        <span class="o-num">三</span>
+        <div><h3>B-04 / B-05 / B-06 书源</h3><p>从清单到发现再到配置弹层，检查新增链路是否闭合、状态是否说人话。</p><span class="o-tag">新增能力</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span><b>TomeTone</b> · 听书样式卷 · 静态设计稿</span>
+    <span>不引用外部字体 / 图片 / CDN · 可直接离线打开</span>
+    <span>2026.10 · 12 帧</span>
+  </div>
+</footer>
+
+</body>
+</html>
