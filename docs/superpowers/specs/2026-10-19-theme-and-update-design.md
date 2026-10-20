@@ -65,7 +65,8 @@
 | `oledDark` | `bool` | `false` | 仅深色形态生效 |
 | `autoCheckUpdates` | `bool` | `true` | 关闭后零网络请求 |
 | `skippedVersion` | `String?` | `null` | 已跳过的版本号 |
-| `acknowledgedVersion` | `String?` | `null` | 用户已看过提示的版本号 |
+| `promptedVersion` | `String?` | `null` | 已弹过启动提示的版本号（避免重复打扰） |
+| `acknowledgedVersion` | `String?` | `null` | 用户已打开过更新页的版本号（清红点） |
 | `lastCheckAt` | `DateTime?` | `null` | 上次**成功**检查时间 |
 | `lastAttemptAt` | `DateTime?` | `null` | 上次**尝试**自动检查时间（含失败） |
 | `cachedRelease` | `CachedRelease?` | `null` | 裁剪后的最新 Release 快照 + ETag |
@@ -150,7 +151,10 @@ static const String githubRepo = 'TomeTone';
 
 - 启动自动检查：`AppShell` 首帧后触发，条件是 `autoCheckUpdates == true` 且距 `lastAttemptAt` 已满 24h（从未尝试过则立即）。关闭时绝不调用服务层（用假客户端断言请求数为 0），也不显示红点。
 - 自动检查发现可用更新：展示一次 `SnackBar`（“发现新版本 vX · 查看”，约 7 秒），并在设置 tab 上显示红点。
-- **“已看见”按版本记忆**：用户打开更新详情页、或手动关掉 SnackBar 时写入 `acknowledgedVersion = 最新版本号`。此后红点与 SnackBar 在该版本上都不再出现，跨重启保持；出现更新的版本或取消跳过时重新提示。红点不因“升级完成”而特殊处理——安装的新版本号 ≥ 最新版本时状态自然变为 `upToDate`。
+- **“提示过”与“看过”分开记**：
+  - SnackBar：自动检查发现可用更新后弹一次，写 `promptedVersion = 最新版本号`；同一版本不再弹，跨重启保持，更新的版本重新弹。SnackBar 超时/滑走都不影响红点。
+  - 红点：写 `acknowledgedVersion = 最新版本号` 的场景只有两个——用户打开更新详情页，或跳过该版本。此后红点消失；出现更新的版本时重新出现。
+  - 红点不因“升级完成”而特殊处理——安装的新版本号 ≥ 最新版本时状态自然变为 `upToDate`。
 - 设置页“检查更新”行状态：`检查中…` / `已是最新` / `暂无可用版本` / `有新版本 vX` / `已跳过 vX` / `检查失败`，尾部 tag 跟随变化；点击进入更新详情页并触发手动检查。
 - “自动检查更新”开关放在关于区卡片顶部，说明“每天最多一次，只读取版本信息”。
 
