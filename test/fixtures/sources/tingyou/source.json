@@ -1,0 +1,37 @@
+{
+  "bookSourceName": "听友听书",
+  "bookSourceGroup": "听书",
+  "bookSourceType": 1,
+  "bookSourceUrl": "https://www.tingyou.fm",
+  "header": "{\"User-Agent\":\"TomeTone-Test\",\"Referer\":\"https://www.tingyou.fm/\",\"Origin\":\"https://www.tingyou.fm\",\"x-listening-session\":\"test-session\"}",
+  "exploreUrl": "热门::https://www.tingyou.fm/listening-api/rank?section=hot&page={{page}}",
+  "ruleExplore": {
+    "bookList": "$.items[*]",
+    "name": "$.title",
+    "bookUrl": "$.url"
+  },
+  "searchUrl": "https://www.tingyou.fm/listening-api/search",
+  "ruleSearch": {
+    "bookList": "$.items[*]",
+    "name": "$.title",
+    "bookUrl": "$.url"
+  },
+  "ruleBookInfo": {
+    "name": "$.title",
+    "author": "$.author",
+    "intro": "$.intro",
+    "coverUrl": "$.cover",
+    "tocUrl": "https://www.tingyou.fm/listening-api/chapters/{{$.id}}"
+  },
+  "ruleToc": {
+    "chapterList": "$.chapters[*]",
+    "chapterName": "$.title",
+    "chapterUrl": "$.url"
+  },
+  "ruleContent": {
+    "content": "$.play_url"
+  },
+  "customUnknown": {
+    "keep": true
+  }
+}
