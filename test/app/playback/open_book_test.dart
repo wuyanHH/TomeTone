@@ -314,4 +314,59 @@ void main() {
     );
     expect(controller.lastError, isNull, reason: '重开成功后应清掉残留错误');
   });
+
+  test('指定 startChapterId：跳过 alreadyOpen，定位到目标章起点且不触发微回退', () async {
+    final engine = _CountingEngine(FakePlaybackEngine());
+    final controller = controllerWith(engine);
+    final resolver = localFakeResolver('/library');
+
+    // 带续播进度的书：默认从 c1 的 5:00 恢复（中断 10 分钟 → 回退 8 秒）。
+    final base = _detail();
+    final detail = BookDetail(
+      summary: base.summary,
+      volumes: base.volumes,
+      preferences: const PerBookPrefsSnapshot(),
+      progress: ProgressSnapshot(
+        bookId: 'book-1',
+        chapterId: 'c1',
+        position: const Duration(minutes: 5),
+        updatedAt: DateTime(2026, 10, 18),
+      ),
+    );
+
+    final first = await openBook(
+      controller: controller,
+      currentBook: currentBook,
+      resolver: resolver,
+      detail: detail,
+    );
+    expect(first.status, OpenBookStatus.opened);
+    expect(controller.current?.chapterId, 'c1');
+    expect(
+      controller.position,
+      isNot(Duration.zero),
+      reason: '默认续播应恢复到非零位置',
+    );
+
+    // 显式指定 c2：书已打开也必须跳过 alreadyOpen，定位到 c2 起点（0 秒）。
+    final second = await openBook(
+      controller: controller,
+      currentBook: currentBook,
+      resolver: resolver,
+      detail: detail,
+      startChapterId: 'c2',
+    );
+    expect(
+      second.status,
+      OpenBookStatus.opened,
+      reason: '指定章时不得短路成 alreadyOpen',
+    );
+    expect(controller.current?.chapterId, 'c2');
+    expect(
+      controller.position,
+      Duration.zero,
+      reason: '指定章起播位置为 0，不触发微回退',
+    );
+    expect(controller.canUndoRewind, isFalse, reason: '指定章起播无撤销令牌');
+  });
 }

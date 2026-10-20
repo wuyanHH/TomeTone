@@ -62,6 +62,7 @@ class PlaybackController {
     DateTime Function()? clock,
     SleepTimer? sleepTimer,
     this.rewindUndoWindow = const Duration(seconds: 10),
+    this.onBookFinished,
   }) : _clock = clock ?? DateTime.now,
        sleep = sleepTimer ?? SleepTimer(clock: clock) {
     _subscription = _engine.events.listen(_onEngineEvent);
@@ -76,6 +77,10 @@ class PlaybackController {
   final PlaybackEngine _engine;
   final void Function(String bookId, String chapterId, Duration position)
   _writeProgress;
+
+  /// 全书播放完毕时的回调（装配层注入，用于写入 `finishedAt` 的完成标记）。
+  final Future<void> Function(String bookId, String chapterId, Duration position)?
+  onBookFinished;
   final DateTime Function() _clock;
   late final StreamSubscription<EngineEvent> _subscription;
   late final ProgressScheduler _progress = _buildScheduler();
@@ -225,9 +230,7 @@ class PlaybackController {
 
     final next = _queue?.nextOf(current.chapterId);
     if (next == null) {
-      _finished = true;
-      _autoPlayIntent = false;
-      await _engine.pause();
+      await _markFinished();
       return;
     }
     final bool loaded = await _loadChapterSafely(next);
@@ -441,9 +444,7 @@ class PlaybackController {
 
     final next = _queue?.nextOf(current.chapterId);
     if (next == null) {
-      _finished = true;
-      _autoPlayIntent = false;
-      await _engine.pause();
+      await _markFinished();
       return;
     }
 
@@ -451,6 +452,24 @@ class PlaybackController {
     final bool loaded = await _loadChapterSafely(next);
     if (loaded && shouldPlay) {
       await _engine.play();
+    }
+  }
+
+  /// 标记全书完毕并通知装配层（写入 `finishedAt`）。
+  ///
+  /// 顺序关键：先 `await _engine.pause()` —— 暂停会经 [_onEngineEvent] 触发一次
+  /// 普通进度 flush（finished=false）；之后才 fire-and-forget `onBookFinished` 的
+  /// finished=true 写入，确保它排在普通写入**之后**、最终不被后续 flush 清掉。
+  Future<void> _markFinished() async {
+    _finished = true;
+    _autoPlayIntent = false;
+    await _engine.pause();
+
+    final bookId = _request?.bookId;
+    final chapterId = _current?.chapterId;
+    final callback = onBookFinished;
+    if (callback != null && bookId != null && chapterId != null) {
+      unawaited(callback(bookId, chapterId, _position));
     }
   }
 

@@ -30,6 +30,15 @@ final Provider<PlaybackController> playbackControllerProvider =
                 .catchError((Object _) {}),
           );
         },
+        onBookFinished: (String bookId, String chapterId, Duration position) =>
+            queries
+                .saveProgress(
+                  bookId: bookId,
+                  chapterId: chapterId,
+                  position: position,
+                  finished: true,
+                )
+                .catchError((Object _) {}),
       );
       ref.onDispose(controller.dispose);
       return controller;
@@ -99,6 +108,7 @@ Future<OpenBookResult> openBook({
   required CurrentBookNotifier currentBook,
   required MediaSourceResolver resolver,
   required BookDetail detail,
+  String? startChapterId,
 }) async {
   final String title = detail.summary.title;
 
@@ -109,7 +119,11 @@ Future<OpenBookResult> openBook({
   // 既不会重试也无法恢复。带错误时走完整 open 路径（重建队列、丢弃不可解析
   // 的章、必要时缓存副本重试），用户才能自然恢复。
   // 正常播放态 `lastError == null`，短路照旧生效，不会误重开。
-  if (currentBook.current?.summary.id == detail.summary.id &&
+  //
+  // 显式指定起始章（`startChapterId != null`）时**不**短路：那是「指定章起播」
+  // 的入口（详情页点章），必须重新定位，否则永远落在旧进度上。
+  if (startChapterId == null &&
+      currentBook.current?.summary.id == detail.summary.id &&
       controller.current != null &&
       controller.lastError == null) {
     return const OpenBookResult(status: OpenBookStatus.alreadyOpen);
@@ -129,19 +143,24 @@ Future<OpenBookResult> openBook({
 
   final ProgressSnapshot? progress = detail.progress;
   final DateTime now = DateTime.now().toUtc();
-  final String startChapterId = progress?.chapterId ?? queue.first!.chapterId;
-  final Duration savedPosition = progress?.position ?? Duration.zero;
-  final Duration interruption = progress == null
+  // 显式指定章时：不走续播进度，起点位置 0、中断 0（不触发微回退）。
+  final bool explicitChapter = startChapterId != null;
+  final String effectiveStart =
+      startChapterId ?? progress?.chapterId ?? queue.first!.chapterId;
+  final Duration savedPosition = explicitChapter
+      ? Duration.zero
+      : progress?.position ?? Duration.zero;
+  final Duration interruption = (explicitChapter || progress == null)
       ? Duration.zero
       : now.difference(progress.updatedAt.toUtc());
   // 真正会被加载的章：`open` 对不在队列的起始章会回落到第一章。
   // 缓存副本重试只针对这一章（见下方注释）。
-  final QueueChapter target = queue.byId(startChapterId) ?? queue.first!;
+  final QueueChapter target = queue.byId(effectiveStart) ?? queue.first!;
 
   PlaybackRequest requestFor(ChapterSequencer q) => PlaybackRequest(
     bookId: detail.summary.id,
     queue: q,
-    startChapterId: startChapterId,
+    startChapterId: effectiveStart,
     savedPosition: savedPosition,
     interruption: interruption,
     preferences: PerBookPreferences(

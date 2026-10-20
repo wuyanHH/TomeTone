@@ -545,4 +545,69 @@ void main() {
       );
     });
   });
+
+  group('完成信号（onBookFinished）', () {
+    test('最后一章播完 → onBookFinished 恰好一次，之后普通进度仍正常写入', () async {
+      final finished = <({String bookId, String chapterId, Duration position})>[];
+      final c = PlaybackController(
+        engine: engine,
+        writeProgress: (String bookId, String chapterId, Duration position) {
+          writes.add((
+            bookId: bookId,
+            chapterId: chapterId,
+            position: position,
+          ));
+        },
+        onBookFinished: (
+          String bookId,
+          String chapterId,
+          Duration position,
+        ) async {
+          finished.add((
+            bookId: bookId,
+            chapterId: chapterId,
+            position: position,
+          ));
+        },
+        clock: () => now,
+      );
+      addTearDown(c.dispose);
+
+      await c.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c3',
+        ),
+      );
+      await c.play();
+
+      // 分两段推进：先到 9 分钟（引擎会播报 position），再到末尾触发完成，
+      // 这样完成回调拿到的 position 是引擎最后一次播报的真实位置。
+      engine.advance(const Duration(minutes: 9));
+      await pumpEventQueue();
+      engine.advance(const Duration(minutes: 1));
+      await pumpEventQueue();
+
+      expect(finished, hasLength(1), reason: '全书完毕只发一次完成信号');
+      expect(finished.single.bookId, 'b1');
+      expect(finished.single.chapterId, 'c3');
+      expect(finished.single.position, c.position, reason: '透传当前 position');
+
+      // 完成后再打开一本新书并播放：普通进度仍走 writeProgress，不误标已完。
+      final int before = writes.length;
+      await c.open(
+        PlaybackRequest(
+          bookId: 'b2',
+          queue: _buildQueue(),
+          startChapterId: 'c1',
+        ),
+      );
+      await c.play();
+      engine.advance(const Duration(seconds: 1));
+      await pumpEventQueue();
+
+      expect(writes.length, greaterThan(before), reason: '普通进度写入不因完成信号而中断');
+    });
+  });
 }
