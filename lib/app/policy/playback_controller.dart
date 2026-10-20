@@ -457,9 +457,9 @@ class PlaybackController {
 
   /// 标记全书完毕并通知装配层（写入 `finishedAt`）。
   ///
-  /// 顺序关键：先 `await _engine.pause()` —— 暂停会经 [_onEngineEvent] 触发一次
-  /// 普通进度 flush（finished=false）；之后才 fire-and-forget `onBookFinished` 的
-  /// finished=true 写入，确保它排在普通写入**之后**、最终不被后续 flush 清掉。
+  /// `_finished` 在 `await _engine.pause()` **之前**置位：paused 事件经广播流
+  /// 异步投递、到达时 [_buildScheduler] 已处于完成态，普通进度写入被直接忽略，
+  /// 因此完成回调的 finished=true 写入是最后一次，不会被之后排队的 flush 清掉。
   Future<void> _markFinished() async {
     _finished = true;
     _autoPlayIntent = false;
@@ -469,7 +469,12 @@ class PlaybackController {
     final chapterId = _current?.chapterId;
     final callback = onBookFinished;
     if (callback != null && bookId != null && chapterId != null) {
-      unawaited(callback(bookId, chapterId, _position));
+      // 完成位置优先取章末（有效区间末尾）：引擎完成前最后播报的 position 可能
+      // 不是章末（如 9:00），用它写进度会低估；未知时长（end == null）时才退回
+      // 当前 position。
+      final end = _range.end;
+      final finishedPosition = (end != null && end > _position) ? end : _position;
+      unawaited(callback(bookId, chapterId, finishedPosition));
     }
   }
 
@@ -512,6 +517,12 @@ class PlaybackController {
     return ProgressScheduler(
       clock: _clock,
       onWrite: (Duration position) {
+        // 进入完成态后忽略任何普通进度写入：`_markFinished` 里 paused 事件经
+        // 广播流异步投递，到达时可能晚于完成回调，若不在此拦截，finished=false
+        // 的 flush 会反过来把 `finishedAt` 清掉。
+        if (_finished) {
+          return;
+        }
         final bookId = _request?.bookId;
         final chapterId = _current?.chapterId;
         if (bookId != null && chapterId != null) {

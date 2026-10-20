@@ -582,8 +582,8 @@ void main() {
       );
       await c.play();
 
-      // 分两段推进：先到 9 分钟（引擎会播报 position），再到末尾触发完成，
-      // 这样完成回调拿到的 position 是引擎最后一次播报的真实位置。
+      // 分两段推进：先到 9 分钟（引擎会播报 position），再到末尾触发完成。
+      // 完成回调的 position 应取章末（10 分钟），而非最后一次播报（9 分钟）。
       engine.advance(const Duration(minutes: 9));
       await pumpEventQueue();
       engine.advance(const Duration(minutes: 1));
@@ -592,7 +592,11 @@ void main() {
       expect(finished, hasLength(1), reason: '全书完毕只发一次完成信号');
       expect(finished.single.bookId, 'b1');
       expect(finished.single.chapterId, 'c3');
-      expect(finished.single.position, c.position, reason: '透传当前 position');
+      expect(
+        finished.single.position,
+        _chapterLength,
+        reason: '完成位置取章末，而非最后一次播报（9:00）',
+      );
 
       // 完成后再打开一本新书并播放：普通进度仍走 writeProgress，不误标已完。
       final int before = writes.length;
@@ -608,6 +612,51 @@ void main() {
       await pumpEventQueue();
 
       expect(writes.length, greaterThan(before), reason: '普通进度写入不因完成信号而中断');
+    });
+
+    test('skipToNext 在播放中最后一章 → 完成写入是最后一次（last-write-wins）', () async {
+      // 用「最终状态」模拟 DB 的 last-write-wins：writeProgress 记 finished=false，
+      // onBookFinished 记 finished=true，最终状态取最后一次写入。
+      final log = <({bool finished, String chapterId, Duration position})>[];
+      bool? lastWriteFinished;
+
+      final c = PlaybackController(
+        engine: engine,
+        writeProgress: (String bookId, String chapterId, Duration position) {
+          lastWriteFinished = false;
+          log.add((finished: false, chapterId: chapterId, position: position));
+        },
+        onBookFinished: (
+          String bookId,
+          String chapterId,
+          Duration position,
+        ) async {
+          lastWriteFinished = true;
+          log.add((finished: true, chapterId: chapterId, position: position));
+        },
+        clock: () => now,
+      );
+      addTearDown(c.dispose);
+
+      await c.open(
+        PlaybackRequest(bookId: 'b1', queue: _buildQueue(), startChapterId: 'c3'),
+      );
+      await c.play();
+
+      // 播放中在最后一章点「下一曲」：走 _markFinished（而非 completed no-op）。
+      await c.skipToNext();
+      await pumpEventQueue();
+
+      expect(c.isBookFinished, isTrue);
+      expect(lastWriteFinished, isTrue, reason: '完成标记是最后一次写入');
+      expect(log.last.finished, isTrue, reason: '完成写入必须排在最后');
+      // 完成写入之后不得再有 finished=false 覆盖。
+      final int lastTrue = log.lastIndexWhere((w) => w.finished);
+      expect(
+        log.sublist(lastTrue + 1).any((w) => !w.finished),
+        isFalse,
+        reason: '完成写入之后不得再有普通进度写入（paused→flush 必须被跳过）',
+      );
     });
   });
 }
