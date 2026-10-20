@@ -432,7 +432,7 @@ class LibraryRootsCompanion extends UpdateCompanion<LibraryRoot> {
 }
 
 class $BookSourcesTable extends BookSources
-    with TableInfo<$BookSourcesTable, BookSource> {
+    with TableInfo<$BookSourcesTable, BookSourceRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -720,7 +720,7 @@ class $BookSourcesTable extends BookSources
   static const String $name = 'book_sources';
   @override
   VerificationContext validateIntegrity(
-    Insertable<BookSource> instance, {
+    Insertable<BookSourceRow> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -897,9 +897,9 @@ class $BookSourcesTable extends BookSources
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  BookSource map(Map<String, dynamic> data, {String? tablePrefix}) {
+  BookSourceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return BookSource(
+    return BookSourceRow(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
@@ -997,7 +997,7 @@ class $BookSourcesTable extends BookSources
   }
 }
 
-class BookSource extends DataClass implements Insertable<BookSource> {
+class BookSourceRow extends DataClass implements Insertable<BookSourceRow> {
   /// ULID。
   final String id;
 
@@ -1063,7 +1063,7 @@ class BookSource extends DataClass implements Insertable<BookSource> {
 
   /// 软删除时间；非空表示来源不可用，但书目与进度保留。
   final DateTime? deletedAt;
-  const BookSource({
+  const BookSourceRow({
     required this.id,
     required this.libraryRootId,
     required this.sourceUrl,
@@ -1182,12 +1182,12 @@ class BookSource extends DataClass implements Insertable<BookSource> {
     );
   }
 
-  factory BookSource.fromJson(
+  factory BookSourceRow.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return BookSource(
+    return BookSourceRow(
       id: serializer.fromJson<String>(json['id']),
       libraryRootId: serializer.fromJson<String>(json['libraryRootId']),
       sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
@@ -1243,7 +1243,7 @@ class BookSource extends DataClass implements Insertable<BookSource> {
     };
   }
 
-  BookSource copyWith({
+  BookSourceRow copyWith({
     String? id,
     String? libraryRootId,
     String? sourceUrl,
@@ -1266,7 +1266,7 @@ class BookSource extends DataClass implements Insertable<BookSource> {
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
-  }) => BookSource(
+  }) => BookSourceRow(
     id: id ?? this.id,
     libraryRootId: libraryRootId ?? this.libraryRootId,
     sourceUrl: sourceUrl ?? this.sourceUrl,
@@ -1292,8 +1292,8 @@ class BookSource extends DataClass implements Insertable<BookSource> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
-  BookSource copyWithCompanion(BookSourcesCompanion data) {
-    return BookSource(
+  BookSourceRow copyWithCompanion(BookSourcesCompanion data) {
+    return BookSourceRow(
       id: data.id.present ? data.id.value : this.id,
       libraryRootId: data.libraryRootId.present
           ? data.libraryRootId.value
@@ -1341,7 +1341,7 @@ class BookSource extends DataClass implements Insertable<BookSource> {
 
   @override
   String toString() {
-    return (StringBuffer('BookSource(')
+    return (StringBuffer('BookSourceRow(')
           ..write('id: $id, ')
           ..write('libraryRootId: $libraryRootId, ')
           ..write('sourceUrl: $sourceUrl, ')
@@ -1396,7 +1396,7 @@ class BookSource extends DataClass implements Insertable<BookSource> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is BookSource &&
+      (other is BookSourceRow &&
           other.id == this.id &&
           other.libraryRootId == this.libraryRootId &&
           other.sourceUrl == this.sourceUrl &&
@@ -1421,7 +1421,7 @@ class BookSource extends DataClass implements Insertable<BookSource> {
           other.deletedAt == this.deletedAt);
 }
 
-class BookSourcesCompanion extends UpdateCompanion<BookSource> {
+class BookSourcesCompanion extends UpdateCompanion<BookSourceRow> {
   final Value<String> id;
   final Value<String> libraryRootId;
   final Value<String> sourceUrl;
@@ -1502,7 +1502,7 @@ class BookSourcesCompanion extends UpdateCompanion<BookSource> {
        rawJson = Value(rawJson),
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
-  static Insertable<BookSource> custom({
+  static Insertable<BookSourceRow> custom({
     Expression<String>? id,
     Expression<String>? libraryRootId,
     Expression<String>? sourceUrl,
@@ -8469,7 +8469,7 @@ final class $$LibraryRootsTableReferences
         BaseReferences<_$TomeToneDatabase, $LibraryRootsTable, LibraryRoot> {
   $$LibraryRootsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$BookSourcesTable, List<BookSource>>
+  static MultiTypedResultKey<$BookSourcesTable, List<BookSourceRow>>
   _bookSourcesRefsTable(_$TomeToneDatabase db) => MultiTypedResultKey.fromTable(
     db.bookSources,
     aliasName: 'library_roots__id__book_sources__library_root_id',
@@ -8884,7 +8884,7 @@ class $$LibraryRootsTableTableManager
                         await $_getPrefetchedData<
                           LibraryRoot,
                           $LibraryRootsTable,
-                          BookSource
+                          BookSourceRow
                         >(
                           currentTable: table,
                           referencedTable: $$LibraryRootsTableReferences
@@ -9023,7 +9023,8 @@ typedef $$BookSourcesTableUpdateCompanionBuilder =
     });
 
 final class $$BookSourcesTableReferences
-    extends BaseReferences<_$TomeToneDatabase, $BookSourcesTable, BookSource> {
+    extends
+        BaseReferences<_$TomeToneDatabase, $BookSourcesTable, BookSourceRow> {
   $$BookSourcesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $LibraryRootsTable _libraryRootIdTable(_$TomeToneDatabase db) => db
@@ -9581,14 +9582,14 @@ class $$BookSourcesTableTableManager
         RootTableManager<
           _$TomeToneDatabase,
           $BookSourcesTable,
-          BookSource,
+          BookSourceRow,
           $$BookSourcesTableFilterComposer,
           $$BookSourcesTableOrderingComposer,
           $$BookSourcesTableAnnotationComposer,
           $$BookSourcesTableCreateCompanionBuilder,
           $$BookSourcesTableUpdateCompanionBuilder,
-          (BookSource, $$BookSourcesTableReferences),
-          BookSource,
+          (BookSourceRow, $$BookSourcesTableReferences),
+          BookSourceRow,
           PrefetchHooks Function({
             bool libraryRootId,
             bool booksRefs,
@@ -9709,7 +9710,7 @@ class $$BookSourcesTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable<$BookSourcesTable, BookSource>(table),
+                  e.readTable<$BookSourcesTable, BookSourceRow>(table),
                   $$BookSourcesTableReferences(db, table, e),
                 ),
               )
@@ -9760,7 +9761,7 @@ class $$BookSourcesTableTableManager
                     return [
                       if (booksRefs)
                         await $_getPrefetchedData<
-                          BookSource,
+                          BookSourceRow,
                           $BookSourcesTable,
                           Book
                         >(
@@ -9781,7 +9782,7 @@ class $$BookSourcesTableTableManager
                         ),
                       if (audioCacheEntriesRefs)
                         await $_getPrefetchedData<
-                          BookSource,
+                          BookSourceRow,
                           $BookSourcesTable,
                           AudioCacheEntry
                         >(
@@ -9812,14 +9813,14 @@ typedef $$BookSourcesTableProcessedTableManager =
     ProcessedTableManager<
       _$TomeToneDatabase,
       $BookSourcesTable,
-      BookSource,
+      BookSourceRow,
       $$BookSourcesTableFilterComposer,
       $$BookSourcesTableOrderingComposer,
       $$BookSourcesTableAnnotationComposer,
       $$BookSourcesTableCreateCompanionBuilder,
       $$BookSourcesTableUpdateCompanionBuilder,
-      (BookSource, $$BookSourcesTableReferences),
-      BookSource,
+      (BookSourceRow, $$BookSourcesTableReferences),
+      BookSourceRow,
       PrefetchHooks Function({
         bool libraryRootId,
         bool booksRefs,

@@ -44,6 +44,7 @@ class LibraryRoots extends Table {
 ///
 /// 每个源绑定一条虚拟书库根（`library_roots.type = 'online'`），在线书目通过
 /// [Books.sourceId] 归属到源；书源软删除，重新导入同 URL 时复活原行。
+@DataClassName('BookSourceRow')
 @TableIndex(
   name: 'book_sources_source_url',
   columns: {#sourceUrl},
