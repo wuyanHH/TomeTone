@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/providers/app_providers.dart';
-import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app_tabs.dart';
-import 'package:tometone/ui/pages/player/player_page.dart';
+import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
+import 'package:tometone/ui/pages/shelf/open_book_action.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_card.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_row.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
@@ -25,7 +25,7 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 ///
 /// 三态都直接来自 [booksProvider]：加载中不假装有内容，空态一句话指向
 /// 「书库」并给出直达按钮，错误态提供重试（`ref.invalidate`）。筛选只作用于
-/// 加载完成后的书单；筛选后的零结果空态由后续任务补上。
+/// 加载完成后的书单；筛选后的零结果有独立空态与「清除筛选」出口。
 class ShelfPage extends ConsumerStatefulWidget {
   /// 创建书架。
   const ShelfPage({super.key});
@@ -50,6 +50,12 @@ class ShelfPage extends ConsumerStatefulWidget {
 
   /// 空态里「去书库添加目录」的引导按钮。
   static const Key goToLibraryKey = Key('shelf-open-library');
+
+  /// 筛选后零结果的专用空态。
+  static const Key filteredEmptyKey = Key('shelf-filtered-empty');
+
+  /// 零结果空态里的「清除筛选」按钮。
+  static const Key clearFiltersKey = Key('shelf-clear-filters');
 
   /// 搜索图标（展开 / 收起搜索输入）。
   static const Key searchToggleKey = Key('shelf-search-toggle');
@@ -84,7 +90,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
   /// 当前筛选（搜索词 / 状态 / 分类 / 系列），只存在内存里。
   ShelfFilterState _filter = const ShelfFilterState();
 
-  /// 布局密度；本轮仅存内存，Task 7 起接管真实切换。
+  /// 布局密度；本轮仅存内存，重新进入页面回落网格。
   ShelfLayout _layout = ShelfLayout.grid;
 
   /// 搜索输入框是否展开。
@@ -99,6 +105,21 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
 
   void _updateFilter(ShelfFilterState next) {
     setState(() => _filter = next);
+  }
+
+  /// 清除全部筛选（零结果空态的出口）。
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() => _filter = const ShelfFilterState());
+  }
+
+  /// 点卡片进详情；播放按钮走 [playBookFromSummary] 直接起播。
+  void _openDetail(BuildContext context, BookSummary book) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => BookDetailPage(bookId: book.id),
+      ),
+    );
   }
 
   /// 展开 / 收起搜索输入；收起时顺手清空搜索词，避免看不见的隐性筛选。
@@ -156,11 +177,6 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
 
     final List<BookSummary> books = booksAsync.value ?? const <BookSummary>[];
     final List<BookSummary> visibleBooks = _filter.apply(books);
-    final List<LibraryRootView> roots =
-        rootsAsync.value ?? const <LibraryRootView>[];
-    final Map<String, String> rootUriById = <String, String>{
-      for (final LibraryRootView root in roots) root.id: root.uri,
-    };
 
     // 工具行只在「加载完成且有书」时出现：加载 / 错误 / 全局空态保持原样。
     final bool toolbarVisible = !failed && !loading && books.isNotEmpty;
@@ -274,6 +290,11 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                   },
                 ),
               )
+            else if (visibleBooks.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _ShelfFilteredEmpty(onClear: _clearFilters),
+              )
             else if (_layout == ShelfLayout.grid)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
@@ -290,18 +311,12 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                     final BookSummary book = visibleBooks[index];
                     return ShelfBookCard(
                       book: book,
-                      onOpen: () => unawaited(
-                        _openBook(
-                          context,
-                          book,
-                          rootUriById[book.libraryRootId],
-                        ),
-                      ),
+                      onOpen: () => _openDetail(context, book),
                       onPlay: () => unawaited(
-                        _openBook(
-                          context,
-                          book,
-                          rootUriById[book.libraryRootId],
+                        playBookFromSummary(
+                          context: context,
+                          ref: ref,
+                          book: book,
                         ),
                       ),
                     );
@@ -329,18 +344,12 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                       ),
                       child: ShelfBookRow(
                         book: book,
-                        onOpen: () => unawaited(
-                          _openBook(
-                            context,
-                            book,
-                            rootUriById[book.libraryRootId],
-                          ),
-                        ),
+                        onOpen: () => _openDetail(context, book),
                         onPlay: () => unawaited(
-                          _openBook(
-                            context,
-                            book,
-                            rootUriById[book.libraryRootId],
+                          playBookFromSummary(
+                            context: context,
+                            ref: ref,
+                            book: book,
                           ),
                         ),
                       ),
@@ -352,54 +361,6 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
         );
       },
     );
-  }
-
-  Future<void> _openBook(
-    BuildContext context,
-    BookSummary book,
-    String? rootUri,
-  ) async {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    // 根缺失（或根还没加载出来）：走可区分的「根已移除」文案。
-    final resolver = ref.read(
-      mediaSourceResolverForRootProvider(book.libraryRootId),
-    );
-    if (rootUri == null || rootUri.isEmpty || resolver == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('找不到这本书的书库根目录，可能已被移除')),
-      );
-      return;
-    }
-
-    final BookDetail? detail = await ref.read(
-      bookDetailProvider(book.id).future,
-    );
-    if (detail == null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('《${book.title}》的书目信息不完整，无法打开')),
-      );
-      return;
-    }
-
-    final OpenBookResult result = await openBook(
-      controller: ref.read(playbackControllerProvider),
-      currentBook: ref.read(currentBookProvider.notifier),
-      resolver: resolver,
-      detail: detail,
-    );
-
-    switch (result.status) {
-      case OpenBookStatus.failed:
-        messenger.showSnackBar(
-          SnackBar(content: Text(result.message ?? '打不开《${book.title}》，请稍后再试')),
-        );
-      case OpenBookStatus.alreadyOpen:
-      case OpenBookStatus.opened:
-        if (!context.mounted) {
-          return;
-        }
-        await showPlayerPage(context);
-    }
   }
 }
 
@@ -493,9 +454,7 @@ class _ShelfHeader extends StatelessWidget {
               IconButton(
                 key: ShelfPage.layoutToggleKey,
                 onPressed: onLayoutToggle,
-                tooltip: layout == ShelfLayout.grid
-                    ? '切换为列表视图'
-                    : '切换为网格视图',
+                tooltip: layout == ShelfLayout.grid ? '切换为列表视图' : '切换为网格视图',
                 icon: Icon(
                   layout == ShelfLayout.grid
                       ? Icons.grid_view_rounded
@@ -876,6 +835,70 @@ class _ShelfEmpty extends StatelessWidget {
                 onPressed: onRefresh,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('重新读取书架'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 筛选后零结果：保留筛选工具行，只替换列表区域，并给一个清除入口。
+class _ShelfFilteredEmpty extends StatelessWidget {
+  const _ShelfFilteredEmpty({required this.onClear});
+
+  /// 清除全部筛选。
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.md,
+          AppSpacing.xl,
+          AppSpacing.xxxl,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
+          child: Column(
+            key: ShelfPage.filteredEmptyKey,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: AppRadii.xl,
+                ),
+                child: SizedBox.square(
+                  dimension: 64,
+                  child: Icon(
+                    Icons.filter_alt_off_outlined,
+                    size: 30,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('没有符合条件的书', style: text.titleLarge),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '试试换个关键词，或清除状态、分类与系列筛选。',
+                textAlign: TextAlign.center,
+                style: text.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.tonalIcon(
+                key: ShelfPage.clearFiltersKey,
+                onPressed: onClear,
+                icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+                label: const Text('清除筛选'),
               ),
             ],
           ),

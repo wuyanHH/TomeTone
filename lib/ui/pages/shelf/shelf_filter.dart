@@ -15,7 +15,7 @@ enum ShelfStatusFilter {
   finished,
 }
 
-/// 书架布局密度（Task 7 起接管真实切换）。
+/// 书架布局密度（本轮只存内存）。
 enum ShelfLayout {
   /// 双列藏书格。
   grid,
@@ -67,7 +67,7 @@ class ShelfFilterState {
     final String needle = query.trim().toLowerCase();
     return <BookSummary>[
       for (final BookSummary book in books)
-        if (_matches(book, needle)) book
+        if (_matches(book, needle)) book,
     ];
   }
 

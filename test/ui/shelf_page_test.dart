@@ -16,6 +16,7 @@ import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/player/player_page.dart';
+import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_card.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_row.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
@@ -185,7 +186,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('点击书籍：openBook 打开队列并展开播放台', (WidgetTester tester) async {
+  testWidgets('点播放按钮：openBook 打开队列并展开播放台', (WidgetTester tester) async {
     usePhoneViewport(tester);
     final BookSummary summary = testSummary(title: '山海夜航');
     final BookDetail detail = testDetail(summary: summary);
@@ -200,13 +201,37 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('山海夜航'));
+    await tester.tap(find.byKey(ShelfBookCard.playKeyOf('book-1')));
     await tester.pumpAndSettle();
 
     expect(controller.current?.chapterId, 'c1');
     expect(controller.state, EnginePlaybackState.playing);
     expect(container.read(currentBookProvider)?.summary.id, 'book-1');
     expect(find.byType(PlayerPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('点卡片：进入书籍详情页，不直接起播', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final BookSummary summary = testSummary(title: '山海夜航');
+    final BookDetail detail = testDetail(summary: summary);
+
+    await pumpShelf(
+      tester,
+      overrides: testOverrides(
+        controller: controller,
+        books: <BookSummary>[summary],
+        detail: detail,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('山海夜航'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BookDetailPage), findsOneWidget);
+    expect(find.byType(PlayerPage), findsNothing);
+    expect(controller.current, isNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -230,7 +255,7 @@ void main() {
     await controller.open(testRequest(detail));
     final int loads = engine.emitted.whereType<EngineDurationChanged>().length;
 
-    await tester.tap(find.text('山海夜航'));
+    await tester.tap(find.byKey(ShelfBookCard.playKeyOf('book-1')));
     await tester.pumpAndSettle();
 
     expect(find.byType(PlayerPage), findsOneWidget);
@@ -267,7 +292,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('山海夜航'));
+    await tester.tap(find.byKey(ShelfBookCard.playKeyOf('book-1')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('音频读取失败'), findsOneWidget);
@@ -342,7 +367,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('空卷'));
+    await tester.tap(find.byKey(ShelfBookCard.playKeyOf('book-1')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('没有可播放的章节'), findsOneWidget);
@@ -429,8 +454,9 @@ void main() {
     ];
 
     /// 只取书名，断言用。
-    List<String> titles(List<BookSummary> books) =>
-        <String>[for (final BookSummary book in books) book.title];
+    List<String> titles(List<BookSummary> books) => <String>[
+      for (final BookSummary book in books) book.title,
+    ];
 
     test('apply([]) 为空；默认状态不激活且原样返回', () {
       const ShelfFilterState filter = ShelfFilterState();
@@ -453,14 +479,18 @@ void main() {
       expect(titles(base.copyWith(query: '长安').apply(books)), <String>['雪落长安']);
       expect(titles(base.copyWith(query: '沈砚').apply(books)), <String>['长夜行舟']);
       // 演播者大小写折叠：'Chen Yu' 能被 'chen yu' 命中。
-      expect(titles(base.copyWith(query: 'chen yu').apply(books)), <String>['雾中灯塔']);
+      expect(titles(base.copyWith(query: 'chen yu').apply(books)), <String>[
+        '雾中灯塔',
+      ]);
       // 简介关键词。
-      expect(titles(base.copyWith(query: '不会寄出').apply(books)), <String>['雾中灯塔']);
+      expect(titles(base.copyWith(query: '不会寄出').apply(books)), <String>[
+        '雾中灯塔',
+      ]);
       // 系列名也参与搜索。
-      expect(
-        titles(base.copyWith(query: '山海纪').apply(books)),
-        <String>['长夜行舟', '雾中灯塔'],
-      );
+      expect(titles(base.copyWith(query: '山海纪').apply(books)), <String>[
+        '长夜行舟',
+        '雾中灯塔',
+      ]);
       expect(base.copyWith(query: '不存在的关键词').apply(books), isEmpty);
       // 空白搜索词等同未搜索。
       expect(base.copyWith(query: '   ').apply(books), hasLength(4));
@@ -519,8 +549,7 @@ void main() {
       // 标签 ∩ 系列。
       expect(
         titles(
-          const ShelfFilterState(tag: 'wuxia', series: '山海纪')
-              .apply(books),
+          const ShelfFilterState(tag: 'wuxia', series: '山海纪').apply(books),
         ),
         <String>['长夜行舟'],
       );
@@ -593,16 +622,11 @@ void main() {
       ),
     ];
 
-    testWidgets('搜索：展开输入即时过滤，清除按钮一键恢复', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('搜索：展开输入即时过滤，清除按钮一键恢复', (WidgetTester tester) async {
       usePhoneViewport(tester);
       await pumpShelf(
         tester,
-        overrides: testOverrides(
-          controller: controller,
-          books: shelfFixture(),
-        ),
+        overrides: testOverrides(controller: controller, books: shelfFixture()),
       );
       await tester.pumpAndSettle();
 
@@ -620,10 +644,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(ShelfPage.searchFieldKey), findsOneWidget);
 
-      await tester.enterText(
-        find.byKey(ShelfPage.searchFieldKey),
-        '沈砚',
-      );
+      await tester.enterText(find.byKey(ShelfPage.searchFieldKey), '沈砚');
       await tester.pumpAndSettle();
       expect(find.text('长夜行舟'), findsOneWidget);
       expect(find.text('雾中灯塔'), findsNothing);
@@ -638,22 +659,44 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('状态 chips：在听只留对应书，切回全部恢复', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('零结果：专用空态 + 清除筛选恢复全部', (WidgetTester tester) async {
       usePhoneViewport(tester);
       await pumpShelf(
         tester,
-        overrides: testOverrides(
-          controller: controller,
-          books: shelfFixture(),
-        ),
+        overrides: testOverrides(controller: controller, books: shelfFixture()),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(ShelfPage.statusChipKey(
-        ShelfStatusFilter.listening,
-      )));
+      await tester.tap(find.byKey(ShelfPage.searchToggleKey));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(ShelfPage.searchFieldKey), '不存在的书名');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(ShelfPage.filteredEmptyKey), findsOneWidget);
+      expect(find.text('没有符合条件的书'), findsOneWidget);
+      expect(find.text('清除筛选'), findsOneWidget);
+      expect(find.text('0 / 4 册'), findsOneWidget);
+
+      await tester.tap(find.byKey(ShelfPage.clearFiltersKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(ShelfPage.filteredEmptyKey), findsNothing);
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('4 册'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('状态 chips：在听只留对应书，切回全部恢复', (WidgetTester tester) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(controller: controller, books: shelfFixture()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.listening)),
+      );
       await tester.pumpAndSettle();
       expect(find.text('长夜行舟'), findsOneWidget);
       expect(find.text('雾中灯塔'), findsNothing);
@@ -668,16 +711,11 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('分类与系列选项派生自书单，组合过滤生效', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('分类与系列选项派生自书单，组合过滤生效', (WidgetTester tester) async {
       usePhoneViewport(tester);
       await pumpShelf(
         tester,
-        overrides: testOverrides(
-          controller: controller,
-          books: shelfFixture(),
-        ),
+        overrides: testOverrides(controller: controller, books: shelfFixture()),
       );
       await tester.pumpAndSettle();
 
@@ -713,8 +751,9 @@ void main() {
       expect(find.text('长安三夜'), findsOneWidget);
       await tester.tap(checkedItem('长安三夜'));
       await tester.pumpAndSettle();
-      // 悬疑 ∩ 长安三夜 = 空：本轮不渲染零结果空态（Task 8），只看数量与网格清空。
+      // 悬疑 ∩ 长安三夜 = 空：出现专用零结果态，网格被替换。
       expect(find.text('雾中灯塔'), findsNothing);
+      expect(find.byKey(ShelfPage.filteredEmptyKey), findsOneWidget);
       expect(find.text('0 / 4 册'), findsOneWidget);
 
       // 「不限分类」只清标签，系列筛选保留（《长安三夜》只含《雪落长安》）。
@@ -728,16 +767,11 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('布局切换：网格与列表真实切换，不重建数据', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('布局切换：网格与列表真实切换，不重建数据', (WidgetTester tester) async {
       usePhoneViewport(tester);
       await pumpShelf(
         tester,
-        overrides: testOverrides(
-          controller: controller,
-          books: shelfFixture(),
-        ),
+        overrides: testOverrides(controller: controller, books: shelfFixture()),
       );
       await tester.pumpAndSettle();
 
@@ -756,9 +790,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('320dp 宽 + 系统大字号：展开搜索与筛选行不溢出', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('320dp 宽 + 系统大字号：展开搜索与筛选行不溢出', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
       tester.platformDispatcher.textScaleFactorTestValue = 1.6;
@@ -768,10 +800,7 @@ void main() {
 
       await pumpShelf(
         tester,
-        overrides: testOverrides(
-          controller: controller,
-          books: shelfFixture(),
-        ),
+        overrides: testOverrides(controller: controller, books: shelfFixture()),
       );
       await tester.pumpAndSettle();
 
@@ -789,9 +818,7 @@ void main() {
   });
 
   group('书架卡片与列表行', () {
-    testWidgets('网格卡片：书名 / 作者·演播 / 一句简介 / 进度百分比', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('网格卡片：书名 / 作者·演播 / 一句简介 / 进度百分比', (WidgetTester tester) async {
       usePhoneViewport(tester);
       final BookSummary book = testSummary(
         title: '长夜行舟',
@@ -818,9 +845,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('列表行：两行简介与标签 chips，进度沿用同一口径', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('列表行：两行简介与标签 chips，进度沿用同一口径', (WidgetTester tester) async {
       usePhoneViewport(tester);
       final BookSummary book = testSummary(
         title: '长夜行舟',
@@ -847,10 +872,7 @@ void main() {
       expect(find.byType(ShelfBookRow), findsOneWidget);
       expect(find.text('长夜行舟'), findsOneWidget);
       expect(find.text('沈砚 著 · 白露 演播'), findsOneWidget);
-      expect(
-        find.text('夜航灯影下打捞旧事的航行，一直讲到天亮。'),
-        findsOneWidget,
-      );
+      expect(find.text('夜航灯影下打捞旧事的航行，一直讲到天亮。'), findsOneWidget);
       expect(find.text('武侠'), findsOneWidget);
       expect(find.text('夜航'), findsOneWidget);
       expect(find.text('50%'), findsOneWidget);
@@ -901,9 +923,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('320dp + 大字号：网格卡片与列表行都不溢出', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('320dp + 大字号：网格卡片与列表行都不溢出', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
       tester.platformDispatcher.textScaleFactorTestValue = 1.6;

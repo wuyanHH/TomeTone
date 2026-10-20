@@ -120,9 +120,7 @@ class ShelfBookCard extends ConsumerWidget {
                 description.isEmpty ? '暂无简介' : description,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: text.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: AppSpacing.xs),
               ShelfProgress(book: book, compact: true),
@@ -173,11 +171,7 @@ class ShelfBookCard extends ConsumerWidget {
 
 /// 圆形播放按钮（网格封面右下角 / 列表行右侧共用）。
 class _PlayButton extends StatelessWidget {
-  const _PlayButton({
-    required this.onPlay,
-    required this.diameter,
-    super.key,
-  });
+  const _PlayButton({required this.onPlay, required this.diameter, super.key});
 
   final VoidCallback onPlay;
   final double diameter;

@@ -182,11 +182,7 @@ class _TagChips extends StatelessWidget {
 
 /// 圆形播放按钮。
 class _PlayButton extends StatelessWidget {
-  const _PlayButton({
-    required this.onPlay,
-    required this.diameter,
-    super.key,
-  });
+  const _PlayButton({required this.onPlay, required this.diameter, super.key});
 
   final VoidCallback onPlay;
   final double diameter;
