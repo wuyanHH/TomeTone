@@ -8,6 +8,23 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ### 新增
 
+- **书架双布局与筛选**（`lib/ui/pages/shelf/`）：
+  网格卡片展示封面、书名、作者/演播、一句简介与收听进度；列表行额外展示标签 chips。
+  页首可展开搜索（书名 / 作者 / 演播 / 简介 / 系列），并按全部 / 在听 / 未听 / 已完、
+  分类标签与系列组合筛选；筛选到空结果时给出「没有符合条件的书」与一键清除入口。
+  进度统一按章节位置计算，已听完显示「已完」。
+- **书籍详情页**（`lib/ui/pages/shelf/book_detail_page.dart`）：
+  展示大封面、系列与序号、作者/演播、状态、标签、完整简介、收听进度与章节目录 /
+  卷册入口；底部主按钮按状态显示「开始收听 / 从第 N 章继续收听 / 重新收听」。
+  章节目录按卷分组，当前章高亮，缺失章置灰不可点；点正常章可指定该章起播。
+- **元数据编辑与书根 sidecar**（`lib/ui/pages/shelf/book_metadata_sheet.dart`、
+  `lib/app/library/book_metadata_service.dart`）：
+  可编辑书名、作者、演播、系列与序号、简介、标签；保存先写 SQLite 覆盖层，
+  再尽力向本地书根写 `tometone.meta.json`。弹层会区分「已保存到应用与书根」、
+  「已保存到应用内，书根文件未写入」与「书根写入失败」。详情页 `⋮` 另提供
+  「从书根重新导入」，手改过的书会先确认，且只覆盖文件里实际出现的字段。
+- **按章起播与播完标记**（`lib/app/policy/playback_controller.dart`）：
+  `openBook` 支持 `startChapterId`；真实播完写入 `finished_at`，书架与详情页据此显示「已完」。
 - **书库根只读目录浏览**（`lib/ui/pages/library/library_browser_page.dart`）：
   点书库列表里的根卡片即可进入该目录，像文件管理器一样逐层查看文件夹与文件；
   面包屑与返回键都先回上一级，根层才退出。列目录只走 `StorageProvider`，不解析书目、
@@ -24,11 +41,19 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ### 优化
 
+- **书架查询与元数据合并**（`lib/domain/library/queries/library_queries.dart`）：
+  摘要一次带出简介、标签、手改标记、进度章序号与完听状态；元数据合并顺序为
+  手动编辑 > sidecar > 目录 / 文件名推断，重新导入不会清空文件中缺失的字段。
 - **书库根卡片信息层级重排**（`lib/ui/pages/library/library_roots.dart`）：
   名称与可读位置占满整行，位置在名称正下方；「上次扫描」移到卡片底行左侧，
   扫描与 `⋮` 收到底行右侧对齐，二者保持独立手势与 ≥44dp 触控目标。
   扫描按钮改为带雷达图标的描边按钮，仍是卡片上的主要动作，但不再压过书名。
   320dp 窄屏与长名称 / 长路径下不再拥挤或溢出。
+
+### 数据库
+
+- **schema v2 增量迁移**：新增 `book_metadata_overrides.manual_edited_at`、
+  `playback_progress.finished_at` 与 `book_tags` 表；迁移只做增量，不重建用户库。
 
 ### 移除
 
@@ -37,9 +62,19 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ### 测试
 
+- 新增 `test/ui/book_detail_page_test.dart`、`test/ui/book_metadata_sheet_test.dart`；
+  扩展 `test/ui/shelf_page_test.dart` 覆盖双布局、零结果、卡片/播放按钮分流与
+  320dp + 1.6 倍字号。
 - 新增 `test/ui/library_browser_page_test.dart`、`test/ui/library_root_location_test.dart`、
   `test/ui/scroll_marquee_text_test.dart`；同步 `test/ui/library_page_test.dart`
-  的卡片、窄屏与进入浏览页用例。`flutter analyze` 无问题，`flutter test` 493 项全部通过。
+  的卡片、窄屏与进入浏览页用例。
+- `flutter analyze` 无问题，`flutter test` 574 项全部通过。
+
+### 已知限制
+
+- SAF 书库根本轮只读：元数据只写入 SQLite，不生成 `tometone.meta.json`。
+- 书架仍为全量加载，暂未做分页；在线元数据抓取待书源引擎落地后接入。
+- 不写入音频标签，也不移动、重命名或删除用户音频与封面文件。
 
 ## [0.2.0-beta.1] - 2026-10-19
 

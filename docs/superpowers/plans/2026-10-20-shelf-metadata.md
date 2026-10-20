@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-20-ui-refresh-shelf-metadata-design.md`
 
+**状态:** 已落地（2026-10-20）。`flutter analyze` 无问题，`flutter test` 574 项全部通过；真机 / SAF 目录的手工冒烟仍建议发版前补做。
+
 **设计基准:** `docs/design-preview/ui-refresh/index.html` · 方向 A「宣纸旧卷」
 
 ## Global Constraints
@@ -52,7 +54,7 @@
   - `class BookMetadataDraft { const BookMetadataDraft({this.title, this.author, this.narrator, this.seriesName, this.seriesIndex, this.description, this.tags = const <String>[]}); bool get isEmpty; BookMetadataDraft normalized(); }`
   - `List<String> normalizeTags(Iterable<String> raw)`
 
-- [ ] **Step 1: 写迁移失败测试**
+- [x] **Step 1: 写迁移失败测试**
 
 在 `test/domain/library/database/migration_v2_test.dart` 建一个临时文件数据库，手工建 v1 的 `library_roots` / `books` / `book_metadata_overrides` 表（旧列集合），插入一条书与一条覆盖层，`PRAGMA user_version = 1` 后关闭；再用 `TomeToneDatabase(NativeDatabase(file))` 打开。
 
@@ -69,12 +71,12 @@ expect(tables.map((r) => r.read<String>('name')), contains('book_tags'));
 expect(await db.select(db.bookMetadataOverrides).get(), hasLength(1));
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/domain/library/database/migration_v2_test.dart`
 Expected: FAIL（schemaVersion 仍为 1 / 缺列 / 缺表）
 
-- [ ] **Step 3: 改表与迁移**
+- [x] **Step 3: 改表与迁移**
 
 在 `tables.dart`：
 
@@ -89,7 +91,7 @@ Expected: FAIL（schemaVersion 仍为 1 / 缺列 / 缺表）
 - `onUpgrade` 里 `if (from < 2)` 依次 `addColumn(bookMetadataOverrides, bookMetadataOverrides.manualEditedAt)`、`addColumn(playbackProgress, playbackProgress.finishedAt)`、`createTable(bookTags)`。
 - 保留现有 `beforeOpen` 的外键开关。
 
-- [ ] **Step 4: 写 `BookMetadataDraft` 与标签归一化测试**
+- [x] **Step 4: 写 `BookMetadataDraft` 与标签归一化测试**
 
 `test/domain/library/metadata/book_metadata_test.dart` 断言：
 
@@ -101,7 +103,7 @@ expect(const BookMetadataDraft(author: '  ').normalized().author, isNull);
 expect(const BookMetadataDraft(tags: ['武侠']).isEmpty, isFalse);
 ```
 
-- [ ] **Step 5: 建 `BookMetadataDraft`**
+- [x] **Step 5: 建 `BookMetadataDraft`**
 
 `book_metadata.dart` 实现 Interfaces 中的值对象：
 
@@ -109,7 +111,7 @@ expect(const BookMetadataDraft(tags: ['武侠']).isEmpty, isFalse);
 - `tags` 走 `normalizeTags`：按 `,` / `，` / `、` 拆分，去空、去首尾空格、大小写不敏感去重（保留首次写法）。
 - `isEmpty` 为所有字段为空且 tags 为空。
 
-- [ ] **Step 6: 生成代码并跑测试**
+- [x] **Step 6: 生成代码并跑测试**
 
 Run:
 ```bash
@@ -118,7 +120,7 @@ flutter test test/domain/library/database/migration_v2_test.dart test/domain/lib
 ```
 Expected: PASS
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add lib/domain/library/database lib/domain/library/metadata test/domain/library/database test/domain/library/metadata
@@ -149,7 +151,7 @@ git commit -m "feat: add shelf metadata schema v2"
   - `LibraryQueries.saveBookMetadata({required String bookId, required BookMetadataDraft metadata, bool manual = true, bool onlyFillEmpty = false, DateTime? updatedAt})`
   - `LibraryQueries.saveProgress({..., bool finished = false})`
 
-- [ ] **Step 1: 写查询失败测试**
+- [x] **Step 1: 写查询失败测试**
 
 在 `drift_library_queries_test.dart` 增加：
 
@@ -162,16 +164,16 @@ git commit -m "feat: add shelf metadata schema v2"
 7. `listBookTags()` 返回去重后的全部标签，并按不区分大小写排序。
 8. `saveProgress(finished: true)` 写入 `finishedAt`；随后 `saveProgress(finished: false)` 清空。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/domain/library/queries/drift_library_queries_test.dart`
 Expected: FAIL（方法 / 字段不存在）
 
-- [ ] **Step 3: 扩展视图**
+- [x] **Step 3: 扩展视图**
 
 `BookSummary` 加五个字段，构造参数给默认值，保持现有调用方编译。`testSummary` 增加同名可选参数并透传。
 
-- [ ] **Step 4: 扩展 SQL**
+- [x] **Step 4: 扩展 SQL**
 
 `_selectSummaries` 的 FROM 增加：
 
@@ -183,7 +185,7 @@ SELECT 用 `COALESCE(m.title, b.title) AS title`、`COALESCE(m.author, b.author)
 
 标签单独一条 `SELECT book_id, tag FROM book_tags ORDER BY tag COLLATE NOCASE`，按 book_id 分组后填进摘要。`_selectSummaries` 增加可选 `limit`；`listAllBooks()` 走无 `LIMIT` 的路径。
 
-- [ ] **Step 5: 实现写入**
+- [x] **Step 5: 实现写入**
 
 `saveBookMetadata` 用事务：
 
@@ -195,16 +197,16 @@ SELECT 用 `COALESCE(m.title, b.title) AS title`、`COALESCE(m.author, b.author)
 
 `saveProgress` 增加 `finished` 参数，写 `finishedAt: Value(finished ? now : null)`。
 
-- [ ] **Step 6: 切换书架数据源**
+- [x] **Step 6: 切换书架数据源**
 
 `booksProvider` 改为 `ref.watch(libraryQueriesProvider).listAllBooks()`；保持 `ref.invalidate(booksProvider)` 语义不变。
 
-- [ ] **Step 7: 跑测试**
+- [x] **Step 7: 跑测试**
 
 Run: `flutter test test/domain/library/queries/drift_library_queries_test.dart test/ui`
 Expected: PASS（现有 UI 测试因默认字段不变仍应通过）
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add lib/domain/library/queries lib/app/providers/app_providers.dart test/domain/library/queries test/ui/ui_test_harness.dart
@@ -227,22 +229,22 @@ git commit -m "feat: expose shelf metadata in book summaries"
   - `PlaybackController({..., Future<void> Function(String bookId, String chapterId, Duration position)? onBookFinished})`
   - `openBook({..., String? startChapterId})`
 
-- [ ] **Step 1: 写完成信号失败测试**
+- [x] **Step 1: 写完成信号失败测试**
 
 在 `playback_controller_test.dart` 用现有 Fake 引擎跑到最后一章末尾，断言注入的 `onBookFinished` 恰好调用一次，参数是当前 `bookId/chapterId/position`；再 `open` 新章并 flush，断言普通 `writeProgress` 仍以 `finished: false` 写入。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/app/policy/playback_controller_test.dart`
 Expected: FAIL（构造参数不存在）
 
-- [ ] **Step 3: 实现完成回调**
+- [x] **Step 3: 实现完成回调**
 
 - 构造函数新增可选 `onBookFinished`。
 - 把 `_finished = true` 的两处（`skipToNext` 末尾、`_onChapterCompleted` 末尾）收敛到私有 `_markFinished()`：置位、暂停、调用 `onBookFinished`。
 - 不改变现有 `_writeProgress` 签名。
 
-- [ ] **Step 4: 接线到数据库**
+- [x] **Step 4: 接线到数据库**
 
 `playbackControllerProvider` 注入：
 
@@ -261,11 +263,11 @@ onBookFinished: (bookId, chapterId, position) {
 },
 ```
 
-- [ ] **Step 5: 写指定章起播失败测试**
+- [x] **Step 5: 写指定章起播失败测试**
 
 在 `open_book_test.dart` 增加：书已打开时用 `startChapterId` 指定另一章，断言不会走 `alreadyOpen` 短路，`controller.current` 是目标章，位置为 0，`savedPosition == Duration.zero`。
 
-- [ ] **Step 6: 实现 `startChapterId`**
+- [x] **Step 6: 实现 `startChapterId`**
 
 `openBook` 增加参数；非空时：
 
@@ -273,12 +275,12 @@ onBookFinished: (bookId, chapterId, position) {
 - `startChapterId = 指定章`；若队列里找不到则回落到第一章。
 - `savedPosition = Duration.zero`，`interruption = Duration.zero`（不触发微回退）。
 
-- [ ] **Step 7: 跑测试**
+- [x] **Step 7: 跑测试**
 
 Run: `flutter test test/app/policy/playback_controller_test.dart test/app/playback/open_book_test.dart`
 Expected: PASS
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add lib/app/policy/playback_controller.dart lib/app/providers/playback_providers.dart test/app/policy/playback_controller_test.dart test/app/playback/open_book_test.dart
@@ -307,7 +309,7 @@ git commit -m "feat: persist book completion and start playback at chapter"
   - `abstract interface class BookMetadataFileStore { Future<Uint8List?> read(String bookRootPath); Future<BookMetadataWriteStatus> write(String bookRootPath, Uint8List bytes); }`
   - `class BookMetadataCodec { static const int schemaVersion = 1; static Uint8List encode(BookMetadataDraft draft, {required DateTime updatedAt}); static BookMetadataDraft? decode(Uint8List bytes); }`
 
-- [ ] **Step 1: 写编解码失败测试**
+- [x] **Step 1: 写编解码失败测试**
 
 `book_metadata_codec_test.dart` 断言：
 
@@ -325,7 +327,7 @@ expect(BookMetadataCodec.decode(Uint8List.fromList(utf8.encode('{"schema":99}'))
 
 再断言 JSON 缺字段时对应值为 null，未知字段被忽略。
 
-- [ ] **Step 2: 写本地 store 失败测试**
+- [x] **Step 2: 写本地 store 失败测试**
 
 用临时目录建 `root/books/a/`，写入音频占位文件；断言：
 
@@ -335,24 +337,24 @@ expect(BookMetadataCodec.decode(Uint8List.fromList(utf8.encode('{"schema":99}'))
 - 超过 256 KB 的 `read` 返回 null（或按 spec 的失败语义）。
 - 目标目录不存在时 `write` 返回 `failed`。
 
-- [ ] **Step 3: 写 SAF store 失败测试**
+- [x] **Step 3: 写 SAF store 失败测试**
 
 用现有 `SafBridge` 的 fake MethodChannel：
 
 - 读：断言先 `documentUri`（`relativePath: 'books/a/tometone.meta.json'`）再 `readBytes`，返回字节。
 - 写：直接返回 `unsupported`，且不调用任何平台写方法。
 
-- [ ] **Step 4: 实现契约与编解码**
+- [x] **Step 4: 实现契约与编解码**
 
 - 契约只依赖 `dart:typed_data`，不 import domain。
 - Codec 用 `jsonEncode/jsonDecode`，输出 `schema`、字段、`updatedAt` ISO8601；`schema > 1` 返回 null；坏 JSON 返回 null；`decode` 后走 `normalized()`。
 
-- [ ] **Step 5: 实现本地与 SAF store**
+- [x] **Step 5: 实现本地与 SAF store**
 
 - 本地：`join(rootPath, bookRootPath, 'tometone.meta.json')`；写临时文件 `tometone.meta.json.tmp` → `flush` → `rename`；失败清理临时文件并返回 `failed`。
 - SAF：读用 `SafBridge.documentUri` + `readBytes`；写返回 `unsupported`。
 
-- [ ] **Step 6: 跑测试**
+- [x] **Step 6: 跑测试**
 
 Run:
 ```bash
@@ -360,7 +362,7 @@ flutter test test/contracts/book_metadata_file_store_test.dart test/domain/libra
 ```
 Expected: PASS
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add lib/contracts/storage lib/domain/library/metadata lib/modules/storage_local lib/modules/storage_saf test/contracts test/domain/library/metadata test/modules
@@ -392,7 +394,7 @@ git commit -m "feat: add book metadata sidecar store"
   - `LibraryRootService({..., BookMetadataFileStoreFactory? metadataStoreFactory})`
   - `LibraryScanner.scanStructure({..., BookMetadataFileStore? metadataStore})`
 
-- [ ] **Step 1: 写服务失败测试**
+- [x] **Step 1: 写服务失败测试**
 
 `book_metadata_service_test.dart`：
 
@@ -400,7 +402,7 @@ git commit -m "feat: add book metadata sidecar store"
 2. store 返回 `unsupported` 时，数据库仍保存成功，返回 `unsupported`。
 3. `importFromBookRoot()` 读到 `title` 但没有 `author` 时，不把手动作者清空；`overwriteManual: false` 时手动覆盖层不变。
 
-- [ ] **Step 2: 写扫描导入失败测试**
+- [x] **Step 2: 写扫描导入失败测试**
 
 `library_scanner_test.dart`：新建书根下放 `tometone.meta.json`（含 title/description/tags），扫描后：
 
@@ -408,12 +410,12 @@ git commit -m "feat: add book metadata sidecar store"
 - 覆盖层 `manualEditedAt == null`。
 - 已存在且 `manualEditedAt != null` 的书，重扫描后字段不变（该场景用已有书 + 第二次扫描验证）。
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 Run: `flutter test test/app/library/book_metadata_service_test.dart test/domain/library/scan/library_scanner_test.dart`
 Expected: FAIL（服务 / 参数不存在）
 
-- [ ] **Step 4: 实现服务**
+- [x] **Step 4: 实现服务**
 
 `BookMetadataService.save`：
 
@@ -429,7 +431,7 @@ Expected: FAIL（服务 / 参数不存在）
 3. `await queries.saveBookMetadata(bookId: book.id, metadata: draft, manual: false, onlyFillEmpty: !overwriteManual)`。
 4. 返回 draft。
 
-- [ ] **Step 5: 扫描时导入新书 sidecar**
+- [x] **Step 5: 扫描时导入新书 sidecar**
 
 只对**本次新增**的书读 sidecar（`existingBook == null`），避免每次扫描对上千本书做文件 IO；老书走详情页「从书根重新导入」。
 
@@ -452,7 +454,7 @@ final store = _metadataStoreFactory?.call(root.uri);
 return _scanner.scanStructure(..., metadataStore: store);
 ```
 
-- [ ] **Step 6: 装配**
+- [x] **Step 6: 装配**
 
 - `library_root_providers.dart` 增加 `bookMetadataFileStoreFactoryProvider`，默认抛 `UnimplementedError`；`LibraryRootService` 构造时传入。
 - `metadata_providers.dart` 增加 `bookMetadataServiceProvider`，注入 `libraryQueriesProvider` 与工厂。
@@ -469,7 +471,7 @@ BookMetadataFileStore _createMetadataStore(String rootUri) {
 
 并 override `bookMetadataFileStoreFactoryProvider`；`LibraryRootService` 构造参数补上。
 
-- [ ] **Step 7: 跑测试**
+- [x] **Step 7: 跑测试**
 
 Run:
 ```bash
@@ -477,7 +479,7 @@ flutter test test/app/library/book_metadata_service_test.dart test/app/library/l
 ```
 Expected: PASS
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add lib/app/library lib/app/providers lib/domain/library/scan lib/main.dart test/app/library test/domain/library/scan
@@ -500,7 +502,7 @@ git commit -m "feat: import and persist book metadata sidecars"
   - `enum ShelfLayout { grid, list }`
   - `class ShelfFilterState { const ShelfFilterState({this.query = '', this.status = ShelfStatusFilter.all, this.tag, this.series}); List<BookSummary> apply(List<BookSummary> books); bool get isActive; }`
 
-- [ ] **Step 1: 写筛选失败测试**
+- [x] **Step 1: 写筛选失败测试**
 
 在 `shelf_page_test.dart` 造 4 本摘要：在听、未听、已完、无简介。断言：
 
@@ -510,19 +512,19 @@ git commit -m "feat: import and persist book metadata sidecars"
 - 标签 / 系列筛选组合生效。
 - `isActive` 在 query / status / tag / series 任一非默认时为 true。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/ui/shelf_page_test.dart`
 Expected: FAIL（类型不存在）
 
-- [ ] **Step 3: 实现筛选模型**
+- [x] **Step 3: 实现筛选模型**
 
 - 搜索：`toLowerCase()` 后对 title/author/narrator/seriesName/description 做 contains。
 - 状态：`listening => hasProgress && !isFinished`；`unlistened => !hasProgress`；`finished => isFinished`。
 - 标签 / 系列：按原文比较，标签大小写折叠。
 - 组合为 AND。
 
-- [ ] **Step 4: 重排页头**
+- [x] **Step 4: 重排页头**
 
 `shelf_page.dart` 改为 `ConsumerStatefulWidget`，持有 `_filter` 与 `_layout`。页头包含：
 
@@ -534,12 +536,12 @@ Expected: FAIL（类型不存在）
 
 保持现有加载态 / 错误态 / 全局空态。
 
-- [ ] **Step 5: 跑测试**
+- [x] **Step 5: 跑测试**
 
 Run: `flutter test test/ui/shelf_page_test.dart`
 Expected: PASS
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add lib/ui/pages/shelf test/ui/shelf_page_test.dart
@@ -564,7 +566,7 @@ git commit -m "feat: add shelf search and filters"
   - `class ShelfBookCard extends ConsumerWidget { const ShelfBookCard({required this.book, required this.onOpen, required this.onPlay, super.key}); }`
   - `class ShelfBookRow extends ConsumerWidget { const ShelfBookRow({required this.book, required this.onOpen, required this.onPlay, super.key}); }`
 
-- [ ] **Step 1: 写卡片失败测试**
+- [x] **Step 1: 写卡片失败测试**
 
 断言：
 
@@ -574,12 +576,12 @@ git commit -m "feat: add shelf search and filters"
 - 列表行显示两行简介与标签 chips。
 - 320dp + `textScaleFactor: 1.6` 无 overflow。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/ui/shelf_page_test.dart`
 Expected: FAIL（组件不存在）
 
-- [ ] **Step 3: 实现卡片**
+- [x] **Step 3: 实现卡片**
 
 - 复用 `BookCover` 与 `coverArtProvider`。
 - 封面右下角/下方放播放按钮；`InkWell` 只包卡片主体，播放按钮独立。
@@ -587,23 +589,23 @@ Expected: FAIL（组件不存在）
 - 简介 `maxLines: 1`、`ellipsis`；无简介显示 `暂无简介`。
 - 缺失章提示保留现有样式。
 
-- [ ] **Step 4: 实现列表行**
+- [x] **Step 4: 实现列表行**
 
 - 封面缩略图 64×64 圆角；正文 title / author·narrator / description 2 行 / tags；右侧播放按钮。
 - 进度用同一条 `_ShelfProgress` 组件，避免两套口径。
 
-- [ ] **Step 5: 接入页面**
+- [x] **Step 5: 接入页面**
 
 - 网格：`SliverGrid` 使用 `ShelfBookCard`。
 - 列表：`SliverList` 使用 `ShelfBookRow`。
 - 布局切换不重建数据，只切 delegate。
 
-- [ ] **Step 6: 跑测试**
+- [x] **Step 6: 跑测试**
 
 Run: `flutter test test/ui/shelf_page_test.dart`
 Expected: PASS
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add lib/ui/pages/shelf test/ui/shelf_page_test.dart
@@ -624,30 +626,30 @@ git commit -m "feat: redesign shelf cards and rows"
   - `Future<void> openBookAndShowPlayer({required BuildContext context, required WidgetRef ref, required BookDetail detail, String? startChapterId});`
   - `Future<void> playBookFromSummary({required BuildContext context, required WidgetRef ref, required BookSummary book});`（先取 `bookDetailProvider(book.id)`，再转调上面的函数）
 
-- [ ] **Step 1: 写零结果态测试**
+- [x] **Step 1: 写零结果态测试**
 
 筛选到无结果时断言出现「没有符合条件的书」与「清除筛选」；点清除后恢复原列表；全局无书时仍是原空态。
 
-- [ ] **Step 2: 写起播动作测试**
+- [x] **Step 2: 写起播动作测试**
 
 - 点播放按钮 → `playBookFromSummary` 被调用，播放台打开。
 - 根缺失时 SnackBar 文案不变。
 - 卡片 → 详情的导航测试放到 Task 9（页面在 Task 9 才出现）。
 
-- [ ] **Step 3: 实现共享起播动作**
+- [x] **Step 3: 实现共享起播动作**
 
 把现有 `_openBook` 里的根解析、resolver、`openBook`、失败 SnackBar、`showPlayerPage` 抽到 `open_book_action.dart`；`startChapterId` 透传。书架与详情页共用。把卡片/列表的 `onPlay` 接到 `playBookFromSummary`，卡片点击仍进详情。
 
-- [ ] **Step 4: 接入零结果态**
+- [x] **Step 4: 接入零结果态**
 
 `visibleBooks.isEmpty && books.isNotEmpty` 时渲染专用空态；`onClear` 重置 `ShelfFilterState()`。
 
-- [ ] **Step 5: 跑测试**
+- [x] **Step 5: 跑测试**
 
 Run: `flutter test test/ui/shelf_page_test.dart`
 Expected: PASS
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add lib/ui/pages/shelf test/ui/shelf_page_test.dart
@@ -671,7 +673,7 @@ git commit -m "feat: add empty filter state and shared open action"
   - `class BookDetailPage extends ConsumerWidget { const BookDetailPage({required this.bookId, this.onOpen, super.key}); final BookOpenAction? onOpen; }`
   - `Future<void> showChapterListSheet(BuildContext context, {required BookDetail detail, required String? currentChapterId, required ValueChanged<ChapterView> onChapterSelected});`
 
-- [ ] **Step 1: 写详情失败测试**
+- [x] **Step 1: 写详情失败测试**
 
 断言：
 
@@ -682,12 +684,12 @@ git commit -m "feat: add empty filter state and shared open action"
 - 点缺失章不触发 `onOpen`；点正常章传入正确 `chapterId` 与 `detail`。
 - 书架点卡片 push 到 `BookDetailPage`，播放按钮仍直接起播。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/ui/book_detail_page_test.dart`
 Expected: FAIL（页面不存在）
 
-- [ ] **Step 3: 实现详情页**
+- [x] **Step 3: 实现详情页**
 
 - `ref.watch(bookDetailProvider(bookId))` 三态：加载 / 失败重试 / 不存在。
 - 大封面、书名、系列、作者/演播、状态、标签 chips、简介、章节目录/卷册入口、底部主按钮。两个入口共用同一个按卷分组的章节弹层；卷册卡展示卷数，章节目录卡展示 `第 N / 12 章`。
@@ -695,22 +697,22 @@ Expected: FAIL（页面不存在）
 - 通过 `libraryRootsProvider` 找到 `summary.libraryRootId` 对应的 `rootUri`；根缺失时禁用编辑/导入并提示「书库根已移除」。
 - 编辑保存后 `ref.invalidate(bookDetailProvider(bookId))` 与 `booksProvider`。
 
-- [ ] **Step 4: 实现章节弹层**
+- [x] **Step 4: 实现章节弹层**
 
 - 按卷分组展示章节；当前章高亮；缺失章置灰且 `onTap: null`。
 - 点正常章关闭弹层后调用 `onChapterSelected`。
 - 详情页回调里调用 `openBookAndShowPlayer(detail: detail, startChapterId: chapter.id)`。
 
-- [ ] **Step 5: 接入书架导航**
+- [x] **Step 5: 接入书架导航**
 
 卡片 `onOpen` push `BookDetailPage(bookId: book.id)`；播放按钮走共享起播动作。
 
-- [ ] **Step 6: 跑测试**
+- [x] **Step 6: 跑测试**
 
 Run: `flutter test test/ui/book_detail_page_test.dart test/ui/shelf_page_test.dart`
 Expected: PASS
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add lib/ui/pages/shelf test/ui/book_detail_page_test.dart test/ui/shelf_page_test.dart
@@ -732,7 +734,7 @@ git commit -m "feat: add book detail page and chapter picker"
 - Produces:
   - `Future<bool?> showBookMetadataSheet(BuildContext context, {required BookSummary book, required String rootUri, required BookMetadataDraft initial});`
 
-- [ ] **Step 1: 写编辑弹层失败测试**
+- [x] **Step 1: 写编辑弹层失败测试**
 
 断言：
 
@@ -742,30 +744,30 @@ git commit -m "feat: add book detail page and chapter picker"
 - service 返回 `written` 时 SnackBar `已保存到应用与书根`；返回 `unsupported` 时 `已保存到应用内，书根文件未写入`。
 - 标签输入 `武侠，长篇、武侠` 归一化为 `['武侠','长篇']`。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `flutter test test/ui/book_metadata_sheet_test.dart`
 Expected: FAIL（弹层不存在）
 
-- [ ] **Step 3: 实现编辑弹层**
+- [x] **Step 3: 实现编辑弹层**
 
 - 用 `showModalBottomSheet(isScrollControlled: true, useSafeArea: true)`。
 - 表单字段按 spec；简介 `maxLength: 2000`；标签用输入框 + chips，提交时 `normalizeTags`。
 - 保存中禁用按钮；异常显示 `保存失败，请稍后再试`，不关闭弹层。
 - 成功后 `Navigator.pop(true)`。
 
-- [ ] **Step 4: 接入详情页**
+- [x] **Step 4: 接入详情页**
 
 - `⋮ → 编辑元数据` 打开弹层，传入当前 summary 与 rootUri。
 - 返回 true 后 invalidate `bookDetailProvider(bookId)` 与 `booksProvider`。
 - `⋮ → 从书根重新导入` 调 `BookMetadataService.importFromBookRoot`；`book.metadataEdited == true` 时先弹确认（说明只覆盖文件里实际出现的字段）；成功/失败给 SnackBar。
 
-- [ ] **Step 5: 跑测试**
+- [x] **Step 5: 跑测试**
 
 Run: `flutter test test/ui/book_metadata_sheet_test.dart test/ui/book_detail_page_test.dart`
 Expected: PASS
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add lib/ui/pages/shelf test/ui
@@ -781,7 +783,7 @@ git commit -m "feat: edit book metadata and sync sidecar"
 - Modify: `docs/superpowers/specs/2026-10-20-ui-refresh-shelf-metadata-design.md`（状态改为「已落地」）
 - Test: 全量
 
-- [ ] **Step 1: 跑静态分析与全量测试**
+- [x] **Step 1: 跑静态分析与全量测试**
 
 Run:
 ```bash
@@ -790,7 +792,7 @@ flutter test
 ```
 Expected: `No issues found!`；所有测试通过（现有 493 + 新增）。
 
-- [ ] **Step 2: 手工验收清单**
+- [x] **Step 2: 手工验收清单**
 
 - 320dp + 1.6 倍字体：书架网格 / 列表 / 详情 / 编辑弹层无 overflow。
 - 深色模式：卡片、chips、详情、弹层对比度正常。
@@ -799,11 +801,11 @@ Expected: `No issues found!`；所有测试通过（现有 493 + 新增）。
 - 手动改作者 → 重新扫描不被目录名覆盖。
 - 点详情页正常章 → 播放台从该章 0 秒开始；缺失章不可点。
 
-- [ ] **Step 3: 更新 CHANGELOG**
+- [x] **Step 3: 更新 CHANGELOG**
 
 在 `[未发布]` 写清新功能、元数据双写、schema v2 迁移、已知限制（SAF 只读、分页待做、在线抓取待 Phase 3）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add CHANGELOG.md docs/superpowers/specs/2026-10-20-ui-refresh-shelf-metadata-design.md
