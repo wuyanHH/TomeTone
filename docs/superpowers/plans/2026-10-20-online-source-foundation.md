@@ -399,7 +399,32 @@ class BookSource {
   /// 用完整草稿覆盖可编辑字段；`null` 会真正清空分组/规则/并发限制。
   /// `id`、`libraryRootId`、`createdAt`、健康字段与 `deletedAt` 保持不变。
   /// 清空 `deletedAt` 仍走查询端口的 `revive`。
-  BookSource applyDraft(BookSourceDraft draft, {required DateTime updatedAt});
+  BookSource applyDraft(BookSourceDraft draft, {required DateTime updatedAt}) {
+    return BookSource(
+      id: id,
+      libraryRootId: libraryRootId,
+      name: draft.name,
+      sourceUrl: draft.sourceUrl,
+      sourceType: draft.sourceType,
+      rawJson: draft.rawJson,
+      header: draft.header,
+      groupName: draft.groupName,
+      exploreUrl: draft.exploreUrl,
+      searchUrl: draft.searchUrl,
+      jsLib: draft.jsLib,
+      enabled: draft.enabled,
+      enabledExplore: draft.enabledExplore,
+      customOrder: draft.customOrder,
+      concurrentRate: draft.concurrentRate,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+      lastTestAt: lastTestAt,
+      lastTestOk: lastTestOk,
+      lastError: lastError,
+      consecutiveFailures: consecutiveFailures,
+    );
+  }
 }
 
 class BookSourceDraft {
@@ -486,16 +511,16 @@ class SourceImportParseResult {
   bool get hasIssues => issues.isNotEmpty;
 }
 
-class SourceImportParser {
-  const SourceImportParser();
-
+abstract interface class SourceImportParser {
   SourceImportParseResult parse(String text);
 }
 ```
 
+同文件实现 `class LegadoSourceImportParser implements SourceImportParser`，无参 `const` 构造；`parse` 按 Step 3 规则。`BookSourceService` 默认使用 `const LegadoSourceImportParser()`。
+
 **Step 3：校验规则**
 
-`parse` 接受 JSON 对象或数组：
+`parse` 先去掉 UTF-8 BOM 与首尾空白，再接受 JSON 对象或数组：
 
 - 对象 → 一个 candidate / issue。
 - 数组 → 逐项解析；坏项进 `issues`，好项进 `candidates`。
@@ -558,7 +583,7 @@ class SourceImportParser {
 
 **Step 5：写测试**
 
-`test/domain/sources/source_import_test.dart` 覆盖：
+`test/domain/sources/source_import_test.dart` 用 `const LegadoSourceImportParser()`，覆盖：
 
 - 单对象合法 → 1 candidate、0 issue。
 - 数组含 1 好 1 坏 → 1 candidate、1 issue，索引正确。
@@ -623,7 +648,7 @@ abstract interface class BookSourceQueries {
 
 **Step 2：应用服务**
 
-`lib/app/sources/book_source_service.dart`：
+`lib/app/sources/book_source_service.dart` 的公共 API 如下；方法体按本节行为实现，不能留空：
 
 ```dart
 enum SourceImportStatus { imported, updated, skipped, invalid }
@@ -654,6 +679,7 @@ class BookSourceService {
     required TomeToneDatabase database,
     required BookSourceQueries queries,
     required IdGenerator idGenerator,
+    SourceImportParser parser = const LegadoSourceImportParser(),
     DateTime Function()? clock,
   });
 
