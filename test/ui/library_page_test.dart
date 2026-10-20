@@ -11,6 +11,7 @@ import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/contracts/storage/fake_storage_provider.dart';
+import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
@@ -151,6 +152,21 @@ class _FakeLibraryQueries implements LibraryQueries {
   }
 
   @override
+  Future<List<BookSummary>> listAllBooks() async {
+    final Exception? error = failure;
+    if (error != null) {
+      throw error;
+    }
+    final List<BookSummary> all = <BookSummary>[
+      for (final books in booksByRoot.values) ...books,
+    ];
+    return all;
+  }
+
+  @override
+  Future<List<String>> listBookTags() async => const <String>[];
+
+  @override
   Future<List<LibraryRootView>> libraryRoots() async =>
       const <LibraryRootView>[];
 
@@ -162,6 +178,16 @@ class _FakeLibraryQueries implements LibraryQueries {
     required String bookId,
     required String chapterId,
     required Duration position,
+    bool finished = false,
+    DateTime? updatedAt,
+  }) async {}
+
+  @override
+  Future<void> saveBookMetadata({
+    required String bookId,
+    required BookMetadataDraft metadata,
+    bool manual = true,
+    bool onlyFillEmpty = false,
     DateTime? updatedAt,
   }) async {}
 

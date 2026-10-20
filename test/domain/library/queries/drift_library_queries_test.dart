@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
+import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 
@@ -287,6 +288,220 @@ void main() {
       expect(roots, hasLength(1));
       expect(roots.single.displayName, '内部存储');
       expect(roots.single.type, 'local');
+    });
+  });
+
+  group('listAllBooks', () {
+    test('返回全部书，不受默认 50 限制', () async {
+      await seed();
+      for (var i = 0; i < 59; i++) {
+        await db
+            .into(db.books)
+            .insert(
+              BooksCompanion.insert(
+                id: 'book-extra-$i',
+                libraryRootId: 'root-1',
+                title: '额外书 $i',
+                rootPath: '额外书 $i',
+                sourceType: 'local',
+                totalChapters: const Value<int>(1),
+                totalDurationMs: const Value<int>(1000),
+                createdAt: _t0,
+                updatedAt: _t0,
+              ),
+            );
+      }
+
+      expect(await queries.listAllBooks(), hasLength(61));
+      expect(await queries.listBooks(), hasLength(50));
+    });
+  });
+
+  group('元数据覆盖', () {
+    test('摘要取覆盖书名、简介与有序标签', () async {
+      await seed();
+      await db
+          .into(db.bookMetadataOverrides)
+          .insert(
+            BookMetadataOverridesCompanion.insert(
+              bookId: 'book-a',
+              title: const Value<String?>('覆盖书名'),
+              description: const Value<String?>('简介'),
+              author: const Value<String?>('作者'),
+              updatedAt: _t0,
+            ),
+          );
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-a', tag: 'b'));
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-a', tag: 'a'));
+
+      final book = (await queries.listAllBooks()).singleWhere(
+        (BookSummary b) => b.id == 'book-a',
+      );
+      expect(book.title, '覆盖书名');
+      expect(book.author, '作者');
+      expect(book.description, '简介');
+      expect(book.tags, <String>['a', 'b'], reason: '标签按 NOCASE 有序');
+    });
+
+    test('finishedAt 非空时 isFinished，且带出当前章节序号', () async {
+      await seed();
+      await db
+          .into(db.playbackProgress)
+          .insert(
+            PlaybackProgressCompanion.insert(
+              bookId: 'book-a',
+              chapterId: 'ch-2',
+              positionMs: 1000,
+              updatedAt: _t0,
+              finishedAt: Value<DateTime?>(_t0),
+            ),
+          );
+
+      final book = (await queries.listAllBooks()).singleWhere(
+        (BookSummary b) => b.id == 'book-a',
+      );
+      expect(book.isFinished, isTrue);
+      expect(book.progressChapterIndex, 2);
+    });
+
+    test('覆盖层 manualEditedAt 非空时 metadataEdited 为真', () async {
+      await seed();
+      await db
+          .into(db.bookMetadataOverrides)
+          .insert(
+            BookMetadataOverridesCompanion.insert(
+              bookId: 'book-a',
+              title: const Value<String?>('覆盖书名'),
+              manualEditedAt: Value<DateTime?>(_t0),
+              updatedAt: _t0,
+            ),
+          );
+
+      final book = (await queries.listAllBooks()).singleWhere(
+        (BookSummary b) => b.id == 'book-a',
+      );
+      expect(book.metadataEdited, isTrue);
+    });
+
+    test('saveBookMetadata(manual: true) 整体覆盖、写 manualEditedAt、替换标签', () async {
+      await seed();
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-a', tag: '旧'));
+
+      await queries.saveBookMetadata(
+        bookId: 'book-a',
+        metadata: const BookMetadataDraft(title: '新书名', tags: ['甲', '乙']),
+      );
+
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals('book-a')))
+          .getSingle();
+      expect(row.title, '新书名');
+      expect(row.manualEditedAt, isNotNull);
+
+      final tags = await (db.select(db.bookTags)
+            ..where((t) => t.bookId.equals('book-a')))
+          .get();
+      expect(tags.map((t) => t.tag).toSet(), <String>{'甲', '乙'});
+    });
+
+    test('saveBookMetadata(manual: false, onlyFillEmpty: true) 只补空字段、缺失不清空', () async {
+      await seed();
+      await db
+          .into(db.bookMetadataOverrides)
+          .insert(
+            BookMetadataOverridesCompanion.insert(
+              bookId: 'book-a',
+              title: const Value<String?>('自动书名'),
+              updatedAt: _t0,
+            ),
+          );
+
+      await queries.saveBookMetadata(
+        bookId: 'book-a',
+        metadata: const BookMetadataDraft(description: '补的简介'),
+        manual: false,
+        onlyFillEmpty: true,
+      );
+
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals('book-a')))
+          .getSingle();
+      expect(row.title, '自动书名', reason: '缺失字段（title 未提供）不清空');
+      expect(row.description, '补的简介', reason: '空字段被补上');
+      expect(row.manualEditedAt, isNull);
+    });
+
+    test('saveBookMetadata(manual: false, onlyFillEmpty: true) 手填过则 no-op', () async {
+      await seed();
+      await db
+          .into(db.bookMetadataOverrides)
+          .insert(
+            BookMetadataOverridesCompanion.insert(
+              bookId: 'book-a',
+              title: const Value<String?>('手填书名'),
+              manualEditedAt: Value<DateTime?>(_t0),
+              updatedAt: _t0,
+            ),
+          );
+
+      await queries.saveBookMetadata(
+        bookId: 'book-a',
+        metadata: const BookMetadataDraft(description: '不该写'),
+        manual: false,
+        onlyFillEmpty: true,
+      );
+
+      final row = await (db.select(db.bookMetadataOverrides)
+            ..where((t) => t.bookId.equals('book-a')))
+          .getSingle();
+      expect(row.title, '手填书名');
+      expect(row.description, isNull);
+    });
+
+    test('listBookTags 去重且不区分大小写排序', () async {
+      await seed();
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-a', tag: 'beta'));
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-a', tag: 'Alpha'));
+      await db
+          .into(db.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: 'book-b', tag: 'beta'));
+
+      expect(await queries.listBookTags(), <String>['Alpha', 'beta']);
+    });
+
+    test('saveProgress(finished:) 写入与清空 finishedAt', () async {
+      await seed();
+      await queries.saveProgress(
+        bookId: 'book-a',
+        chapterId: 'ch-0',
+        position: Duration.zero,
+        finished: true,
+      );
+      var row = await (db.select(db.playbackProgress)
+            ..where((t) => t.bookId.equals('book-a')))
+          .getSingle();
+      expect(row.finishedAt, isNotNull);
+
+      await queries.saveProgress(
+        bookId: 'book-a',
+        chapterId: 'ch-0',
+        position: Duration.zero,
+        finished: false,
+      );
+      row = await (db.select(db.playbackProgress)
+            ..where((t) => t.bookId.equals('book-a')))
+          .getSingle();
+      expect(row.finishedAt, isNull);
     });
   });
 }

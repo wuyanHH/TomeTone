@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 
 import '../cover/cover_source.dart';
 import '../database/tometone_database.dart';
+import '../metadata/book_metadata.dart';
 import 'library_views.dart';
 
 /// 书库只读查询 + 进度 / 偏好写入的端口（供 UI 与播放编排使用）。
@@ -18,6 +19,12 @@ abstract interface class LibraryQueries {
     int offset = 0,
   });
 
+  /// 全部书（不受分页限制），供标签筛选 / 统计等场景。
+  Future<List<BookSummary>> listAllBooks();
+
+  /// 全部标签（去重后，不区分大小写排序）。
+  Future<List<String>> listBookTags();
+
   /// 书详情（卷 / 章 / 进度 / 偏好）。不存在返回 `null`。
   Future<BookDetail?> bookDetail(String bookId);
 
@@ -29,6 +36,18 @@ abstract interface class LibraryQueries {
     required String bookId,
     required String chapterId,
     required Duration position,
+    bool finished = false,
+    DateTime? updatedAt,
+  });
+
+  /// 写入 / 更新元数据（覆盖层 + 标签）。
+  ///
+  /// 语义见实现注释：`manual` 决定是否整体覆盖；`onlyFillEmpty` 只对手动写入有意义。
+  Future<void> saveBookMetadata({
+    required String bookId,
+    required BookMetadataDraft metadata,
+    bool manual = true,
+    bool onlyFillEmpty = false,
     DateTime? updatedAt,
   });
 
@@ -68,6 +87,24 @@ class DriftLibraryQueries implements LibraryQueries {
       offset: offset,
     );
     return summaries;
+  }
+
+  @override
+  Future<List<BookSummary>> listAllBooks() {
+    return _selectSummaries(
+      whereClause: '',
+      leadingVariables: const <Variable<Object>>[],
+    );
+  }
+
+  @override
+  Future<List<String>> listBookTags() async {
+    final rows = await _database
+        .customSelect('SELECT DISTINCT tag FROM book_tags ORDER BY tag COLLATE NOCASE')
+        .get();
+    return <String>[
+      for (final row in rows) row.read<String>('tag'),
+    ];
   }
 
   @override
@@ -182,8 +219,10 @@ class DriftLibraryQueries implements LibraryQueries {
     required String bookId,
     required String chapterId,
     required Duration position,
+    bool finished = false,
     DateTime? updatedAt,
   }) async {
+    final DateTime now = (updatedAt ?? DateTime.now()).toUtc();
     await _database
         .into(_database.playbackProgress)
         .insertOnConflictUpdate(
@@ -191,9 +230,84 @@ class DriftLibraryQueries implements LibraryQueries {
             bookId: bookId,
             chapterId: chapterId,
             positionMs: position.isNegative ? 0 : position.inMilliseconds,
-            updatedAt: updatedAt ?? DateTime.now().toUtc(),
+            finishedAt: Value<DateTime?>(finished ? now : null),
+            updatedAt: now,
           ),
         );
+  }
+
+  @override
+  Future<void> saveBookMetadata({
+    required String bookId,
+    required BookMetadataDraft metadata,
+    bool manual = true,
+    bool onlyFillEmpty = false,
+    DateTime? updatedAt,
+  }) async {
+    final BookMetadataDraft draft = metadata.normalized();
+    final DateTime now = (updatedAt ?? DateTime.now()).toUtc();
+
+    await _database.transaction(() async {
+      final existing = await (_database.select(_database.bookMetadataOverrides)
+            ..where((tbl) => tbl.bookId.equals(bookId)))
+          .getSingleOrNull();
+      final List<String> existingTags = await _existingTags(bookId);
+
+      if (manual) {
+        // 手动编辑：整体覆盖（空即清空），并写 manualEditedAt。
+        await _upsertOverrides(
+          bookId: bookId,
+          draft: draft,
+          manualEditedAt: now,
+          now: now,
+        );
+        await _replaceTags(bookId, draft.tags);
+      } else if (onlyFillEmpty) {
+        // 自动导入只填空：若用户已手动编辑过，绝不覆盖，直接 no-op。
+        if (existing?.manualEditedAt != null) {
+          return;
+        }
+        await _upsertOverrides(
+          bookId: bookId,
+          draft: BookMetadataDraft(
+            title: draft.title ?? existing?.title,
+            author: draft.author ?? existing?.author,
+            narrator: draft.narrator ?? existing?.narrator,
+            seriesName: draft.seriesName ?? existing?.seriesName,
+            seriesIndex: draft.seriesIndex ?? existing?.seriesIndex,
+            description: draft.description ?? existing?.description,
+            tags: draft.tags,
+          ),
+          manualEditedAt: null,
+          now: now,
+        );
+        // 标签：仅在现有标签为空时写入。
+        if (existingTags.isEmpty) {
+          await _replaceTags(bookId, draft.tags);
+        }
+      } else {
+        // 用户确认后的重新导入：只覆盖非空字段，保守地不清 manualEditedAt
+        // （以后自动导入仍不会碰这本书）。
+        await _upsertOverrides(
+          bookId: bookId,
+          draft: BookMetadataDraft(
+            title: draft.title ?? existing?.title,
+            author: draft.author ?? existing?.author,
+            narrator: draft.narrator ?? existing?.narrator,
+            seriesName: draft.seriesName ?? existing?.seriesName,
+            seriesIndex: draft.seriesIndex ?? existing?.seriesIndex,
+            description: draft.description ?? existing?.description,
+            tags: draft.tags,
+          ),
+          manualEditedAt: existing?.manualEditedAt,
+          now: now,
+        );
+        // 标签：空列表视为「未提供」，不清空现有标签；否则整体替换。
+        if (draft.tags.isNotEmpty) {
+          await _replaceTags(bookId, draft.tags);
+        }
+      }
+    });
   }
 
   @override
@@ -221,30 +335,43 @@ class DriftLibraryQueries implements LibraryQueries {
   Future<List<BookSummary>> _selectSummaries({
     required String whereClause,
     required List<Variable<Object>> leadingVariables,
-    required int limit,
-    required int offset,
+    int? limit,
+    int offset = 0,
   }) async {
+    final String limitClause = limit == null ? '' : 'LIMIT ? OFFSET ?';
     final rows = await _database
         .customSelect(
           '''
-SELECT b.id, b.title, b.author, b.narrator, b.series_name, b.series_index,
+SELECT b.id,
+       COALESCE(m.title, b.title) AS title,
+       COALESCE(m.author, b.author) AS author,
+       COALESCE(m.narrator, b.narrator) AS narrator,
+       COALESCE(m.series_name, b.series_name) AS series_name,
+       COALESCE(m.series_index, b.series_index) AS series_index,
        b.cover_path, b.cover_source_type, b.total_chapters, b.total_duration_ms,
        b.library_root_id, b.root_path,
+       m.description AS description,
+       m.manual_edited_at IS NOT NULL AS metadata_edited,
        p.chapter_id AS progress_chapter_id,
        p.position_ms AS progress_position_ms,
        p.updated_at AS progress_updated_at,
-       c.title AS progress_chapter_title
+       p.finished_at AS finished_at,
+       c.title AS progress_chapter_title,
+       c.chapter_index AS progress_chapter_index
 FROM books b
+LEFT JOIN book_metadata_overrides m ON m.book_id = b.id
 LEFT JOIN playback_progress p ON p.book_id = b.id
 LEFT JOIN chapters c ON c.id = p.chapter_id
 $whereClause
 ORDER BY COALESCE(p.updated_at, b.updated_at) DESC
-LIMIT ? OFFSET ?
+$limitClause
 ''',
           variables: <Variable<Object>>[
             ...leadingVariables,
-            Variable<int>(limit),
-            Variable<int>(offset),
+            if (limit != null) ...[
+              Variable<int>(limit),
+              Variable<int>(offset),
+            ],
           ],
         )
         .get();
@@ -256,6 +383,7 @@ LIMIT ? OFFSET ?
     final missing = await _missingCounts(<String>[
       for (final row in rows) row.read<String>('id'),
     ]);
+    final tagsByBook = await _tagsByBook();
 
     return <BookSummary>[
       for (final row in rows)
@@ -272,13 +400,75 @@ LIMIT ? OFFSET ?
           totalDurationMs: row.read<int>('total_duration_ms'),
           libraryRootId: row.read<String>('library_root_id'),
           rootPath: row.read<String>('root_path'),
+          description: row.read<String?>('description'),
+          tags: tagsByBook[row.read<String>('id')] ?? const <String>[],
+          isFinished: row.read<DateTime?>('finished_at') != null,
+          metadataEdited: row.read<bool>('metadata_edited'),
           progressChapterId: row.read<String?>('progress_chapter_id'),
           progressChapterTitle: row.read<String?>('progress_chapter_title'),
+          progressChapterIndex: row.read<int?>('progress_chapter_index'),
           progressPositionMs: row.read<int?>('progress_position_ms'),
           lastListenedAt: row.read<DateTime?>('progress_updated_at'),
           missingChapters: missing[row.read<String>('id')] ?? 0,
         ),
     ];
+  }
+
+  /// 全部标签按 book_id 分组（`ORDER BY tag COLLATE NOCASE` 保证组内有序）。
+  Future<Map<String, List<String>>> _tagsByBook() async {
+    final rows = await _database
+        .customSelect(
+          'SELECT book_id, tag FROM book_tags ORDER BY tag COLLATE NOCASE',
+        )
+        .get();
+    final result = <String, List<String>>{};
+    for (final row in rows) {
+      result
+          .putIfAbsent(row.read<String>('book_id'), () => <String>[])
+          .add(row.read<String>('tag'));
+    }
+    return result;
+  }
+
+  Future<List<String>> _existingTags(String bookId) async {
+    final rows = await (_database.select(_database.bookTags)
+          ..where((tbl) => tbl.bookId.equals(bookId)))
+        .get();
+    return <String>[for (final row in rows) row.tag];
+  }
+
+  Future<void> _replaceTags(String bookId, List<String> tags) async {
+    await (_database.delete(_database.bookTags)
+          ..where((tbl) => tbl.bookId.equals(bookId)))
+        .go();
+    for (final tag in tags) {
+      await _database
+          .into(_database.bookTags)
+          .insert(BookTagsCompanion.insert(bookId: bookId, tag: tag));
+    }
+  }
+
+  Future<void> _upsertOverrides({
+    required String bookId,
+    required BookMetadataDraft draft,
+    required DateTime? manualEditedAt,
+    required DateTime now,
+  }) async {
+    await _database
+        .into(_database.bookMetadataOverrides)
+        .insertOnConflictUpdate(
+          BookMetadataOverridesCompanion.insert(
+            bookId: bookId,
+            title: Value<String?>(draft.title),
+            author: Value<String?>(draft.author),
+            narrator: Value<String?>(draft.narrator),
+            seriesName: Value<String?>(draft.seriesName),
+            seriesIndex: Value<int?>(draft.seriesIndex),
+            description: Value<String?>(draft.description),
+            manualEditedAt: Value<DateTime?>(manualEditedAt),
+            updatedAt: now,
+          ),
+        );
   }
 
   Future<Map<String, int>> _missingCounts(List<String> bookIds) async {

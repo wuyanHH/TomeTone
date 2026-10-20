@@ -17,8 +17,13 @@ class BookSummary {
     this.seriesName,
     this.seriesIndex,
     this.coverPath,
+    this.description,
+    this.tags = const <String>[],
+    this.isFinished = false,
+    this.metadataEdited = false,
     this.progressChapterId,
     this.progressChapterTitle,
+    this.progressChapterIndex,
     this.progressPositionMs,
     this.lastListenedAt,
   });
@@ -44,6 +49,18 @@ class BookSummary {
   /// 封面路径（相对书库根）；`null` 表示走字标兜底。
   final String? coverPath;
 
+  /// 简介（来自覆盖层；可空）。
+  final String? description;
+
+  /// 标签（来自 `book_tags`，按不区分大小写排序）。
+  final List<String> tags;
+
+  /// 是否已听完（`playback_progress.finished_at` 非空）。
+  final bool isFinished;
+
+  /// 是否手改过元数据（覆盖层 `manual_edited_at` 非空）。
+  final bool metadataEdited;
+
   /// 封面来源档位。
   final CoverSource coverSource;
 
@@ -67,6 +84,9 @@ class BookSummary {
 
   /// 当前进度章标题（列表副标题用）。
   final String? progressChapterTitle;
+
+  /// 当前进度章序号（全书序号）。
+  final int? progressChapterIndex;
 
   /// 章内位置毫秒。
   final int? progressPositionMs;

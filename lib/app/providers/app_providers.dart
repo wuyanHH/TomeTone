@@ -36,7 +36,7 @@ final Provider<LibraryQueries> libraryQueriesProvider =
 /// 书架列表。扫描完成后用 `ref.invalidate(booksProvider)` 刷新。
 final FutureProvider<List<BookSummary>> booksProvider =
     FutureProvider<List<BookSummary>>(
-      (Ref ref) => ref.watch(libraryQueriesProvider).listBooks(),
+      (Ref ref) => ref.watch(libraryQueriesProvider).listAllBooks(),
     );
 
 /// 书详情。

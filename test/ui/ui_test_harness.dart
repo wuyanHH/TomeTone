@@ -41,7 +41,12 @@ BookSummary testSummary({
   int totalDurationMs = 4 * 10 * 60 * 1000,
   int? progressPositionMs,
   String? progressChapterTitle,
+  int? progressChapterIndex,
   DateTime? lastListenedAt,
+  String? description,
+  List<String> tags = const <String>[],
+  bool isFinished = false,
+  bool metadataEdited = false,
 }) {
   return BookSummary(
     id: id,
@@ -58,7 +63,12 @@ BookSummary testSummary({
     missingChapters: missingChapters,
     progressPositionMs: progressPositionMs,
     progressChapterTitle: progressChapterTitle,
+    progressChapterIndex: progressChapterIndex,
     lastListenedAt: lastListenedAt,
+    description: description,
+    tags: tags,
+    isFinished: isFinished,
+    metadataEdited: metadataEdited,
   );
 }
 
