@@ -17,6 +17,14 @@ abstract interface class BookSourceQueries {
 
   Future<BookSource?> sourceByUrl(String sourceUrl);
 
+  /// 记录一次源级探测结果；不更新 `updatedAt`。
+  Future<void> recordProbe(
+    String sourceId, {
+    required bool ok,
+    String? error,
+    DateTime? checkedAt,
+  });
+
   Future<int> countBooks(String sourceId);
 
   Future<void> insertSource(BookSource source);
@@ -74,6 +82,35 @@ class DriftBookSourceQueries implements BookSourceQueries {
       _database.bookSources,
     )..where((tbl) => tbl.sourceUrl.equals(normalized))).getSingleOrNull();
     return row == null ? null : _toDomain(row);
+  }
+
+  @override
+  Future<void> recordProbe(
+    String sourceId, {
+    required bool ok,
+    String? error,
+    DateTime? checkedAt,
+  }) async {
+    final at = (checkedAt ?? DateTime.now()).toUtc();
+    await _database.transaction(() async {
+      final row = await (_database.select(
+        _database.bookSources,
+      )..where((tbl) => tbl.id.equals(sourceId))).getSingleOrNull();
+      if (row == null) {
+        throw StateError('书源不存在：$sourceId');
+      }
+
+      await (_database.update(
+        _database.bookSources,
+      )..where((tbl) => tbl.id.equals(sourceId))).write(
+        BookSourcesCompanion(
+          lastTestAt: Value<DateTime?>(at),
+          lastTestOk: Value<bool?>(ok),
+          lastError: Value<String?>(ok ? null : error),
+          consecutiveFailures: Value<int>(ok ? 0 : row.consecutiveFailures + 1),
+        ),
+      );
+    });
   }
 
   @override
