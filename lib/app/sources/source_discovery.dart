@@ -1,3 +1,7 @@
+// Named constructor parameters stay public while the backing fields remain
+// private; initializing formals would expose the fields.
+// ignore_for_file: prefer_initializing_formals
+
 import '../../domain/sources/book_source.dart';
 import '../../domain/sources/book_source_queries.dart';
 import '../../domain/sources/discovery/explore_category.dart';
@@ -36,7 +40,7 @@ class SourceDiscoveryService implements SourceDiscovery {
       await _record(source, ok: false, error: normalized.message);
       throw normalized;
     } on Object {
-      final failure = const SourceFailure(
+      const failure = SourceFailure(
         kind: SourceFailureKind.rule,
         stage: SourceStage.explore,
         message: '书源规则无法解析',
@@ -61,7 +65,7 @@ class SourceDiscoveryService implements SourceDiscovery {
       await _record(source, ok: false, error: normalized.message);
       throw normalized;
     } on Object {
-      final failure = const SourceFailure(
+      const failure = SourceFailure(
         kind: SourceFailureKind.rule,
         stage: SourceStage.search,
         message: '书源规则无法解析',
@@ -112,7 +116,7 @@ class SourceDiscoveryService implements SourceDiscovery {
       await _record(source, ok: false, error: normalized.message);
       throw normalized;
     } on Object {
-      final failure = const SourceFailure(
+      const failure = SourceFailure(
         kind: SourceFailureKind.rule,
         stage: SourceStage.test,
         message: '书源规则无法解析',

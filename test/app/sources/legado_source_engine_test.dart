@@ -89,16 +89,9 @@ class _RecordingRateLimiter extends SourceRateLimiter {
 }
 
 class _FakeJsRuntime implements JsRuntime {
-  _FakeJsRuntime([this.values = const <String, Object?>{}]);
-
-  final Map<String, Object?> values;
-
   @override
   Future<Object?> evaluate(String script, JsContext context) async {
-    if (!values.containsKey(script)) {
-      throw const JsRuntimeException('未知脚本');
-    }
-    return values[script];
+    throw const JsRuntimeException('未知脚本');
   }
 
   @override

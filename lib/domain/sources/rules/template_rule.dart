@@ -44,8 +44,6 @@ class SyncTemplateRenderer {
 
   final SyncTemplateResolver resolve;
 
-  static final RegExp _placeholder = RegExp(r'\{\{\s*(.*?)\s*\}\}');
-
   String render(String template, {required TemplateOutputMode mode}) {
     final matches = TemplateRenderer._placeholder
         .allMatches(template)

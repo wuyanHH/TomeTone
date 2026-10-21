@@ -198,7 +198,7 @@ void main() {
     });
     final engine = _engine(http);
     final source = _source();
-    final info = const SourceBookInfo(
+    const info = SourceBookInfo(
       title: '长安十二时辰',
       bookUrl: 'https://www.tingyou.fm/book/1',
       tocUrl: 'https://www.tingyou.fm/api/chapters/1',
@@ -221,7 +221,7 @@ void main() {
     });
     final engine = _engine(http);
     final source = _source();
-    final info = const SourceBookInfo(
+    const info = SourceBookInfo(
       title: '长安十二时辰',
       bookUrl: 'https://www.tingyou.fm/book/1',
       tocUrl: 'https://www.tingyou.fm/api/chapters/1',

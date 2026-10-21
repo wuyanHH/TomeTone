@@ -1,3 +1,7 @@
+// Named constructor parameters stay public while the backing fields remain
+// private; initializing formals would expose the fields.
+// ignore_for_file: prefer_initializing_formals
+
 import '../../../contracts/sources/js_runtime.dart';
 import '../../../domain/sources/rules/json_path_rule.dart';
 import '../../../domain/sources/rules/rule_context.dart';

@@ -1,7 +1,10 @@
+// Named constructor parameters stay public while the backing fields remain
+// private; initializing formals would expose the fields.
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:convert';
 
 import '../../../contracts/sources/js_runtime.dart';
-import '../source_engine.dart';
 import '../../../contracts/sources/source_http.dart';
 import '../../../domain/sources/book_source.dart';
 import '../../../domain/sources/discovery/explore_category.dart';
@@ -11,6 +14,7 @@ import '../../../domain/sources/rules/rule_context.dart';
 import '../../../domain/sources/rules/rule_error.dart';
 import '../../../domain/sources/rules/template_rule.dart';
 import '../../../domain/sources/url_normalizer.dart';
+import '../source_engine.dart';
 import '../source_rate_limiter.dart';
 import 'legado_request.dart';
 import 'legado_rule_evaluator.dart';

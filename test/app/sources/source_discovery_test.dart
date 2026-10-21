@@ -40,6 +40,17 @@ class _FakeEngine implements SourceEngine {
     );
   }
 
+  Never _throwError() {
+    final Object? error = this.error;
+    if (error is Exception) {
+      throw error;
+    }
+    if (error is Error) {
+      throw error;
+    }
+    throw StateError('$error');
+  }
+
   @override
   Future<SourcePage<SourceBookSummary>> explore(
     BookSource source,
@@ -48,7 +59,7 @@ class _FakeEngine implements SourceEngine {
   ) async {
     exploreCalls++;
     if (error != null) {
-      throw error!;
+      _throwError();
     }
     return explorePage ?? _emptyPage();
   }
@@ -61,7 +72,7 @@ class _FakeEngine implements SourceEngine {
   ) async {
     searchCalls++;
     if (error != null) {
-      throw error!;
+      _throwError();
     }
     return searchPage ?? _emptyPage();
   }
@@ -70,7 +81,7 @@ class _FakeEngine implements SourceEngine {
   Future<SourceBookInfo> bookInfo(BookSource source, String bookUrl) async {
     bookInfoCalls++;
     if (error != null) {
-      throw error!;
+      _throwError();
     }
     return info ??
         SourceBookInfo(
@@ -84,7 +95,7 @@ class _FakeEngine implements SourceEngine {
   Future<SourceToc> toc(BookSource source, SourceBookInfo info) async {
     tocCalls++;
     if (error != null) {
-      throw error!;
+      _throwError();
     }
     return tocResult ??
         const SourceToc(chapters: <SourceChapter>[], complete: true);
@@ -94,7 +105,7 @@ class _FakeEngine implements SourceEngine {
   Future<SourceTestReport> test(BookSource source) async {
     testCalls++;
     if (error != null) {
-      throw error!;
+      _throwError();
     }
     return testReport ??
         const SourceTestReport(
