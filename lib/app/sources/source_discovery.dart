@@ -106,6 +106,24 @@ class SourceDiscoveryService implements SourceDiscovery {
   }
 
   @override
+  Future<ResolvedAudio> resolveAudio(
+    BookSource source,
+    SourceChapter chapter,
+  ) async {
+    try {
+      return await _engine.resolveAudio(source, chapter);
+    } on SourceFailure catch (failure) {
+      throw _normalize(failure);
+    } on Object {
+      throw const SourceFailure(
+        kind: SourceFailureKind.rule,
+        stage: SourceStage.audio,
+        message: '书源规则无法解析',
+      );
+    }
+  }
+
+  @override
   Future<SourceTestReport> test(BookSource source) async {
     try {
       final result = await _engine.test(source);

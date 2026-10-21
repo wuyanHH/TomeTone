@@ -153,6 +153,11 @@ class _FakeDiscovery implements SourceDiscovery {
   }
 
   @override
+  Future<ResolvedAudio> resolveAudio(BookSource source, SourceChapter chapter) {
+    throw UnimplementedError('测试未配置音频解析');
+  }
+
+  @override
   Future<SourceTestReport> test(BookSource source) {
     throw UnimplementedError();
   }

@@ -20,5 +20,7 @@ abstract interface class SourceEngine {
 
   Future<SourceToc> toc(BookSource source, SourceBookInfo info);
 
+  Future<ResolvedAudio> resolveAudio(BookSource source, SourceChapter chapter);
+
   Future<SourceTestReport> test(BookSource source);
 }

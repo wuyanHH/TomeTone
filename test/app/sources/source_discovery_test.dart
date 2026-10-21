@@ -102,6 +102,11 @@ class _FakeEngine implements SourceEngine {
   }
 
   @override
+  Future<ResolvedAudio> resolveAudio(BookSource source, SourceChapter chapter) {
+    throw UnimplementedError('测试未配置音频解析');
+  }
+
+  @override
   Future<SourceTestReport> test(BookSource source) async {
     testCalls++;
     if (error != null) {

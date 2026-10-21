@@ -256,6 +256,11 @@ class _TestSourceEngine implements SourceEngine {
   final SourceFailure? failure;
 
   @override
+  Future<ResolvedAudio> resolveAudio(BookSource source, SourceChapter chapter) {
+    throw UnimplementedError('测试未配置音频解析');
+  }
+
+  @override
   Future<SourceTestReport> test(BookSource source) async {
     final error = failure;
     if (error != null) {

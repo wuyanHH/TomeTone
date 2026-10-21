@@ -94,6 +94,17 @@ class SourceToc {
   final List<String> warnings;
 }
 
+/// 解析后的音频地址与请求头。
+class ResolvedAudio {
+  const ResolvedAudio({
+    required this.url,
+    this.headers = const <String, String>{},
+  });
+
+  final String url;
+  final Map<String, String> headers;
+}
+
 class SourceTestReport {
   const SourceTestReport({
     required this.latency,

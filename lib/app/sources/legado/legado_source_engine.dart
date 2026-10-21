@@ -361,6 +361,122 @@ class LegadoSourceEngine implements SourceEngine {
   }
 
   @override
+  Future<ResolvedAudio> resolveAudio(
+    BookSource source,
+    SourceChapter chapter,
+  ) async {
+    if (chapter.isVip) {
+      throw const SourceFailure(
+        kind: SourceFailureKind.vipRequired,
+        stage: SourceStage.audio,
+        message: '需要登录或购买，暂不支持',
+      );
+    }
+    final rules = _parseRules(source, SourceStage.audio);
+    final raw = chapter.rawUrl.trim().isEmpty ? chapter.url : chapter.rawUrl;
+    try {
+      final fetched = await _fetch(
+        source: source,
+        stage: SourceStage.audio,
+        rules: rules,
+        raw: raw,
+        baseUrl: _sourceUri(source),
+      );
+      final rule = _requiredRule(
+        rules.contentFields,
+        'content',
+        SourceStage.audio,
+      );
+      final evaluated = await _evaluate(
+        rule,
+        _context(
+          source: source,
+          result: fetched.json,
+          baseUrl: fetched.response.finalUrl.toString(),
+        ),
+      );
+      final parsed = _parseAudioValue(evaluated);
+      final Uri resolved = fetched.response.finalUrl.resolve(parsed.url);
+      final String url;
+      try {
+        url = normalizeNetworkUrl(resolved.toString());
+      } on Object {
+        throw const SourceFailure(
+          kind: SourceFailureKind.rule,
+          stage: SourceStage.audio,
+          message: '音频地址无效',
+        );
+      }
+      return ResolvedAudio(
+        url: url,
+        headers: Map<String, String>.unmodifiable(<String, String>{
+          ...fetched.request.headers,
+          ...parsed.headers,
+        }),
+      );
+    } on SourceFailure {
+      rethrow;
+    } on Object catch (error) {
+      throw _mapFailure(error, SourceStage.audio);
+    }
+  }
+
+  ({String url, Map<String, String> headers}) _parseAudioValue(Object? value) {
+    Object? candidate = value;
+    if (candidate is List) {
+      candidate = candidate.isEmpty ? null : candidate.first;
+    }
+    if (candidate is Map) {
+      final rawUrl = _text(candidate['url']);
+      if (rawUrl == null) {
+        throw const SourceFailure(
+          kind: SourceFailureKind.rule,
+          stage: SourceStage.audio,
+          message: '音频规则没有返回 URL',
+        );
+      }
+      final headers = <String, String>{};
+      final rawHeaders = candidate['headers'];
+      if (rawHeaders is Map) {
+        for (final entry in rawHeaders.entries) {
+          if (entry.key is String && entry.value is String) {
+            headers[entry.key as String] = entry.value as String;
+          }
+        }
+      }
+      return (url: _cleanAudioUrl(rawUrl), headers: headers);
+    }
+    final text = _text(candidate);
+    if (text == null) {
+      throw const SourceFailure(
+        kind: SourceFailureKind.rule,
+        stage: SourceStage.audio,
+        message: '音频规则没有返回 URL',
+      );
+    }
+    return (url: _cleanAudioUrl(text), headers: const <String, String>{});
+  }
+
+  static String _cleanAudioUrl(String raw) {
+    var value = raw.trim();
+    if (value.length >= 2) {
+      final first = value[0];
+      final last = value[value.length - 1];
+      if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+        value = value.substring(1, value.length - 1).trim();
+      }
+    }
+    if (value.isEmpty) {
+      throw const SourceFailure(
+        kind: SourceFailureKind.rule,
+        stage: SourceStage.audio,
+        message: '音频规则没有返回 URL',
+      );
+    }
+    return value;
+  }
+
+  @override
   Future<SourceTestReport> test(BookSource source) async {
     final stopwatch = Stopwatch()..start();
     try {

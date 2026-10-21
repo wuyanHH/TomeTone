@@ -1,4 +1,4 @@
-enum SourceStage { explore, search, bookInfo, toc, test }
+enum SourceStage { explore, search, bookInfo, toc, audio, test }
 
 enum SourceFailureKind {
   network,
