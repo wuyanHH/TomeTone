@@ -51,6 +51,9 @@ class ShelfPage extends ConsumerStatefulWidget {
   /// 空态里「去书库添加目录」的引导按钮。
   static const Key goToLibraryKey = Key('shelf-open-library');
 
+  /// 空态里「去发现找书」的引导按钮。
+  static const Key goToDiscoveryKey = Key('shelf-open-discovery');
+
   /// 筛选后零结果的专用空态。
   static const Key filteredEmptyKey = Key('shelf-filtered-empty');
 
@@ -281,6 +284,9 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _ShelfEmpty(
+                  onOpenDiscovery: () {
+                    ref.read(appTabProvider.notifier).select(AppTab.discovery);
+                  },
                   onOpenLibrary: () {
                     ref.read(appTabProvider.notifier).select(AppTab.library);
                   },
@@ -771,9 +777,16 @@ class _ShelfSkeletonTile extends StatelessWidget {
   }
 }
 
-/// 空态：不假装能扫描，一句话指向「书库」，并给一个直达按钮。
+/// 空态：不假装能扫描，给出「发现」与「书库」两个直达入口。
 class _ShelfEmpty extends StatelessWidget {
-  const _ShelfEmpty({required this.onOpenLibrary, required this.onRefresh});
+  const _ShelfEmpty({
+    required this.onOpenDiscovery,
+    required this.onOpenLibrary,
+    required this.onRefresh,
+  });
+
+  /// 跳到「发现」tab。
+  final VoidCallback onOpenDiscovery;
 
   /// 跳到「书库」tab（通过外壳级 provider，不依赖 AppShell 实例）。
   final VoidCallback onOpenLibrary;
@@ -817,18 +830,31 @@ class _ShelfEmpty extends StatelessWidget {
               Text('还没有书库', style: text.headlineSmall),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '书架还空着：去「书库」添加一个目录，扫描完成后书目就会出现在这里。',
+                '书架还空着：去「发现」找在线书，或去「书库」添加一个目录，扫描完成后书目就会出现在这里。',
                 textAlign: TextAlign.center,
                 style: text.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
-                key: ShelfPage.goToLibraryKey,
-                onPressed: onOpenLibrary,
-                icon: const Icon(Icons.folder_special_outlined, size: 18),
-                label: const Text('去「书库」添加目录'),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: <Widget>[
+                  FilledButton.icon(
+                    key: ShelfPage.goToDiscoveryKey,
+                    onPressed: onOpenDiscovery,
+                    icon: const Icon(Icons.explore_outlined, size: 18),
+                    label: const Text('去发现找书'),
+                  ),
+                  OutlinedButton.icon(
+                    key: ShelfPage.goToLibraryKey,
+                    onPressed: onOpenLibrary,
+                    icon: const Icon(Icons.folder_special_outlined, size: 18),
+                    label: const Text('去「书库」添加目录'),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.sm),
               OutlinedButton.icon(

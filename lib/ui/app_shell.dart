@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/ui/app_tabs.dart';
+import 'package:tometone/ui/pages/discovery/discovery_page.dart';
 import 'package:tometone/ui/pages/library/library_page.dart';
 import 'package:tometone/ui/pages/settings/settings_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/mini_player.dart';
 
-/// 应用外壳：底部 4 栏（书架 / 书库 / 纪年 / 设置）+ 底部 MiniPlayer。
+/// 应用外壳：底部 5 栏（书架 / 发现 / 书库 / 纪年 / 设置）+ 底部 MiniPlayer。
 ///
 /// 形态规则（《架构需求文档》§3.1）：
 /// - `< 600dp` 手机纵屏：单列内容 + 底部 [NavigationBar]；
@@ -20,7 +21,8 @@ import 'package:tometone/ui/widgets/mini_player.dart';
 /// `SizedBox.shrink`，不占高度）；测试或特殊端形态可以注入一个替身。
 /// 外壳本身仍不读取播放数据、不含播放策略 —— 展开播放台由 MiniPlayer 自己完成。
 ///
-/// 书架、书库与设置已是真实页面；纪年仍是占位内容，后续替换 [_pageFor] 即可。
+/// 书架、发现、书库与设置已是真实页面；纪年仍是占位内容，后续替换
+/// [_pageFor] 即可。
 class AppShell extends ConsumerWidget {
   /// 创建应用外壳。
   const AppShell({super.key, this.miniPlayer = const MiniPlayer()});
@@ -109,6 +111,7 @@ class _TabSwitcher extends StatelessWidget {
 Widget _pageFor(AppTab tab) {
   return switch (tab) {
     AppTab.shelf => const ShelfPage(),
+    AppTab.discovery => const DiscoveryPage(),
     AppTab.library => const LibraryPage(),
     AppTab.chronicle => const ChronicleTabPlaceholder(),
     AppTab.settings => const SettingsPage(),
@@ -138,6 +141,12 @@ const List<_ShellDestination> _destinations = <_ShellDestination>[
     hint: '书架：你的藏书与收听',
   ),
   _ShellDestination(
+    label: '发现',
+    icon: Icons.explore_outlined,
+    selectedIcon: Icons.explore,
+    hint: '发现：从书源找书',
+  ),
+  _ShellDestination(
     label: '书库',
     icon: Icons.folder_special_outlined,
     selectedIcon: Icons.folder_special,
@@ -157,7 +166,7 @@ const List<_ShellDestination> _destinations = <_ShellDestination>[
   ),
 ];
 
-/// 手机纵屏：底部 4 栏。
+/// 手机纵屏：底部 5 栏。
 class _ShellBar extends StatelessWidget {
   const _ShellBar({required this.selectedIndex, required this.onSelected});
 

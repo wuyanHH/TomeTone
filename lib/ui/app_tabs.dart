@@ -1,12 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 底部导航目的地（书架 / 书库 / 纪年 / 设置）。
+/// 底部导航目的地（书架 / 发现 / 书库 / 纪年 / 设置）。
 ///
 /// 枚举顺序即索引顺序，[AppShell] 的 NavigationBar / NavigationRail 与
 /// 各页面的跳转请求共用这一份定义。
 enum AppTab {
   /// 书架：看与听。
   shelf,
+
+  /// 发现：从在线书源找书。
+  discovery,
 
   /// 书库：内容来源与扫描。
   library,

@@ -95,6 +95,8 @@ void main() {
     expect(find.text('还没有书库'), findsOneWidget);
     expect(find.textContaining('去「书库」添加一个目录'), findsOneWidget);
     expect(find.textContaining('「设置」'), findsNothing);
+    expect(find.byKey(ShelfPage.goToDiscoveryKey), findsOneWidget);
+    expect(find.text('去发现找书'), findsOneWidget);
     expect(find.text('重新读取书架'), findsOneWidget);
     expect(container.read(appTabProvider), AppTab.shelf);
 
@@ -105,6 +107,21 @@ void main() {
       AppTab.library,
       reason: '空态引导必须切到书库 tab',
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('空态：点「去发现找书」切到发现 tab', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final ProviderContainer container = await pumpShelf(
+      tester,
+      overrides: testOverrides(controller: controller),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ShelfPage.goToDiscoveryKey));
+    await tester.pump();
+
+    expect(container.read(appTabProvider), AppTab.discovery);
     expect(tester.takeException(), isNull);
   });
 

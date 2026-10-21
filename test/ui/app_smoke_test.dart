@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -6,6 +7,7 @@ import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
+import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app.dart';
 import 'package:tometone/ui/app_shell.dart';
@@ -25,6 +27,7 @@ void _useViewport(WidgetTester tester, Size size) {
 void main() {
   late FakePlaybackEngine engine;
   late PlaybackController controller;
+  late TomeToneDatabase database;
 
   setUp(() {
     engine = FakePlaybackEngine();
@@ -32,15 +35,18 @@ void main() {
       engine: engine,
       writeProgress: (String bookId, String chapterId, Duration position) {},
     );
+    database = TomeToneDatabase(NativeDatabase.memory());
   });
 
   tearDown(() async {
     await controller.dispose();
+    await database.close();
   });
 
-  /// 外壳现在会读取书架 / 书库根 / 播放控制器，测试必须注入假数据。
+  /// 外壳现在会读取书架 / 发现页书源 / 书库根 / 播放控制器，测试必须注入假数据。
   List<Override> overrides() {
     return <Override>[
+      databaseProvider.overrideWithValue(database),
       booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
       libraryRootsProvider.overrideWith(
         (Ref ref) async => const <LibraryRootView>[],
@@ -49,7 +55,7 @@ void main() {
     ];
   }
 
-  testWidgets('装配入口 → 外壳渲染成功：4 个 tab 存在且无异常', (WidgetTester tester) async {
+  testWidgets('装配入口 → 外壳渲染成功：5 个 tab 存在且无异常', (WidgetTester tester) async {
     _useViewport(tester, const Size(400, 800));
 
     await tester.pumpWidget(
@@ -61,6 +67,7 @@ void main() {
     expect(find.byType(AppShell), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('书架'), findsOneWidget);
+    expect(find.text('发现'), findsOneWidget);
     expect(find.text('书库'), findsOneWidget);
     expect(find.text('纪年'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
@@ -75,6 +82,11 @@ void main() {
       ProviderScope(overrides: overrides(), child: const TomeToneApp()),
     );
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('发现'));
+    await tester.pumpAndSettle();
+    expect(find.text('发现 · DISCOVER'), findsOneWidget);
+    expect(find.text('还没有书源'), findsOneWidget);
 
     await tester.tap(find.text('纪年'));
     await tester.pumpAndSettle();
@@ -108,12 +120,31 @@ void main() {
     expect(find.byKey(ShelfPage.emptyKey), findsOneWidget);
     expect(find.textContaining('去「书库」添加一个目录'), findsOneWidget);
     expect(find.text('去「书库」添加目录'), findsOneWidget);
+    expect(find.byKey(ShelfPage.goToDiscoveryKey), findsOneWidget);
+    expect(find.text('去发现找书'), findsOneWidget);
 
     await tester.tap(find.byKey(ShelfPage.goToLibraryKey));
     await tester.pumpAndSettle();
 
     expect(find.text('书库 · LIBRARY'), findsOneWidget);
     expect(find.text('还没有书库根'), findsOneWidget);
+    expect(find.byKey(ShelfPage.emptyKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('书架空态：点「去发现找书」直达发现 tab', (WidgetTester tester) async {
+    _useViewport(tester, const Size(400, 800));
+
+    await tester.pumpWidget(
+      ProviderScope(overrides: overrides(), child: const TomeToneApp()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ShelfPage.goToDiscoveryKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('发现 · DISCOVER'), findsOneWidget);
+    expect(find.text('还没有书源'), findsOneWidget);
     expect(find.byKey(ShelfPage.emptyKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -161,6 +192,7 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     expect(find.text('书架'), findsOneWidget);
+    expect(find.text('发现'), findsOneWidget);
     expect(find.text('书库'), findsOneWidget);
     expect(find.text('纪年'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
@@ -225,5 +257,31 @@ void main() {
       find.byType(AnimatedSwitcher),
     );
     expect(switcher.duration, AppDurations.standard);
+  });
+
+  testWidgets('320dp + 2.0 字号下五栏标签不溢出', (WidgetTester tester) async {
+    _useViewport(tester, const Size(320, 700));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: overrides(),
+        child: MaterialApp(
+          theme: AppTheme.build(),
+          home: const AppShell(),
+          builder: (BuildContext context, Widget? child) {
+            return MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('发现'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

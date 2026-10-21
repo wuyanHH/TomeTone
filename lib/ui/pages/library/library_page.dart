@@ -10,7 +10,7 @@ import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/pages/sources/source_management_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
-/// 书库（独立的第 4 个 tab，方案 A）。
+/// 书库（独立的来源 tab，方案 A）。
 ///
 /// 职责边界：书架只负责「看与听」，书库只负责「来源与扫描」。
 ///
