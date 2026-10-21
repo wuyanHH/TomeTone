@@ -26,6 +26,17 @@ class BookSummary {
     this.progressChapterIndex,
     this.progressPositionMs,
     this.lastListenedAt,
+    this.sourceType = 'local',
+    this.sourceId,
+    this.onShelf = true,
+    this.coverUrl,
+    this.kind,
+    this.wordCount,
+    this.sourceStatus,
+    this.lastChapter,
+    this.sourceName,
+    this.sourceEnabled,
+    this.sourceDeleted,
   });
 
   /// 书 ID（不可变）。
@@ -94,6 +105,42 @@ class BookSummary {
   /// 最近收听时间（用于"最近收听"排序）。
   final DateTime? lastListenedAt;
 
+  /// `local` / `saf` / `webdav` / `online`。
+  final String sourceType;
+
+  /// 在线书来源 ID；本机书为空。
+  final String? sourceId;
+
+  /// 是否在书架展示；在线书默认为 false。
+  final bool onShelf;
+
+  /// 在线封面 URL；本机封面仍走 [coverPath]。
+  final String? coverUrl;
+
+  /// 在线书类型 / 标签。
+  final String? kind;
+
+  /// 在线字数/集数文本。
+  final String? wordCount;
+
+  /// 连载/完结等来源状态。
+  final String? sourceStatus;
+
+  /// 来源最新章节。
+  final String? lastChapter;
+
+  /// 来源名；本机书为空。
+  final String? sourceName;
+
+  /// 来源是否启用；本机书为空。
+  final bool? sourceEnabled;
+
+  /// 来源是否已软删除；本机书为空。
+  final bool? sourceDeleted;
+
+  /// 是否在线书。
+  bool get isOnline => sourceType == 'online';
+
   /// 是否听过（有进度）。
   bool get hasProgress => progressPositionMs != null;
 
@@ -145,6 +192,9 @@ class ChapterView {
     required this.filePath,
     required this.missing,
     this.durationMs,
+    this.sourceUri,
+    this.retired = false,
+    this.isVip = false,
   });
 
   /// 章 ID（不可变）。
@@ -167,6 +217,15 @@ class ChapterView {
 
   /// 时长毫秒。
   final int? durationMs;
+
+  /// provider 侧章 URL（在线章保留原始 URL options）。
+  final String? sourceUri;
+
+  /// 是否已下架/换源后的旧章。
+  final bool retired;
+
+  /// 是否 VIP / 付费章。
+  final bool isVip;
 
   @override
   String toString() => 'ChapterView($chapterIndex, $title)';
@@ -273,9 +332,18 @@ class BookDetail {
   /// 续播进度（可能为空）。
   final ProgressSnapshot? progress;
 
-  /// 扁平章节列表（跨卷连播队列的输入）。
+  /// 当前可展示/可播放的 active 章（跨卷连播队列的输入）。
   List<ChapterView> get chapters => <ChapterView>[
-    for (final volume in volumes) ...volume.chapters,
+    for (final volume in volumes)
+      for (final chapter in volume.chapters)
+        if (!chapter.retired) chapter,
+  ];
+
+  /// 已下架/换源后的旧章（只读分组，不进播放队列）。
+  List<ChapterView> get retiredChapters => <ChapterView>[
+    for (final volume in volumes)
+      for (final chapter in volume.chapters)
+        if (chapter.retired) chapter,
   ];
 
   @override

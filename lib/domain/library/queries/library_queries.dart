@@ -100,11 +100,11 @@ class DriftLibraryQueries implements LibraryQueries {
   @override
   Future<List<String>> listBookTags() async {
     final rows = await _database
-        .customSelect('SELECT DISTINCT tag FROM book_tags ORDER BY tag COLLATE NOCASE')
+        .customSelect(
+          'SELECT DISTINCT tag FROM book_tags ORDER BY tag COLLATE NOCASE',
+        )
         .get();
-    return <String>[
-      for (final row in rows) row.read<String>('tag'),
-    ];
+    return <String>[for (final row in rows) row.read<String>('tag')];
   }
 
   @override
@@ -148,6 +148,9 @@ class DriftLibraryQueries implements LibraryQueries {
               filePath: chapter.filePath,
               missing: chapter.missing,
               durationMs: chapter.durationMs,
+              sourceUri: chapter.sourceUri,
+              retired: chapter.retired,
+              isVip: chapter.isVip,
             ),
           );
     }
@@ -251,9 +254,9 @@ class DriftLibraryQueries implements LibraryQueries {
     final DateTime now = (updatedAt ?? DateTime.now()).toUtc();
 
     await _database.transaction(() async {
-      final existing = await (_database.select(_database.bookMetadataOverrides)
-            ..where((tbl) => tbl.bookId.equals(bookId)))
-          .getSingleOrNull();
+      final existing = await (_database.select(
+        _database.bookMetadataOverrides,
+      )..where((tbl) => tbl.bookId.equals(bookId))).getSingleOrNull();
       final List<String> existingTags = await _existingTags(bookId);
 
       if (manual) {
@@ -352,7 +355,10 @@ SELECT b.id,
        COALESCE(m.series_name, b.series_name) AS series_name,
        COALESCE(m.series_index, b.series_index) AS series_index,
        b.cover_path, b.cover_source_type, b.total_chapters, b.total_duration_ms,
-       b.library_root_id, b.root_path,
+       b.library_root_id, b.root_path, b.source_type, b.source_id, b.on_shelf,
+       b.cover_url, b.kind, b.word_count, b.source_status, b.last_chapter,
+       s.name AS source_name, s.enabled AS source_enabled,
+       s.deleted_at AS source_deleted_at,
        m.description AS description,
        m.manual_edited_at IS NOT NULL AS metadata_edited,
        p.chapter_id AS progress_chapter_id,
@@ -362,6 +368,7 @@ SELECT b.id,
        c.title AS progress_chapter_title,
        c.chapter_index AS progress_chapter_index
 FROM books b
+LEFT JOIN book_sources s ON s.id = b.source_id
 LEFT JOIN book_metadata_overrides m ON m.book_id = b.id
 LEFT JOIN playback_progress p ON p.book_id = b.id
 LEFT JOIN chapters c ON c.id = p.chapter_id
@@ -371,10 +378,7 @@ $limitClause
 ''',
           variables: <Variable<Object>>[
             ...leadingVariables,
-            if (limit != null) ...[
-              Variable<int>(limit),
-              Variable<int>(offset),
-            ],
+            if (limit != null) ...[Variable<int>(limit), Variable<int>(offset)],
           ],
         )
         .get();
@@ -413,6 +417,19 @@ $limitClause
           progressPositionMs: row.read<int?>('progress_position_ms'),
           lastListenedAt: row.read<DateTime?>('progress_updated_at'),
           missingChapters: missing[row.read<String>('id')] ?? 0,
+          sourceType: row.read<String>('source_type'),
+          sourceId: row.read<String?>('source_id'),
+          onShelf: row.read<bool>('on_shelf'),
+          coverUrl: row.read<String?>('cover_url'),
+          kind: row.read<String?>('kind'),
+          wordCount: row.read<String?>('word_count'),
+          sourceStatus: row.read<String?>('source_status'),
+          lastChapter: row.read<String?>('last_chapter'),
+          sourceName: row.read<String?>('source_name'),
+          sourceEnabled: row.read<bool?>('source_enabled'),
+          sourceDeleted: row.read<String?>('source_id') == null
+              ? null
+              : row.read<DateTime?>('source_deleted_at') != null,
         ),
     ];
   }
@@ -434,16 +451,16 @@ $limitClause
   }
 
   Future<List<String>> _existingTags(String bookId) async {
-    final rows = await (_database.select(_database.bookTags)
-          ..where((tbl) => tbl.bookId.equals(bookId)))
-        .get();
+    final rows = await (_database.select(
+      _database.bookTags,
+    )..where((tbl) => tbl.bookId.equals(bookId))).get();
     return <String>[for (final row in rows) row.tag];
   }
 
   Future<void> _replaceTags(String bookId, List<String> tags) async {
-    await (_database.delete(_database.bookTags)
-          ..where((tbl) => tbl.bookId.equals(bookId)))
-        .go();
+    await (_database.delete(
+      _database.bookTags,
+    )..where((tbl) => tbl.bookId.equals(bookId))).go();
     for (final tag in tags) {
       await _database
           .into(_database.bookTags)
