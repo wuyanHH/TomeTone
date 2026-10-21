@@ -1,0 +1,9 @@
+{
+  "chapters": [
+    {
+      "title": "第二章 循环页",
+      "url": "/play/2"
+    }
+  ],
+  "next": "/api/chapters/1"
+}
