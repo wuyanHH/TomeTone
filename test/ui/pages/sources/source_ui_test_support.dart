@@ -61,9 +61,11 @@ Future<String> seedSource(
   TomeToneDatabase db, {
   String? name,
   String? sourceUrl,
+  Map<String, Object?>? extra,
 }) async {
-  final outcomes = await sourceService(db)
-      .importText(sourceFixtureText(name: name, sourceUrl: sourceUrl));
+  final outcomes = await sourceService(db).importText(
+    sourceFixtureText(name: name, sourceUrl: sourceUrl, extra: extra),
+  );
   return outcomes.single.sourceId!;
 }
 
