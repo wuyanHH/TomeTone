@@ -18,6 +18,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('传入的请求头透传给网络图片', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: NetworkCover(
+              coverUrl: 'http://127.0.0.1:1/missing.jpg',
+              size: 64,
+              headers: <String, String>{'Referer': 'https://e.test/'},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final Image image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<NetworkImage>());
+    expect((image.image as NetworkImage).headers, <String, String>{
+      'Referer': 'https://e.test/',
+    });
+  });
+
   testWidgets('图片加载失败时回退图标，不抛异常', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

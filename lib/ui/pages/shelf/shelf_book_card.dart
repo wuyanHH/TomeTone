@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/pages/shelf/shelf_progress.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
+import 'package:tometone/ui/widgets/network_cover.dart';
 
 /// 书架网格卡片（双列藏书格）。
 ///
@@ -45,11 +48,23 @@ class ShelfBookCard extends ConsumerWidget {
         )
         .value;
 
+    final BookSource? source = book.isOnline && book.sourceId != null
+        ? ref.watch(bookSourceByIdProvider(book.sourceId!)).value
+        : null;
     final String meta = _byline(book);
     final String description = (book.description ?? '').trim();
     final String missing = book.missingChapters > 0
         ? '${book.missingChapters} 章缺失'
         : '';
+    final String sourceState = book.sourceDeleted == true
+        ? '来源已删除'
+        : book.sourceEnabled == false
+        ? '来源已停用'
+        : '';
+    final String warning = <String>[
+      if (sourceState.isNotEmpty) sourceState,
+      if (missing.isNotEmpty) missing,
+    ].join(' · ');
     final String semanticsLabel = <String>[
       '《${book.title}》',
       if (meta.isNotEmpty) meta,
@@ -73,16 +88,24 @@ class ShelfBookCard extends ConsumerWidget {
                     return Stack(
                       fit: StackFit.expand,
                       children: <Widget>[
-                        BookCover(
-                          title: book.title,
-                          size: constraints.maxWidth,
-                          coverPath: coverArt is CoverArtFile
-                              ? coverArt.absolutePath
-                              : null,
-                          coverImage: coverArt is CoverArtBytes
-                              ? MemoryImage(coverArt.bytes)
-                              : null,
-                        ),
+                        if (book.isOnline)
+                          NetworkCover(
+                            coverUrl: book.coverUrl,
+                            size: constraints.maxWidth,
+                            headers: source?.header,
+                            borderRadius: AppRadii.cover,
+                          )
+                        else
+                          BookCover(
+                            title: book.title,
+                            size: constraints.maxWidth,
+                            coverPath: coverArt is CoverArtFile
+                                ? coverArt.absolutePath
+                                : null,
+                            coverImage: coverArt is CoverArtBytes
+                                ? MemoryImage(coverArt.bytes)
+                                : null,
+                          ),
                         Positioned(
                           right: AppSpacing.xs,
                           bottom: AppSpacing.xs,
@@ -124,20 +147,20 @@ class ShelfBookCard extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               ShelfProgress(book: book, compact: true),
-              if (missing.isNotEmpty)
+              if (warning.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.xxs),
                   child: Row(
                     children: <Widget>[
                       Icon(
-                        Icons.link_off_rounded,
+                        Icons.warning_amber_rounded,
                         size: 12,
                         color: scheme.tertiary,
                       ),
                       const SizedBox(width: AppSpacing.xxs),
                       Expanded(
                         child: Text(
-                          missing,
+                          warning,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: text.labelSmall?.copyWith(

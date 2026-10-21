@@ -166,7 +166,9 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<BookSummary>> booksAsync = ref.watch(booksProvider);
+    final AsyncValue<List<BookSummary>> booksAsync = ref.watch(
+      shelfBooksProvider,
+    );
     final AsyncValue<List<LibraryRootView>> rootsAsync = ref.watch(
       libraryRootsProvider,
     );

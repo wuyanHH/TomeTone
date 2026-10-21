@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/pages/shelf/shelf_progress.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
+import 'package:tometone/ui/widgets/network_cover.dart';
 
 /// 书架列表行（单列信息卡）。
 ///
@@ -44,8 +47,16 @@ class ShelfBookRow extends ConsumerWidget {
         )
         .value;
 
+    final BookSource? source = book.isOnline && book.sourceId != null
+        ? ref.watch(bookSourceByIdProvider(book.sourceId!)).value
+        : null;
     final String meta = _byline(book);
     final String description = (book.description ?? '').trim();
+    final String sourceState = book.sourceDeleted == true
+        ? '来源已删除'
+        : book.sourceEnabled == false
+        ? '来源已停用'
+        : '';
 
     return Container(
       decoration: BoxDecoration(
@@ -63,16 +74,23 @@ class ShelfBookRow extends ConsumerWidget {
             children: <Widget>[
               ClipRRect(
                 borderRadius: AppRadii.cover,
-                child: BookCover(
-                  title: book.title,
-                  size: 64,
-                  coverPath: coverArt is CoverArtFile
-                      ? coverArt.absolutePath
-                      : null,
-                  coverImage: coverArt is CoverArtBytes
-                      ? MemoryImage(coverArt.bytes)
-                      : null,
-                ),
+                child: book.isOnline
+                    ? NetworkCover(
+                        coverUrl: book.coverUrl,
+                        size: 64,
+                        headers: source?.header,
+                        borderRadius: AppRadii.cover,
+                      )
+                    : BookCover(
+                        title: book.title,
+                        size: 64,
+                        coverPath: coverArt is CoverArtFile
+                            ? coverArt.absolutePath
+                            : null,
+                        coverImage: coverArt is CoverArtBytes
+                            ? MemoryImage(coverArt.bytes)
+                            : null,
+                      ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -112,6 +130,15 @@ class ShelfBookRow extends ConsumerWidget {
                     ],
                     const SizedBox(height: AppSpacing.sm),
                     ShelfProgress(book: book),
+                    if (sourceState.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        sourceState,
+                        style: text.labelSmall?.copyWith(
+                          color: scheme.tertiary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

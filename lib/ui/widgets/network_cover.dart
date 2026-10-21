@@ -10,6 +10,7 @@ class NetworkCover extends StatelessWidget {
     super.key,
     required this.coverUrl,
     this.size = 64,
+    this.headers,
     this.borderRadius,
   });
 
@@ -24,6 +25,9 @@ class NetworkCover extends StatelessWidget {
 
   /// 正方形边长。
   final double size;
+
+  /// 图片请求头（源 header）；不得写入 URL。
+  final Map<String, String>? headers;
 
   /// 圆角；默认使用 10dp。
   final BorderRadius? borderRadius;
@@ -57,6 +61,7 @@ class NetworkCover extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        headers: headers,
         loadingBuilder:
             (BuildContext context, Widget child, ImageChunkEvent? progress) {
               if (progress == null) {

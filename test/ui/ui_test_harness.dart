@@ -51,6 +51,16 @@ BookSummary testSummary({
   List<String> tags = const <String>[],
   bool isFinished = false,
   bool metadataEdited = false,
+  String sourceType = 'local',
+  String? sourceId,
+  bool onShelf = true,
+  String? coverUrl,
+  String? kind,
+  String? wordCount,
+  String? lastChapter,
+  String? sourceName,
+  bool? sourceEnabled,
+  bool? sourceDeleted,
 }) {
   return BookSummary(
     id: id,
@@ -77,6 +87,16 @@ BookSummary testSummary({
     tags: tags,
     isFinished: isFinished,
     metadataEdited: metadataEdited,
+    sourceType: sourceType,
+    sourceId: sourceId,
+    onShelf: onShelf,
+    coverUrl: coverUrl,
+    kind: kind,
+    wordCount: wordCount,
+    lastChapter: lastChapter,
+    sourceName: sourceName,
+    sourceEnabled: sourceEnabled,
+    sourceDeleted: sourceDeleted,
   );
 }
 

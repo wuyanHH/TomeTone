@@ -4,6 +4,7 @@ import 'package:tometone/app/sources/book_source_service.dart';
 import 'package:tometone/app/sources/io_source_import_loader.dart';
 import 'package:tometone/contracts/sources/source_import_loader.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
+import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/book_source_queries.dart';
 
 final Provider<BookSourceQueries> bookSourceQueriesProvider =
@@ -24,3 +25,11 @@ final Provider<SourceImportLoader> sourceImportLoaderProvider =
     Provider<SourceImportLoader>((Ref ref) {
       return const IoSourceImportLoader();
     });
+
+/// 按 ID 读取书源；在线书封面/详情需要源 header。
+final bookSourceByIdProvider = FutureProvider.family<BookSource?, String>((
+  Ref ref,
+  String id,
+) {
+  return ref.watch(bookSourceQueriesProvider).sourceById(id);
+});

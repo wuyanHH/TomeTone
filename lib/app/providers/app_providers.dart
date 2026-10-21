@@ -39,6 +39,16 @@ final FutureProvider<List<BookSummary>> booksProvider =
       (Ref ref) => ref.watch(libraryQueriesProvider).listAllBooks(),
     );
 
+/// 书架列表：只保留 `onShelf=true` 的书（在线书默认不入书架）。
+final FutureProvider<List<BookSummary>> shelfBooksProvider =
+    FutureProvider<List<BookSummary>>((Ref ref) async {
+      final List<BookSummary> all = await ref.watch(booksProvider.future);
+      return <BookSummary>[
+        for (final BookSummary book in all)
+          if (book.onShelf) book,
+      ];
+    });
+
 /// 书详情。
 final bookDetailProvider = FutureProvider.family<BookDetail?, String>(
   (Ref ref, String bookId) =>
