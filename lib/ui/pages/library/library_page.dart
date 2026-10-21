@@ -7,6 +7,7 @@ import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/pages/library/library_browser_page.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
+import 'package:tometone/ui/pages/sources/source_management_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 书库（独立的第 4 个 tab，方案 A）。
@@ -66,6 +67,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 onAddRoot: rootsAsync.hasValue && roots.isNotEmpty
                     ? () => unawaited(_openAddRootSheet())
                     : null,
+                onOpenSources: _openSources,
               ),
               Padding(
                 padding: AppSpacing.pagePadding,
@@ -171,6 +173,15 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     unawaited(
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(builder: (_) => LibraryBrowserPage(root: root)),
+      ),
+    );
+  }
+
+  /// 在线书源独立管理，不混入本机书库根列表。
+  void _openSources() {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(builder: (_) => const SourceManagementPage()),
       ),
     );
   }
@@ -300,9 +311,16 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
 /// 页首题头：眉题 + 标题 + 根数量 + 一个添加入口（版式与书架一致）。
 class _LibraryHeader extends StatelessWidget {
-  const _LibraryHeader({required this.countLabel, this.onAddRoot});
+  const _LibraryHeader({
+    required this.countLabel,
+    required this.onOpenSources,
+    this.onAddRoot,
+  });
 
   final String countLabel;
+
+  /// 打开在线书源管理页。
+  final VoidCallback onOpenSources;
 
   /// 打开添加弹层；为空时不渲染 `+`（空态/加载态/失败态都交给正文自己说）。
   final VoidCallback? onAddRoot;
@@ -343,8 +361,15 @@ class _LibraryHeader extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(width: AppSpacing.xs),
+              IconButton(
+                key: LibraryRootsKeys.sourcesButtonKey,
+                onPressed: onOpenSources,
+                tooltip: '书源',
+                icon: const Icon(Icons.rss_feed),
+              ),
               if (onAddRoot != null) ...<Widget>[
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.xs),
                 IconButton(
                   key: LibraryRootsKeys.addRootButtonKey,
                   onPressed: onAddRoot,

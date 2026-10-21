@@ -197,6 +197,9 @@ class DriftLibraryQueries implements LibraryQueries {
   Future<List<LibraryRootView>> libraryRoots() async {
     final rows =
         await (_database.select(_database.libraryRoots)
+              // 在线书源的虚拟根只由 book_sources 管理，不能混进本机根列表，
+              // 否则设置页/扫描链路会把它当成可扫描目录。
+              ..where((tbl) => tbl.type.equals('online').not())
               ..orderBy(<OrderClauseGenerator<$LibraryRootsTable>>[
                 (tbl) => OrderingTerm(expression: tbl.createdAt),
               ]))
