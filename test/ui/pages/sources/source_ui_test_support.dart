@@ -154,6 +154,7 @@ Future<void> pumpSourceUi(
   required Widget home,
   SourceImportLoader? loader,
   SourceDiscovery? discovery,
+  List<Override> extra = const <Override>[],
   Size size = const Size(360, 780),
   double textScale = 1,
   Brightness brightness = Brightness.light,
@@ -173,6 +174,7 @@ Future<void> pumpSourceUi(
           sourceImportLoaderProvider.overrideWithValue(loader),
         if (discovery != null)
           sourceDiscoveryProvider.overrideWithValue(discovery),
+        ...extra,
       ],
       child: MaterialApp(
         theme: AppTheme.build(),

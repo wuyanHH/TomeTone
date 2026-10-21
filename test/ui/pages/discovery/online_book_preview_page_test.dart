@@ -57,8 +57,8 @@ void main() {
     expect(find.text('第二章'), findsOneWidget);
     expect(find.byKey(OnlineBookPreviewKeys.chapterKey(0)), findsOneWidget);
     expect(find.byKey(OnlineBookPreviewKeys.chapterKey(1)), findsOneWidget);
-    expect(find.text('加入书架'), findsNothing);
-    expect(find.text('立即收听'), findsNothing);
+    expect(find.text('加入书架'), findsOneWidget);
+    expect(find.text('立即收听'), findsOneWidget);
     expect(find.byKey(NetworkCover.fallbackKey), findsOneWidget);
 
     final afterBooks = await db.select(db.books).get();

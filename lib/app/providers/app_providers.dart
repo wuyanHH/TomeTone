@@ -39,6 +39,12 @@ final FutureProvider<List<BookSummary>> booksProvider =
       (Ref ref) => ref.watch(libraryQueriesProvider).listAllBooks(),
     );
 
+/// 全部标签（加入书架分类弹层用）。
+final FutureProvider<List<String>> bookTagsProvider =
+    FutureProvider<List<String>>(
+      (Ref ref) => ref.watch(libraryQueriesProvider).listBookTags(),
+    );
+
 /// 书架列表：只保留 `onShelf=true` 的书（在线书默认不入书架）。
 final FutureProvider<List<BookSummary>> shelfBooksProvider =
     FutureProvider<List<BookSummary>>((Ref ref) async {

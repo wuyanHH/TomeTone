@@ -2,10 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/library/online_book_service.dart';
+import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/online_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
+import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
+import 'package:tometone/ui/pages/shelf/add_to_shelf_sheet.dart';
+import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
+import 'package:tometone/ui/pages/shelf/open_book_action.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/network_cover.dart';
 
@@ -19,6 +26,8 @@ abstract final class OnlineBookPreviewKeys {
   static const Key partialTocKey = Key('online-preview-partial-toc');
   static const Key previewNoticeKey = Key('online-preview-notice');
   static const Key tocRetryKey = Key('online-preview-toc-retry');
+  static const Key addToShelfKey = Key('online-preview-add-shelf');
+  static const Key listenKey = Key('online-preview-listen');
 
   static Key chapterKey(int index) =>
       ValueKey<String>('online-preview-chapter-$index');
@@ -194,9 +203,137 @@ class _OnlineBookPreviewPageState extends ConsumerState<OnlineBookPreviewPage> {
     }
   }
 
+  bool _busy = false;
+
+  Future<void> _addToShelf() async {
+    if (_busy) {
+      return;
+    }
+    final Set<String>? tags = await showAddToShelfSheet(
+      context,
+      bookTitle: _display.title,
+    );
+    if (!mounted || tags == null) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final String bookId = await ref
+          .read(onlineBookServiceProvider)
+          .addToShelf(
+            source: widget.source,
+            item: widget.item,
+            info: _info,
+            toc: _toc,
+            tags: tags.toList(),
+          );
+      ref.invalidate(booksProvider);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) => BookDetailPage(bookId: bookId),
+        ),
+      );
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('加入书架失败，请稍后再试')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _listen() async {
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final String bookId = await ref
+          .read(onlineBookServiceProvider)
+          .startListening(
+            source: widget.source,
+            item: widget.item,
+            info: _info,
+            toc: _toc,
+          );
+      ref.invalidate(booksProvider);
+      final BookDetail? detail = await ref.read(
+        bookDetailProvider(bookId).future,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (detail == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('书目信息不完整，暂时无法播放')));
+        return;
+      }
+      await openBookAndShowPlayer(context: context, ref: ref, detail: detail);
+    } on OnlineBookNotPlayable catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('暂时无法开始播放，请稍后再试')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Widget _buildActions() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.md,
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: OutlinedButton(
+                key: OnlineBookPreviewKeys.addToShelfKey,
+                onPressed: _busy ? null : _addToShelf,
+                child: const Text('加入书架'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: FilledButton(
+                key: OnlineBookPreviewKeys.listenKey,
+                onPressed: _busy ? null : _listen,
+                child: _busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('立即收听'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: _loading ? null : _buildActions(),
       appBar: AppBar(
         title: Text(
           '在线预览 · ${widget.source.name}',
