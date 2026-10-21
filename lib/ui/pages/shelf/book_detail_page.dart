@@ -5,14 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/metadata_providers.dart';
+import 'package:tometone/app/providers/online_providers.dart';
+import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/domain/sources/book_source.dart';
+import 'package:tometone/ui/pages/shelf/add_to_shelf_sheet.dart';
 import 'package:tometone/ui/pages/shelf/book_metadata_sheet.dart';
 import 'package:tometone/ui/pages/shelf/chapter_list_sheet.dart';
 import 'package:tometone/ui/pages/shelf/open_book_action.dart';
 import 'package:tometone/ui/pages/shelf/shelf_progress.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
+import 'package:tometone/ui/widgets/network_cover.dart';
+
+/// 详情页的稳定测试键。
+abstract final class BookDetailKeys {
+  static const Key addShelfKey = Key('book-detail-add-shelf');
+  static const Key removeShelfKey = Key('book-detail-remove-shelf');
+  static const Key listenKey = Key('book-detail-listen');
+}
 
 /// 详情页的起播动作；测试可注入假实现。
 typedef BookOpenAction = Future<void> Function(
@@ -43,6 +55,10 @@ class BookDetailPage extends ConsumerWidget {
     final String? rootUri = detail == null
         ? null
         : _rootUriFor(rootsAsync.value, detail.summary.libraryRootId);
+    final bool online = detail?.summary.isOnline ?? false;
+    final BookSource? source = online && detail?.summary.sourceId != null
+        ? ref.watch(bookSourceByIdProvider(detail!.summary.sourceId!)).value
+        : null;
 
     final BookOpenAction open =
         onOpen ??
@@ -64,14 +80,16 @@ class BookDetailPage extends ConsumerWidget {
                   onSelected: (String value) {
                     switch (value) {
                       case 'edit':
-                        unawaited(_edit(context, ref, detail, rootUri));
+                        unawaited(_edit(context, ref, detail, rootUri, online));
                       case 'reimport':
-                        unawaited(_reimport(context, ref, detail, rootUri));
+                        if (!online) {
+                          unawaited(_reimport(context, ref, detail, rootUri));
+                        }
                     }
                   },
                   itemBuilder: (BuildContext context) =>
-                      const <PopupMenuEntry<String>>[
-                        PopupMenuItem<String>(
+                      <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
                           value: 'edit',
                           child: ListTile(
                             leading: Icon(Icons.edit_outlined),
@@ -79,14 +97,15 @@ class BookDetailPage extends ConsumerWidget {
                             contentPadding: EdgeInsets.zero,
                           ),
                         ),
-                        PopupMenuItem<String>(
-                          value: 'reimport',
-                          child: ListTile(
-                            leading: Icon(Icons.file_download_outlined),
-                            title: Text('从书根重新导入'),
-                            contentPadding: EdgeInsets.zero,
+                        if (!online)
+                          const PopupMenuItem<String>(
+                            value: 'reimport',
+                            child: ListTile(
+                              leading: Icon(Icons.file_download_outlined),
+                              title: Text('从书根重新导入'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
-                        ),
                       ],
                 ),
               ],
@@ -102,8 +121,17 @@ class BookDetailPage extends ConsumerWidget {
           }
           return _BookDetailBody(
             detail: value,
+            source: source,
             onOpen: open,
-            onEdit: () => unawaited(_edit(context, ref, value, rootUri)),
+            onEdit: () => unawaited(
+              _edit(context, ref, value, rootUri, value.summary.isOnline),
+            ),
+            onAddShelf: value.summary.isOnline
+                ? () => unawaited(_addToShelf(context, ref, value))
+                : null,
+            onRemoveShelf: value.summary.isOnline
+                ? () => unawaited(_removeFromShelf(context, ref, value))
+                : null,
           );
         },
       ),
@@ -115,8 +143,9 @@ class BookDetailPage extends ConsumerWidget {
     WidgetRef ref,
     BookDetail detail,
     String? rootUri,
+    bool online,
   ) async {
-    if (rootUri == null || rootUri.isEmpty) {
+    if (!online && (rootUri == null || rootUri.isEmpty)) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('书库根已移除，暂时不能编辑元数据')));
       return;
@@ -126,6 +155,7 @@ class BookDetailPage extends ConsumerWidget {
       context,
       book: summary,
       rootUri: rootUri,
+      online: online,
       initial: BookMetadataDraft(
         title: summary.title,
         author: summary.author,
@@ -139,6 +169,60 @@ class BookDetailPage extends ConsumerWidget {
     if (saved == true) {
       ref.invalidate(bookDetailProvider(bookId));
       ref.invalidate(booksProvider);
+    }
+  }
+
+  Future<void> _addToShelf(
+    BuildContext context,
+    WidgetRef ref,
+    BookDetail detail,
+  ) async {
+    final Set<String>? tags = await showAddToShelfSheet(
+      context,
+      bookTitle: detail.summary.title,
+      initialTags: detail.summary.tags.toSet(),
+    );
+    if (!context.mounted || tags == null) {
+      return;
+    }
+    try {
+      await ref
+          .read(onlineLibraryQueriesProvider)
+          .setBookShelf(detail.summary.id, onShelf: true, tags: tags.toList());
+      ref.invalidate(bookDetailProvider(detail.summary.id));
+      ref.invalidate(booksProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已加入书架')));
+      }
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('加入书架失败，请稍后再试')));
+      }
+    }
+  }
+
+  Future<void> _removeFromShelf(
+    BuildContext context,
+    WidgetRef ref,
+    BookDetail detail,
+  ) async {
+    try {
+      await ref
+          .read(onlineLibraryQueriesProvider)
+          .setBookShelf(detail.summary.id, onShelf: false);
+      ref.invalidate(bookDetailProvider(detail.summary.id));
+      ref.invalidate(booksProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已移出书架，书目仍保留在书库')));
+      }
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('移出书架失败，请稍后再试')));
+      }
     }
   }
 
@@ -226,13 +310,19 @@ class BookDetailPage extends ConsumerWidget {
 class _BookDetailBody extends ConsumerWidget {
   const _BookDetailBody({
     required this.detail,
+    required this.source,
     required this.onOpen,
     required this.onEdit,
+    this.onAddShelf,
+    this.onRemoveShelf,
   });
 
   final BookDetail detail;
+  final BookSource? source;
   final BookOpenAction onOpen;
   final VoidCallback onEdit;
+  final VoidCallback? onAddShelf;
+  final VoidCallback? onRemoveShelf;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -265,16 +355,23 @@ class _BookDetailBody extends ConsumerWidget {
                 children: <Widget>[
                   ClipRRect(
                     borderRadius: AppRadii.cover,
-                    child: BookCover(
-                      title: book.title,
-                      size: 124,
-                      coverPath: coverArt is CoverArtFile
-                          ? coverArt.absolutePath
-                          : null,
-                      coverImage: coverArt is CoverArtBytes
-                          ? MemoryImage(coverArt.bytes)
-                          : null,
-                    ),
+                    child: book.isOnline
+                        ? NetworkCover(
+                            coverUrl: book.coverUrl,
+                            size: 124,
+                            headers: source?.header,
+                            borderRadius: AppRadii.cover,
+                          )
+                        : BookCover(
+                            title: book.title,
+                            size: 124,
+                            coverPath: coverArt is CoverArtFile
+                                ? coverArt.absolutePath
+                                : null,
+                            coverImage: coverArt is CoverArtBytes
+                                ? MemoryImage(coverArt.bytes)
+                                : null,
+                          ),
                   ),
                   const SizedBox(width: AppSpacing.lg),
                   Expanded(
@@ -317,6 +414,11 @@ class _BookDetailBody extends ConsumerWidget {
                 runSpacing: AppSpacing.xs,
                 children: <Widget>[
                   _StatusPill(book: book),
+                  if (book.isOnline)
+                    _MetaPill(
+                      icon: Icons.cloud_outlined,
+                      label: _sourceState(book),
+                    ),
                   _MetaPill(
                     icon: Icons.menu_book_outlined,
                     label:
@@ -426,36 +528,84 @@ class _BookDetailBody extends ConsumerWidget {
               AppSpacing.lg,
               AppSpacing.md,
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => _start(context),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Icon(
-                      book.isFinished
-                          ? Icons.replay_rounded
-                          : book.hasProgress
-                          ? Icons.play_arrow_rounded
-                          : Icons.headphones_rounded,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Flexible(
-                      child: Text(
-                        _primaryLabel(book),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
+            child: book.isOnline
+                ? Row(
+                    children: <Widget>[
+                      if (!book.onShelf) ...<Widget>[
+                        Expanded(
+                          child: OutlinedButton(
+                            key: BookDetailKeys.addShelfKey,
+                            onPressed: onAddShelf,
+                            child: const Text('加入书架'),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                      ],
+                      Expanded(
+                        child: FilledButton(
+                          key: BookDetailKeys.listenKey,
+                          onPressed: () => _start(context),
+                          child: Text(
+                            book.onShelf
+                                ? (book.hasProgress ? '继续收听' : '开始收听')
+                                : '立即收听',
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      if (book.onShelf) ...<Widget>[
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: OutlinedButton(
+                            key: BookDetailKeys.removeShelfKey,
+                            onPressed: onRemoveShelf,
+                            child: const Text('移出书架'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  )
+                : SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => _start(context),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            book.isFinished
+                                ? Icons.replay_rounded
+                                : book.hasProgress
+                                ? Icons.play_arrow_rounded
+                                : Icons.headphones_rounded,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Flexible(
+                            child: Text(
+                              _primaryLabel(book),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
           ),
         ),
       ],
     );
+  }
+
+  static String _sourceState(BookSummary book) {
+    if (book.sourceDeleted == true) {
+      return '来源已删除';
+    }
+    if (book.sourceEnabled == false) {
+      return '来源已停用';
+    }
+    return '来源正常';
   }
 
   void _openChapters(BuildContext context) {

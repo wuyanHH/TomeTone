@@ -59,6 +59,21 @@ class BookMetadataService {
     return MetadataSaveResult(sidecarStatus: status);
   }
 
+  /// 在线书只写覆盖层，不写 sidecar。
+  Future<MetadataSaveResult> saveOnline({
+    required BookSummary book,
+    required BookMetadataDraft draft,
+  }) async {
+    await _queries.saveBookMetadata(
+      bookId: book.id,
+      metadata: draft.normalized(),
+      manual: true,
+    );
+    return const MetadataSaveResult(
+      sidecarStatus: BookMetadataWriteStatus.unsupported,
+    );
+  }
+
   /// 从书根 sidecar 重新导入元数据；读到 / 解码不到返回 `null`。
   ///
   /// [overwriteManual] 为 `false`（默认）时走「只填空」：用户手填过的字段绝不被

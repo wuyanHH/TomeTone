@@ -11,15 +11,21 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 Future<bool?> showBookMetadataSheet(
   BuildContext context, {
   required BookSummary book,
-  required String rootUri,
+  required String? rootUri,
   required BookMetadataDraft initial,
+  bool online = false,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (BuildContext context) {
-      return _BookMetadataSheet(book: book, rootUri: rootUri, initial: initial);
+      return _BookMetadataSheet(
+        book: book,
+        rootUri: rootUri,
+        initial: initial,
+        online: online,
+      );
     },
   );
 }
@@ -29,11 +35,13 @@ class _BookMetadataSheet extends ConsumerStatefulWidget {
     required this.book,
     required this.rootUri,
     required this.initial,
+    required this.online,
   });
 
   final BookSummary book;
-  final String rootUri;
+  final String? rootUri;
   final BookMetadataDraft initial;
+  final bool online;
 
   @override
   ConsumerState<_BookMetadataSheet> createState() => _BookMetadataSheetState();
@@ -105,9 +113,17 @@ class _BookMetadataSheetState extends ConsumerState<_BookMetadataSheet> {
 
     setState(() => _saving = true);
     try {
-      final MetadataSaveResult result = await ref
-          .read(bookMetadataServiceProvider)
-          .save(book: widget.book, rootUri: widget.rootUri, draft: draft);
+      final BookMetadataService service = ref.read(bookMetadataServiceProvider);
+      final MetadataSaveResult result;
+      if (widget.online) {
+        result = await service.saveOnline(book: widget.book, draft: draft);
+      } else {
+        result = await service.save(
+          book: widget.book,
+          rootUri: widget.rootUri!,
+          draft: draft,
+        );
+      }
       if (!mounted) {
         return;
       }

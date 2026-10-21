@@ -100,20 +100,25 @@ class _ChapterListSheet extends StatelessWidget {
                 itemCount: entries.length,
                 itemBuilder: (BuildContext context, int index) {
                   final _SheetEntry entry = entries[index];
+                  if (entry.retiredHeader != null) {
+                    return _RetiredHeader(count: entry.retiredHeader!);
+                  }
                   final VolumeView? volume = entry.volume;
                   if (volume != null) {
                     return _VolumeHeader(volume: volume);
                   }
                   final ChapterView chapter = entry.chapter!;
+                  final bool playable =
+                      !chapter.missing && !chapter.retired && !chapter.isVip;
                   return _ChapterTile(
                     chapter: chapter,
                     current: chapter.id == currentChapterId,
-                    onTap: chapter.missing
-                        ? null
-                        : () {
+                    onTap: playable
+                        ? () {
                             Navigator.of(context).pop();
                             onChapterSelected(chapter);
-                          },
+                          }
+                        : null,
                   );
                 },
               ),
@@ -127,8 +132,20 @@ class _ChapterListSheet extends StatelessWidget {
   static List<_SheetEntry> _buildEntries(BookDetail detail) {
     final List<_SheetEntry> entries = <_SheetEntry>[];
     for (final VolumeView volume in detail.volumes) {
-      entries.add(_SheetEntry.volume(volume));
-      for (final ChapterView chapter in volume.chapters) {
+      final List<ChapterView> active = volume.chapters
+          .where((chapter) => !chapter.retired)
+          .toList(growable: false);
+      if (active.isNotEmpty) {
+        entries.add(_SheetEntry.volume(volume));
+        for (final ChapterView chapter in active) {
+          entries.add(_SheetEntry.chapter(chapter));
+        }
+      }
+    }
+    final List<ChapterView> retired = detail.retiredChapters;
+    if (retired.isNotEmpty) {
+      entries.add(_SheetEntry.retired(retired.length));
+      for (final ChapterView chapter in retired) {
         entries.add(_SheetEntry.chapter(chapter));
       }
     }
@@ -136,8 +153,31 @@ class _ChapterListSheet extends StatelessWidget {
   }
 }
 
+class _RetiredHeader extends StatelessWidget {
+  const _RetiredHeader({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xl,
+        AppSpacing.lg,
+        AppSpacing.xs,
+      ),
+      child: Text(
+        '已下架 $count 章',
+        style: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
 class _SheetEntry {
-  const _SheetEntry._({this.volume, this.chapter});
+  const _SheetEntry._({this.volume, this.chapter, this.retiredHeader});
 
   factory _SheetEntry.volume(VolumeView volume) =>
       _SheetEntry._(volume: volume);
@@ -145,8 +185,11 @@ class _SheetEntry {
   factory _SheetEntry.chapter(ChapterView chapter) =>
       _SheetEntry._(chapter: chapter);
 
+  factory _SheetEntry.retired(int count) => _SheetEntry._(retiredHeader: count);
+
   final VolumeView? volume;
   final ChapterView? chapter;
+  final int? retiredHeader;
 }
 
 class _VolumeHeader extends StatelessWidget {
@@ -226,13 +269,29 @@ class _ChapterTile extends StatelessWidget {
             ? '文件缺失'
             : <String>[
                 '第 ${chapter.chapterIndex + 1} 章',
+                if (chapter.isVip) '需要登录/购买',
+                if (chapter.retired) '已下架',
                 if (duration.isNotEmpty) duration,
               ].join(' · '),
         style: text.labelSmall?.copyWith(
-          color: chapter.missing ? scheme.tertiary : scheme.onSurfaceVariant,
+          color: chapter.missing || chapter.isVip
+              ? scheme.tertiary
+              : scheme.onSurfaceVariant,
         ),
       ),
-      trailing: current
+      trailing: chapter.isVip
+          ? Icon(
+              Icons.lock_outline_rounded,
+              color: scheme.onSurfaceVariant,
+              size: 20,
+            )
+          : chapter.retired
+          ? Icon(
+              Icons.link_off_rounded,
+              color: scheme.onSurfaceVariant,
+              size: 20,
+            )
+          : current
           ? Icon(Icons.check_circle_rounded, color: scheme.primary, size: 20)
           : null,
       onTap: onTap,
