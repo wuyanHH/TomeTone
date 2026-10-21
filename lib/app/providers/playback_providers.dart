@@ -106,9 +106,11 @@ class OpenBookResult {
 Future<OpenBookResult> openBook({
   required PlaybackController controller,
   required CurrentBookNotifier currentBook,
-  required MediaSourceResolver resolver,
+  MediaSourceResolver? resolver,
+  Future<ChapterSequencer> Function()? buildQueue,
   required BookDetail detail,
   String? startChapterId,
+  String? emptyQueueMessage,
 }) async {
   final String title = detail.summary.title;
 
@@ -130,14 +132,13 @@ Future<OpenBookResult> openBook({
   }
 
   // 2. 建队列；空队列 = 没有可播章节，零副作用返回。
-  final ChapterSequencer queue = await buildPlaybackQueue(
-    detail: detail,
-    resolver: resolver,
-  );
+  final ChapterSequencer queue = await (buildQueue != null
+      ? buildQueue()
+      : buildPlaybackQueue(detail: detail, resolver: resolver!));
   if (queue.isEmpty) {
     return OpenBookResult(
       status: OpenBookStatus.failed,
-      message: _emptyQueueMessage(title),
+      message: emptyQueueMessage ?? _emptyQueueMessage(title),
     );
   }
 
@@ -176,10 +177,10 @@ Future<OpenBookResult> openBook({
   } on Object catch (error) {
     // 4. 只有 SAF 直传（起始章仍是 content://）才值得缓存副本重试，且
     //    **只复制起始章** —— 对全书逐章复制会把上千 MB 静默写进缓存。
-    if (_isDirectContentUri(target)) {
+    if (buildQueue == null && _isDirectContentUri(target)) {
       final ChapterSequencer retryQueue = await buildPlaybackQueue(
         detail: detail,
-        resolver: resolver,
+        resolver: resolver!,
         cachedCopyChapterIds: <String>{target.chapterId},
       );
       // 目标章复制失败（copyToCache 返回 null → resolveAudio 返回 null）：
