@@ -73,18 +73,23 @@ Future<void> seedOnlineBook(
   TomeToneDatabase db, {
   required String sourceId,
   required String libraryRootId,
+  String id = 'book-1',
+  String title = '在线书',
+  String sourceUri = 'https://www.tingyou.fm/book/1',
+  String? rootPath,
   bool onShelf = false,
 }) async {
+  final actualRootPath = rootPath ?? sourceUri;
   await db
       .into(db.books)
       .insert(
         BooksCompanion.insert(
-          id: 'book-1',
+          id: id,
           libraryRootId: libraryRootId,
-          title: '在线书',
-          rootPath: 'online/book-1',
+          title: title,
+          rootPath: actualRootPath,
           sourceType: 'online',
-          sourceUri: const Value<String?>('https://www.tingyou.fm/book/1'),
+          sourceUri: Value<String?>(sourceUri),
           onShelf: Value<bool>(onShelf),
           sourceId: Value<String?>(sourceId),
           createdAt: sourceTestTime,
@@ -95,8 +100,8 @@ Future<void> seedOnlineBook(
       .into(db.volumes)
       .insert(
         VolumesCompanion.insert(
-          id: 'vol-1',
-          bookId: 'book-1',
+          id: 'vol-$id',
+          bookId: id,
           title: '第一卷',
           volumeIndex: 0,
           path: '',
@@ -107,13 +112,13 @@ Future<void> seedOnlineBook(
       .into(db.chapters)
       .insert(
         ChaptersCompanion.insert(
-          id: 'ch-1',
-          bookId: 'book-1',
-          volumeId: 'vol-1',
+          id: 'ch-$id',
+          bookId: id,
+          volumeId: 'vol-$id',
           libraryRootId: libraryRootId,
           title: '第一章',
           chapterIndex: 0,
-          filePath: 'online/ch-1',
+          filePath: 'online/ch-$id',
           updatedAt: sourceTestTime,
         ),
       );

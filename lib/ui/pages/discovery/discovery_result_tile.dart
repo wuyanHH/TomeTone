@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/network_cover.dart';
@@ -10,6 +11,7 @@ class DiscoveryResultTile extends StatelessWidget {
     super.key,
     required this.item,
     required this.sourceName,
+    this.membership,
     required this.onTap,
   });
 
@@ -18,6 +20,9 @@ class DiscoveryResultTile extends StatelessWidget {
 
   /// 来源名，显示在结果行底部。
   final String sourceName;
+
+  /// 在书架/书库中的状态（未命中为 null）。
+  final OnlineBookStatus? membership;
 
   /// 打开只读预览。
   final VoidCallback onTap;
@@ -45,13 +50,24 @@ class DiscoveryResultTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (membership != null) ...<Widget>[
+                          const SizedBox(width: AppSpacing.xs),
+                          _MembershipChip(membership: membership!),
+                        ],
+                      ],
                     ),
                     if (people != null) ...<Widget>[
                       const SizedBox(height: AppSpacing.xxs),
@@ -114,5 +130,43 @@ class DiscoveryResultTile extends StatelessWidget {
       parts.add(wordCount);
     }
     return parts.isEmpty ? null : parts.join(' · ');
+  }
+}
+
+class _MembershipChip extends StatelessWidget {
+  const _MembershipChip({required this.membership});
+
+  final OnlineBookStatus membership;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool onShelf = membership.onShelf;
+    final Color color = onShelf
+        ? scheme.primaryContainer
+        : scheme.surfaceContainerHighest;
+    final Color textColor = onShelf
+        ? scheme.onPrimaryContainer
+        : scheme.onSurfaceVariant;
+    final String label = onShelf ? '已在书架' : '已在书库';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: AppRadii.sm,
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: textColor,
+          height: 1.2,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }

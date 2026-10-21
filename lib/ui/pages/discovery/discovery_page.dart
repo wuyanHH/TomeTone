@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/providers/online_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/app/sources/book_source_service.dart';
+import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/explore_category.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
@@ -64,6 +66,8 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
   ExploreCategory? _category;
 
   List<SourceBookSummary> _items = const <SourceBookSummary>[];
+  Map<String, OnlineBookStatus> _statuses =
+      const <String, OnlineBookStatus>{};
   bool _searchMode = false;
   String _keyword = '';
   int _page = 1;
@@ -199,6 +203,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     if (!keepItems) {
       setState(() {
         _items = const <SourceBookSummary>[];
+        _statuses = const <String, OnlineBookStatus>{};
         _page = 1;
         _hasMore = true;
         _loadMoreFailure = null;
@@ -222,8 +227,14 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
         return;
       }
       final List<SourceBookSummary> items = _dedupe(result.items);
+      final Map<String, OnlineBookStatus> statuses =
+          await _fetchStatuses(source.id, items);
+      if (!mounted || generation != _generation) {
+        return;
+      }
       setState(() {
         _items = items;
+        _statuses = statuses;
         _page = 1;
         _hasMore = result.hasMore;
         _loadingPage = false;
@@ -292,8 +303,14 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
           fresh.add(item);
         }
       }
+      final Map<String, OnlineBookStatus> newStatuses =
+          await _fetchStatuses(source.id, fresh);
+      if (!mounted || generation != _generation) {
+        return;
+      }
       setState(() {
         _items = <SourceBookSummary>[..._items, ...fresh];
+        _statuses = <String, OnlineBookStatus>{..._statuses, ...newStatuses};
         _page = page + 1;
         _hasMore = result.hasMore && fresh.isNotEmpty;
         _loadingMore = false;
@@ -327,6 +344,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       _searchMode = true;
       _keyword = keyword;
       _items = const <SourceBookSummary>[];
+      _statuses = const <String, OnlineBookStatus>{};
       _page = 1;
       _hasMore = true;
       _pageFailure = null;
@@ -345,6 +363,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       _searchMode = false;
       _keyword = '';
       _items = const <SourceBookSummary>[];
+      _statuses = const <String, OnlineBookStatus>{};
       _page = 1;
       _hasMore = true;
       _pageFailure = null;
@@ -414,6 +433,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       _searchMode = false;
       _keyword = '';
       _items = const <SourceBookSummary>[];
+      _statuses = const <String, OnlineBookStatus>{};
       _page = 1;
       _hasMore = true;
       _loadingPage = false;
@@ -440,6 +460,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       _searchMode = false;
       _keyword = '';
       _items = const <SourceBookSummary>[];
+      _statuses = const <String, OnlineBookStatus>{};
       _page = 1;
       _hasMore = true;
       _loadingPage = false;
@@ -451,19 +472,72 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     unawaited(_loadFirstPage());
   }
 
-  void _openPreview(SourceBookSummary item) {
+  Future<void> _openPreview(SourceBookSummary item) async {
     final BookSource? source = _source;
     if (source == null) {
       return;
     }
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) =>
-              OnlineBookPreviewPage(source: source, item: item),
-        ),
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) =>
+            OnlineBookPreviewPage(source: source, item: item),
       ),
     );
+    if (!mounted) {
+      return;
+    }
+    await _refreshStatus(source.id, item.bookUrl);
+  }
+
+  Future<Map<String, OnlineBookStatus>> _fetchStatuses(
+    String sourceId,
+    List<SourceBookSummary> items,
+  ) async {
+    if (items.isEmpty) {
+      return const <String, OnlineBookStatus>{};
+    }
+    try {
+      return await ref
+          .read(onlineLibraryQueriesProvider)
+          .bookStatuses(
+            sourceId: sourceId,
+            bookUrls: items
+                .map((SourceBookSummary item) => item.bookUrl)
+                .toList(),
+          );
+    } on Object {
+      return const <String, OnlineBookStatus>{};
+    }
+  }
+
+  Future<void> _refreshStatus(String sourceId, String bookUrl) async {
+    try {
+      final Map<String, OnlineBookStatus> result = await ref
+          .read(onlineLibraryQueriesProvider)
+          .bookStatuses(
+            sourceId: sourceId,
+            bookUrls: <String>[bookUrl],
+          );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final OnlineBookStatus? status = result[bookUrl];
+        if (status != null) {
+          _statuses = <String, OnlineBookStatus>{
+            ..._statuses,
+            bookUrl: status,
+          };
+        } else if (_statuses.containsKey(bookUrl)) {
+          final Map<String, OnlineBookStatus> next =
+              Map<String, OnlineBookStatus>.of(_statuses);
+          next.remove(bookUrl);
+          _statuses = next;
+        }
+      });
+    } on Object {
+      // 状态刷新失败静默处理，避免干扰发现页浏览
+    }
   }
 
   @override
@@ -713,7 +787,8 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
               key: DiscoveryPageKeys.resultTileKey(item.bookUrl),
               item: item,
               sourceName: _source?.name ?? '',
-              onTap: () => _openPreview(item),
+              membership: _statuses[item.bookUrl],
+              onTap: () => unawaited(_openPreview(item)),
             );
           }, childCount: _items.length),
         ),
