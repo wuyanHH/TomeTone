@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/app/sources/book_source_service.dart';
+import 'package:tometone/app/sources/source_discovery.dart';
 import 'package:tometone/contracts/sources/source_import_loader.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
@@ -149,6 +151,7 @@ Future<void> pumpSourceUi(
   required TomeToneDatabase db,
   required Widget home,
   SourceImportLoader? loader,
+  SourceDiscovery? discovery,
   Size size = const Size(360, 780),
   double textScale = 1,
   Brightness brightness = Brightness.light,
@@ -166,6 +169,8 @@ Future<void> pumpSourceUi(
         databaseProvider.overrideWithValue(db),
         if (loader != null)
           sourceImportLoaderProvider.overrideWithValue(loader),
+        if (discovery != null)
+          sourceDiscoveryProvider.overrideWithValue(discovery),
       ],
       child: MaterialApp(
         theme: AppTheme.build(),

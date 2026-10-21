@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/app/sources/book_source_service.dart';
 import 'package:tometone/domain/sources/book_source.dart';
+import 'package:tometone/domain/sources/discovery/source_failure.dart';
+import 'package:tometone/domain/sources/discovery/source_models.dart';
 import 'package:tometone/ui/pages/sources/source_edit_page.dart';
 import 'package:tometone/ui/pages/sources/source_import_sheet.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -20,11 +23,17 @@ abstract final class SourceManagementKeys {
   static const Key deleteBooksCheckboxKey = Key('source-delete-books');
   static const Key deleteConfirmKey = Key('source-delete-confirm');
   static const Key deleteCancelKey = Key('source-delete-cancel');
+  static const Key testDialogKey = Key('source-test-dialog');
+  static const Key testDialogCloseKey = Key('source-test-dialog-close');
 
   static Key menuKey(String id) => ValueKey<String>('source-menu-$id');
 
   static Key enabledSwitchKey(String id) =>
       ValueKey<String>('source-enabled-$id');
+
+  static Key testActionKey(String id) => ValueKey<String>('source-test-$id');
+
+  static Key httpBadgeKey(String id) => ValueKey<String>('source-http-$id');
 }
 
 /// 书源管理：列表、启用、编辑、删除与导入入口。
@@ -100,6 +109,7 @@ class _SourceManagementPageState extends ConsumerState<SourceManagementPage> {
                     item: item,
                     busy: _updating.contains(item.source.id),
                     onToggle: (bool value) => unawaited(_toggle(item, value)),
+                    onTest: () => unawaited(_test(item)),
                     onEdit: () => unawaited(_edit(item)),
                     onDelete: () => unawaited(_delete(item)),
                   );
@@ -148,6 +158,63 @@ class _SourceManagementPageState extends ConsumerState<SourceManagementPage> {
         setState(() => _updating.remove(id));
       }
     }
+  }
+
+  Future<void> _test(BookSourceListItem item) async {
+    final id = item.source.id;
+    if (_updating.contains(id)) {
+      return;
+    }
+    setState(() => _updating.add(id));
+
+    String message;
+    try {
+      final report = await ref.read(sourceDiscoveryProvider).test(item.source);
+      message = _testSuccessMessage(report);
+    } on SourceFailure catch (failure) {
+      message = '失败 · ${failure.message}';
+    } on Object {
+      message = '失败 · 书源测试失败，请稍后重试。';
+    } finally {
+      if (mounted) {
+        setState(() => _updating.remove(id));
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+
+    _reload();
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          key: SourceManagementKeys.testDialogKey,
+          title: const Text('测试书源'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              key: SourceManagementKeys.testDialogCloseKey,
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _testSuccessMessage(SourceTestReport report) {
+    final parts = <String>[
+      '成功',
+      '${report.resultCount} 条',
+      '${report.latency.inMilliseconds} ms',
+    ];
+    final sample = report.sampleTitle?.trim();
+    if (sample != null && sample.isNotEmpty) {
+      parts.add('示例《$sample》');
+    }
+    return parts.join(' · ');
   }
 
   Future<void> _edit(BookSourceListItem item) async {
@@ -296,6 +363,7 @@ class _SourceCard extends StatelessWidget {
     required this.item,
     required this.busy,
     required this.onToggle,
+    required this.onTest,
     required this.onEdit,
     required this.onDelete,
   });
@@ -303,6 +371,7 @@ class _SourceCard extends StatelessWidget {
   final BookSourceListItem item;
   final bool busy;
   final ValueChanged<bool> onToggle;
+  final VoidCallback onTest;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -364,16 +433,30 @@ class _SourceCard extends StatelessWidget {
                 PopupMenuButton<String>(
                   key: SourceManagementKeys.menuKey(source.id),
                   tooltip: '更多操作',
+                  enabled: !busy,
                   onSelected: (String value) {
-                    if (value == 'edit') {
+                    if (value == 'test') {
+                      onTest();
+                    } else if (value == 'edit') {
                       onEdit();
                     } else if (value == 'delete') {
                       onDelete();
                     }
                   },
-                  itemBuilder: (_) => const <PopupMenuEntry<String>>[
-                    PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
-                    PopupMenuItem<String>(value: 'delete', child: Text('删除')),
+                  itemBuilder: (_) => <PopupMenuEntry<String>>[
+                    PopupMenuItem<String>(
+                      key: SourceManagementKeys.testActionKey(source.id),
+                      value: 'test',
+                      child: const Text('测试'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Text('编辑'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Text('删除'),
+                    ),
                   ],
                 ),
               ],
@@ -386,6 +469,11 @@ class _SourceCard extends StatelessWidget {
               children: <Widget>[
                 _MetaLabel(text: '书 ${item.bookCount}'),
                 _MetaLabel(text: health),
+                if (source.sourceUrl.startsWith('http://'))
+                  _MetaLabel(
+                    key: SourceManagementKeys.httpBadgeKey(source.id),
+                    text: 'HTTP 明文',
+                  ),
                 if (!source.enabled) const _MetaLabel(text: '已停用'),
               ],
             ),
@@ -397,7 +485,7 @@ class _SourceCard extends StatelessWidget {
 }
 
 class _MetaLabel extends StatelessWidget {
-  const _MetaLabel({required this.text});
+  const _MetaLabel({super.key, required this.text});
 
   final String text;
 
