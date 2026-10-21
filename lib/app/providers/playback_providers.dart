@@ -217,7 +217,7 @@ Future<OpenBookResult> openBook({
 
 /// 起始章是否为 SAF 直传的 `content://` document URI（决定是否值得缓存副本重试）。
 bool _isDirectContentUri(QueueChapter chapter) =>
-    Uri.tryParse(chapter.source.uri)?.scheme == 'content';
+    Uri.tryParse(chapter.source?.uri ?? '')?.scheme == 'content';
 
 /// 打开失败回滚：清当前书 + 清控制器会话，让 UI 立刻不再显示假的播放态。
 void _rollback(PlaybackController controller, CurrentBookNotifier currentBook) {

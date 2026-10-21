@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/playback/engine_error.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/contracts/playback/playback_engine.dart';
@@ -79,7 +80,11 @@ class PlaybackController {
   _writeProgress;
 
   /// 全书播放完毕时的回调（装配层注入，用于写入 `finishedAt` 的完成标记）。
-  final Future<void> Function(String bookId, String chapterId, Duration position)?
+  final Future<void> Function(
+    String bookId,
+    String chapterId,
+    Duration position,
+  )?
   onBookFinished;
   final DateTime Function() _clock;
   late final StreamSubscription<EngineEvent> _subscription;
@@ -338,7 +343,11 @@ class PlaybackController {
     _current = chapter;
     _range = _preferences.playbackRange(chapter.duration);
 
-    await _engine.load(chapter.source);
+    final AudioSourceRef? source = await chapter.resolve();
+    if (source == null) {
+      throw const EngineError(code: EngineErrorCode.sourceNotFound);
+    }
+    await _engine.load(source);
     await _engine.setSpeed(_preferences.speed);
 
     final target = _clamp(seekTo ?? _range.start);
@@ -473,7 +482,9 @@ class PlaybackController {
       // 不是章末（如 9:00），用它写进度会低估；未知时长（end == null）时才退回
       // 当前 position。
       final end = _range.end;
-      final finishedPosition = (end != null && end > _position) ? end : _position;
+      final finishedPosition = (end != null && end > _position)
+          ? end
+          : _position;
       unawaited(callback(bookId, chapterId, finishedPosition));
     }
   }

@@ -59,6 +59,49 @@ void main() {
     });
   });
 
+  group('按章惰性解析', () {
+    test('已有 source 时直接返回，不调用 resolver', () async {
+      var calls = 0;
+      final chapter = QueueChapter(
+        chapterId: 'c1',
+        volumeId: 'v1',
+        title: '第一章',
+        source: const LocalFileSource(uri: 'file:///a.mp3'),
+        resolveSource: () async {
+          calls++;
+          return const LocalFileSource(uri: 'file:///b.mp3');
+        },
+      );
+
+      expect(await chapter.resolve(), isA<LocalFileSource>());
+      expect(calls, 0);
+    });
+
+    test('只有 resolver 时调用一次并返回', () async {
+      var calls = 0;
+      final chapter = QueueChapter(
+        chapterId: 'c1',
+        volumeId: 'v1',
+        title: '第一章',
+        resolveSource: () async {
+          calls++;
+          return const RemoteUrlSource(uri: 'https://e.test/a.mp3');
+        },
+      );
+
+      final source = await chapter.resolve();
+      expect(source, isA<RemoteUrlSource>());
+      expect(calls, 1);
+    });
+
+    test('source 与 resolver 都为空时构造失败', () {
+      expect(
+        () => QueueChapter(chapterId: 'c1', volumeId: 'v1', title: '第一章'),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('上一曲判定（§2.2）', () {
     test('> 3 秒：重播本章', () {
       final queue = _threeChaptersAcrossTwoVolumes();

@@ -6,13 +6,18 @@ import 'package:tometone/contracts/playback/audio_source_ref.dart';
 /// 核心层不做排序，只做相邻关系判定 —— 跨卷连播因此不需要额外分支。
 class QueueChapter {
   /// 创建队列章节。
-  const QueueChapter({
+  QueueChapter({
     required this.chapterId,
     required this.volumeId,
     required this.title,
-    required this.source,
+    this.source,
+    this.resolveSource,
     this.duration,
-  });
+  }) {
+    if (source == null && resolveSource == null) {
+      throw ArgumentError('QueueChapter 需要 source 或 resolveSource');
+    }
+  }
 
   /// 不可变章节 ID。
   final String chapterId;
@@ -23,11 +28,23 @@ class QueueChapter {
   /// 显示标题。
   final String title;
 
-  /// 播放源引用。
-  final AudioSourceRef source;
+  /// 已解析的播放源；在线书可为空。
+  final AudioSourceRef? source;
+
+  /// 播放到本章时才解析的源（在线书）。
+  final Future<AudioSourceRef?> Function()? resolveSource;
 
   /// 时长（未知为 `null`）。
   final Duration? duration;
+
+  /// 取得本章播放源；在线书在这里才发起音频解析。
+  Future<AudioSourceRef?> resolve() async {
+    final AudioSourceRef? direct = source;
+    if (direct != null) {
+      return direct;
+    }
+    return resolveSource!();
+  }
 
   @override
   String toString() => 'QueueChapter($title)';

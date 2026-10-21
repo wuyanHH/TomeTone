@@ -54,6 +54,30 @@ void main() {
     await controller.dispose();
   });
 
+  test('惰性解析返回 null 时 open 抛 sourceNotFound', () async {
+    final queue = ChapterSequencer(<QueueChapter>[
+      QueueChapter(
+        chapterId: 'lazy',
+        volumeId: 'v1',
+        title: '惰性章',
+        resolveSource: () async => null,
+      ),
+    ]);
+
+    await expectLater(
+      controller.open(
+        PlaybackRequest(bookId: 'b1', queue: queue, startChapterId: 'lazy'),
+      ),
+      throwsA(
+        isA<EngineError>().having(
+          (EngineError error) => error.code,
+          'code',
+          EngineErrorCode.sourceNotFound,
+        ),
+      ),
+    );
+  });
+
   group('恢复与微回退（§2.2）', () {
     test('暂停 10 分钟恢复 → 回退 8 秒，且 10 秒内可撤销', () async {
       await controller.open(
@@ -548,7 +572,8 @@ void main() {
 
   group('完成信号（onBookFinished）', () {
     test('最后一章播完 → onBookFinished 恰好一次，之后普通进度仍正常写入', () async {
-      final finished = <({String bookId, String chapterId, Duration position})>[];
+      final finished =
+          <({String bookId, String chapterId, Duration position})>[];
       final c = PlaybackController(
         engine: engine,
         writeProgress: (String bookId, String chapterId, Duration position) {
@@ -558,17 +583,14 @@ void main() {
             position: position,
           ));
         },
-        onBookFinished: (
-          String bookId,
-          String chapterId,
-          Duration position,
-        ) async {
-          finished.add((
-            bookId: bookId,
-            chapterId: chapterId,
-            position: position,
-          ));
-        },
+        onBookFinished:
+            (String bookId, String chapterId, Duration position) async {
+              finished.add((
+                bookId: bookId,
+                chapterId: chapterId,
+                position: position,
+              ));
+            },
         clock: () => now,
       );
       addTearDown(c.dispose);
@@ -626,20 +648,25 @@ void main() {
           lastWriteFinished = false;
           log.add((finished: false, chapterId: chapterId, position: position));
         },
-        onBookFinished: (
-          String bookId,
-          String chapterId,
-          Duration position,
-        ) async {
-          lastWriteFinished = true;
-          log.add((finished: true, chapterId: chapterId, position: position));
-        },
+        onBookFinished:
+            (String bookId, String chapterId, Duration position) async {
+              lastWriteFinished = true;
+              log.add((
+                finished: true,
+                chapterId: chapterId,
+                position: position,
+              ));
+            },
         clock: () => now,
       );
       addTearDown(c.dispose);
 
       await c.open(
-        PlaybackRequest(bookId: 'b1', queue: _buildQueue(), startChapterId: 'c3'),
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: _buildQueue(),
+          startChapterId: 'c3',
+        ),
       );
       await c.play();
 

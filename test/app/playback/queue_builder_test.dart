@@ -73,7 +73,7 @@ void main() {
     final source = queue.first!.source;
     expect(source, isA<LocalFileSource>());
     expect(
-      source.uri,
+      source!.uri,
       'file:///storage/emulated/0/Books/%E4%B8%89%E4%BD%93/ch-0.mp3',
     );
   });
@@ -88,7 +88,7 @@ void main() {
       resolver: resolver,
     );
 
-    expect(queue.first!.source.uri, startsWith('content://'));
+    expect(queue.first!.source!.uri, startsWith('content://'));
     expect(
       resolver.resolveCalls.every((c) => c.preferCachedCopy == false),
       isTrue,
