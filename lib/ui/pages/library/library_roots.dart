@@ -161,6 +161,7 @@ abstract final class LibraryRootsKeys {
 
   /// 页首右上角的 `+`（有书库根时才出现）。
   static const Key addRootButtonKey = Key('library-add-button');
+  static const Key addButtonKey = addRootButtonKey;
 
   /// 书源管理入口（在线书源，不混入本机根）。
   static const Key sourcesButtonKey = Key('library-sources-button');

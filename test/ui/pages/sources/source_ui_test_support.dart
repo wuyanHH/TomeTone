@@ -158,6 +158,7 @@ Future<void> pumpSourceUi(
   Size size = const Size(360, 780),
   double textScale = 1,
   Brightness brightness = Brightness.light,
+  bool disableAnimations = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -187,8 +188,10 @@ Future<void> pumpSourceUi(
             : ThemeMode.light,
         builder: (BuildContext context, Widget? child) {
           return MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(textScale)),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+              disableAnimations: disableAnimations,
+            ),
             child: child!,
           );
         },

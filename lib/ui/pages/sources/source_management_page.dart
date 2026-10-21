@@ -8,6 +8,7 @@ import 'package:tometone/app/sources/book_source_service.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
+import 'package:tometone/ui/pages/library/local_roots_section.dart';
 import 'package:tometone/ui/pages/sources/source_edit_page.dart';
 import 'package:tometone/ui/pages/sources/source_import_sheet.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -89,31 +90,51 @@ class _SourceManagementPageState extends ConsumerState<SourceManagementPage> {
                 return _SourceError(onRetry: _reload);
               }
               final items = snapshot.data ?? const <BookSourceListItem>[];
-              if (items.isEmpty) {
-                return _SourceEmpty(onImport: _openImport);
-              }
-              return ListView.separated(
+
+              return ListView(
                 key: SourceManagementKeys.listKey,
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.md,
-                  AppSpacing.lg,
-                  AppSpacing.xxl,
-                ),
-                itemCount: items.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.md),
-                itemBuilder: (BuildContext context, int index) {
-                  final item = items[index];
-                  return _SourceCard(
-                    item: item,
-                    busy: _updating.contains(item.source.id),
-                    onToggle: (bool value) => unawaited(_toggle(item, value)),
-                    onTest: () => unawaited(_test(item)),
-                    onEdit: () => unawaited(_edit(item)),
-                    onDelete: () => unawaited(_delete(item)),
-                  );
-                },
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                children: <Widget>[
+                  if (items.isEmpty)
+                    _SourceEmpty(onImport: _openImport)
+                  else ...<Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.md,
+                        AppSpacing.lg,
+                        AppSpacing.sm,
+                      ),
+                      child: Text(
+                        '网络书源',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          for (int i = 0; i < items.length; i++) ...<Widget>[
+                            if (i > 0) const SizedBox(height: AppSpacing.md),
+                            _SourceCard(
+                              item: items[i],
+                              busy: _updating.contains(items[i].source.id),
+                              onToggle: (bool value) =>
+                                  unawaited(_toggle(items[i], value)),
+                              onTest: () => unawaited(_test(items[i])),
+                              onEdit: () => unawaited(_edit(items[i])),
+                              onDelete: () => unawaited(_delete(items[i])),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                  const Divider(height: AppSpacing.xxl),
+                  const LocalRootsSection(),
+                ],
               );
             },
       ),
