@@ -7,7 +7,11 @@ import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/app/sources/book_source_service.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/explore_category.dart';
+import 'package:tometone/domain/sources/discovery/source_failure.dart';
+import 'package:tometone/domain/sources/discovery/source_models.dart';
+import 'package:tometone/ui/pages/discovery/discovery_result_tile.dart';
 import 'package:tometone/ui/pages/discovery/discovery_source_card.dart';
+import 'package:tometone/ui/pages/discovery/online_book_preview_page.dart';
 import 'package:tometone/ui/pages/discovery/source_switcher_sheet.dart';
 import 'package:tometone/ui/pages/sources/source_management_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -22,15 +26,26 @@ abstract final class DiscoveryPageKeys {
   static const Key retryKey = Key('discovery-retry');
   static const Key loadingKey = Key('discovery-loading');
   static const Key errorKey = Key('discovery-error');
+  static const Key searchFieldKey = Key('discovery-search-field');
+  static const Key searchClearKey = Key('discovery-search-clear');
+  static const Key resultListKey = Key('discovery-result-list');
+  static const Key loadMoreKey = Key('discovery-load-more');
+  static const Key errorBannerKey = Key('discovery-error-banner');
+  static const Key emptyResultKey = Key('discovery-empty-result');
+  static const Key resultErrorKey = Key('discovery-result-error');
 
   static Key categoryKey(String name) =>
       ValueKey<String>('discovery-category-$name');
+
+  static Key resultTileKey(String bookUrl) =>
+      ValueKey<String>('discovery-result-$bookUrl');
 }
 
-/// 发现页壳：加载启用的听书源，显示当前源与分类。
+/// 发现页：加载启用的听书源，显示当前源、分类、搜索结果与分页。
 ///
-/// 本任务只负责书源与分类，不请求发现结果；搜索、分页与结果列表在任务 12
-/// 接入。发现页不写 `books` / `chapters`，所有在线书操作仍由后续链路负责。
+/// 发现页只读：结果与预览都不写 `books` / `chapters`，加入书架和播放属于
+/// M1-C。每次首屏/切源/切分类/搜索/刷新都会推进 `_generation`，过期响应
+/// 直接丢弃，避免旧源或旧关键词覆盖当前列表。
 class DiscoveryPage extends ConsumerStatefulWidget {
   /// 创建发现页。
   const DiscoveryPage({super.key});
@@ -40,19 +55,55 @@ class DiscoveryPage extends ConsumerStatefulWidget {
 }
 
 class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
   List<BookSourceListItem> _sources = const <BookSourceListItem>[];
   BookSource? _source;
   List<ExploreCategory> _categories = const <ExploreCategory>[];
   ExploreCategory? _category;
+
+  List<SourceBookSummary> _items = const <SourceBookSummary>[];
+  bool _searchMode = false;
+  String _keyword = '';
+  int _page = 1;
+  bool _hasMore = true;
   bool _loadingSources = true;
   bool _loadingPage = false;
+  bool _loadingMore = false;
   String? _failure;
+  String? _pageFailure;
+  String? _bannerMessage;
+  String? _loadMoreFailure;
   int _generation = 0;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     unawaited(_loadSources());
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    if (_scrollController.position.extentAfter > 200) {
+      return;
+    }
+    if (_items.isEmpty) {
+      return;
+    }
+    unawaited(_loadMore());
   }
 
   Future<void> _loadSources() async {
@@ -98,16 +149,29 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       if (!mounted || generation != _generation) {
         return;
       }
+      _searchController.clear();
       setState(() {
         _sources = enabled;
         _source = selected?.source;
         _categories = categories;
         _category = categories.isEmpty ? null : categories.first;
+        _searchMode = false;
+        _keyword = '';
+        _items = const <SourceBookSummary>[];
+        _page = 1;
+        _hasMore = true;
         _loadingSources = false;
         _loadingPage = false;
+        _loadingMore = false;
+        _pageFailure = null;
+        _bannerMessage = null;
+        _loadMoreFailure = null;
       });
       if (selected != null && selected.source.id != selectedId) {
         ref.read(selectedSourceIdProvider.notifier).state = selected.source.id;
+      }
+      if (selected != null && categories.isNotEmpty) {
+        unawaited(_loadFirstPage());
       }
     } on Object {
       if (!mounted || generation != _generation) {
@@ -115,9 +179,183 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       }
       setState(() {
         _loadingSources = false;
+        _loadingPage = false;
         _failure = '书源读取失败，请稍后重试。';
       });
     }
+  }
+
+  Future<void> _loadFirstPage({bool keepItems = false}) async {
+    final BookSource? source = _source;
+    if (source == null) {
+      return;
+    }
+    final ExploreCategory? category = _category;
+    if (!_searchMode && category == null) {
+      return;
+    }
+
+    final int generation = ++_generation;
+    if (!keepItems) {
+      setState(() {
+        _items = const <SourceBookSummary>[];
+        _page = 1;
+        _hasMore = true;
+        _loadMoreFailure = null;
+      });
+    }
+    setState(() {
+      _loadingPage = true;
+      _loadingMore = false;
+      _pageFailure = null;
+      _bannerMessage = null;
+      _loadMoreFailure = null;
+    });
+
+    try {
+      final SourcePage<SourceBookSummary> result = _searchMode
+          ? await ref.read(sourceDiscoveryProvider).search(source, _keyword, 1)
+          : await ref
+                .read(sourceDiscoveryProvider)
+                .explore(source, category!, 1);
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      final List<SourceBookSummary> items = _dedupe(result.items);
+      setState(() {
+        _items = items;
+        _page = 1;
+        _hasMore = result.hasMore;
+        _loadingPage = false;
+        _pageFailure = null;
+        _bannerMessage = null;
+        _loadMoreFailure = null;
+      });
+    } on SourceFailure catch (failure) {
+      _handleFirstPageFailure(generation, failure.message);
+    } on Object {
+      _handleFirstPageFailure(generation, '书源请求失败，请稍后重试。');
+    }
+  }
+
+  void _handleFirstPageFailure(int generation, String message) {
+    if (!mounted || generation != _generation) {
+      return;
+    }
+    setState(() {
+      _loadingPage = false;
+      _loadingMore = false;
+      if (_items.isEmpty) {
+        _pageFailure = message;
+        _bannerMessage = null;
+      } else {
+        _pageFailure = null;
+        _bannerMessage = message;
+      }
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingPage || _loadingMore || !_hasMore || _loadMoreFailure != null) {
+      return;
+    }
+    final BookSource? source = _source;
+    if (source == null) {
+      return;
+    }
+    final ExploreCategory? category = _category;
+    if (!_searchMode && category == null) {
+      return;
+    }
+
+    final int generation = _generation;
+    final int page = _page;
+    setState(() => _loadingMore = true);
+
+    try {
+      final SourcePage<SourceBookSummary> result = _searchMode
+          ? await ref
+                .read(sourceDiscoveryProvider)
+                .search(source, _keyword, page + 1)
+          : await ref
+                .read(sourceDiscoveryProvider)
+                .explore(source, category!, page + 1);
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      final Set<String> seen = _items
+          .map((SourceBookSummary item) => item.bookUrl)
+          .toSet();
+      final List<SourceBookSummary> fresh = <SourceBookSummary>[];
+      for (final SourceBookSummary item in result.items) {
+        if (seen.add(item.bookUrl)) {
+          fresh.add(item);
+        }
+      }
+      setState(() {
+        _items = <SourceBookSummary>[..._items, ...fresh];
+        _page = page + 1;
+        _hasMore = result.hasMore && fresh.isNotEmpty;
+        _loadingMore = false;
+        _loadMoreFailure = null;
+      });
+    } on SourceFailure catch (failure) {
+      _handleLoadMoreFailure(generation, failure.message);
+    } on Object {
+      _handleLoadMoreFailure(generation, '书源请求失败，请稍后重试。');
+    }
+  }
+
+  void _handleLoadMoreFailure(int generation, String message) {
+    if (!mounted || generation != _generation) {
+      return;
+    }
+    setState(() {
+      _loadingMore = false;
+      _loadMoreFailure = message;
+    });
+  }
+
+  void _submitSearch(String value) {
+    final String keyword = value.trim();
+    if (keyword.isEmpty || _source == null) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    _searchController.text = keyword;
+    setState(() {
+      _searchMode = true;
+      _keyword = keyword;
+      _items = const <SourceBookSummary>[];
+      _page = 1;
+      _hasMore = true;
+      _pageFailure = null;
+      _bannerMessage = null;
+      _loadMoreFailure = null;
+    });
+    unawaited(_loadFirstPage());
+  }
+
+  void _clearSearch() {
+    if (!_searchMode) {
+      return;
+    }
+    _searchController.clear();
+    setState(() {
+      _searchMode = false;
+      _keyword = '';
+      _items = const <SourceBookSummary>[];
+      _page = 1;
+      _hasMore = true;
+      _pageFailure = null;
+      _bannerMessage = null;
+      _loadMoreFailure = null;
+    });
+    unawaited(_loadFirstPage());
+  }
+
+  Future<void> _refresh() {
+    return _loadFirstPage(keepItems: true);
   }
 
   Future<void> _openManagement() async {
@@ -163,6 +401,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     }
 
     _generation++;
+    _searchController.clear();
     final List<ExploreCategory> categories = parseExploreCategories(
       exploreUrl: selected.source.exploreUrl,
       enabledExplore: selected.source.enabledExplore,
@@ -172,9 +411,21 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       _source = selected!.source;
       _categories = categories;
       _category = categories.isEmpty ? null : categories.first;
+      _searchMode = false;
+      _keyword = '';
+      _items = const <SourceBookSummary>[];
+      _page = 1;
+      _hasMore = true;
       _loadingPage = false;
+      _loadingMore = false;
       _failure = null;
+      _pageFailure = null;
+      _bannerMessage = null;
+      _loadMoreFailure = null;
     });
+    if (categories.isNotEmpty) {
+      unawaited(_loadFirstPage());
+    }
   }
 
   void _selectCategory(ExploreCategory category) {
@@ -183,10 +434,36 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       return;
     }
     _generation++;
+    _searchController.clear();
     setState(() {
       _category = category;
+      _searchMode = false;
+      _keyword = '';
+      _items = const <SourceBookSummary>[];
+      _page = 1;
+      _hasMore = true;
       _loadingPage = false;
+      _loadingMore = false;
+      _pageFailure = null;
+      _bannerMessage = null;
+      _loadMoreFailure = null;
     });
+    unawaited(_loadFirstPage());
+  }
+
+  void _openPreview(SourceBookSummary item) {
+    final BookSource? source = _source;
+    if (source == null) {
+      return;
+    }
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) =>
+              OnlineBookPreviewPage(source: source, item: item),
+        ),
+      ),
+    );
   }
 
   @override
@@ -257,29 +534,50 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
   }
 
   Widget _buildSourceBody() {
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: <Widget>[
+          SliverToBoxAdapter(child: _buildSearchAndCategories()),
+          if (_searchMode) SliverToBoxAdapter(child: _buildSearchHeader()),
+          if (_bannerMessage != null)
+            SliverToBoxAdapter(child: _buildErrorBanner()),
+          ..._buildResultSlivers(),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxxl)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchAndCategories() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.xs,
-        AppSpacing.lg,
-        AppSpacing.xxxl,
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          if (_loadingPage) ...<Widget>[
-            const LinearProgressIndicator(minHeight: 2),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          if (_categories.isEmpty)
+          TextField(
+            key: DiscoveryPageKeys.searchFieldKey,
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: _submitSearch,
+            decoration: const InputDecoration(
+              hintText: '搜索书名 / 作者',
+              prefixIcon: Icon(Icons.search_rounded),
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (_categories.isEmpty && !_searchMode)
             Text(
               '该源没有发现分类，试试搜索',
               style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             )
-          else
+          else if (_categories.isNotEmpty)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -297,9 +595,191 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
                 ],
               ),
             ),
+          const SizedBox(height: AppSpacing.md),
         ],
       ),
     );
+  }
+
+  Widget _buildSearchHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.sm,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              '搜索结果 · 来自 ${_source?.name ?? ''}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          IconButton(
+            key: DiscoveryPageKeys.searchClearKey,
+            tooltip: '清除搜索',
+            onPressed: _clearSearch,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      child: Container(
+        key: DiscoveryPageKeys.errorBannerKey,
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.sm,
+          AppSpacing.xs,
+          AppSpacing.xs,
+          AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: scheme.errorContainer,
+          borderRadius: BorderRadius.circular(AppRadii.xsValue),
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                '本次加载失败 · ${_bannerMessage ?? ''}',
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: scheme.onErrorContainer),
+              ),
+            ),
+            TextButton(
+              key: DiscoveryPageKeys.retryKey,
+              onPressed: () => unawaited(_refresh()),
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildResultSlivers() {
+    if (_loadingPage && _items.isEmpty) {
+      return <Widget>[
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpacing.xxl),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ),
+      ];
+    }
+    if (_pageFailure != null && _items.isEmpty) {
+      return <Widget>[
+        SliverToBoxAdapter(
+          child: _ResultError(
+            key: DiscoveryPageKeys.resultErrorKey,
+            message: _pageFailure!,
+            onRetry: () => unawaited(_loadFirstPage()),
+          ),
+        ),
+      ];
+    }
+    if (_items.isEmpty) {
+      return <Widget>[
+        SliverToBoxAdapter(child: _EmptyResult(searchMode: _searchMode)),
+      ];
+    }
+
+    return <Widget>[
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        sliver: SliverList(
+          key: DiscoveryPageKeys.resultListKey,
+          delegate: SliverChildBuilderDelegate((
+            BuildContext context,
+            int index,
+          ) {
+            final SourceBookSummary item = _items[index];
+            return DiscoveryResultTile(
+              key: DiscoveryPageKeys.resultTileKey(item.bookUrl),
+              item: item,
+              sourceName: _source?.name ?? '',
+              onTap: () => _openPreview(item),
+            );
+          }, childCount: _items.length),
+        ),
+      ),
+      SliverToBoxAdapter(child: _buildLoadMoreFooter()),
+    ];
+  }
+
+  Widget _buildLoadMoreFooter() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      child: Container(
+        key: DiscoveryPageKeys.loadMoreKey,
+        alignment: Alignment.center,
+        child: _loadMoreFailure != null
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    '加载下一页失败 · $_loadMoreFailure',
+                    style: text.bodySmall?.copyWith(color: scheme.error),
+                    textAlign: TextAlign.center,
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _loadMoreFailure = null);
+                      unawaited(_loadMore());
+                    },
+                    child: const Text('重试'),
+                  ),
+                ],
+              )
+            : _loadingMore
+            ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : _hasMore
+            ? TextButton(
+                onPressed: () => unawaited(_loadMore()),
+                child: const Text('加载更多'),
+              )
+            : Text(
+                '已经到底了',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+      ),
+    );
+  }
+
+  static List<SourceBookSummary> _dedupe(Iterable<SourceBookSummary> items) {
+    final Set<String> seen = <String>{};
+    final List<SourceBookSummary> unique = <SourceBookSummary>[];
+    for (final SourceBookSummary item in items) {
+      if (seen.add(item.bookUrl)) {
+        unique.add(item);
+      }
+    }
+    return unique;
   }
 }
 
@@ -374,6 +854,81 @@ class _ErrorState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyResult extends StatelessWidget {
+  const _EmptyResult({required this.searchMode});
+
+  final bool searchMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xxl,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+      ),
+      child: Column(
+        key: DiscoveryPageKeys.emptyResultKey,
+        children: <Widget>[
+          Icon(
+            Icons.search_off_rounded,
+            size: 48,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            searchMode ? '换个关键词' : '该分类暂无书目',
+            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultError extends StatelessWidget {
+  const _ResultError({super.key, required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xxl,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+      ),
+      child: Column(
+        children: <Widget>[
+          Icon(Icons.cloud_off_rounded, size: 48, color: scheme.error),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '加载失败 · $message',
+            style: text.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          OutlinedButton.icon(
+            key: DiscoveryPageKeys.retryKey,
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('重试'),
+          ),
+        ],
       ),
     );
   }

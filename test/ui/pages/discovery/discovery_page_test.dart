@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/app/sources/source_discovery.dart';
+import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/book_source_queries.dart';
+import 'package:tometone/domain/sources/discovery/explore_category.dart';
+import 'package:tometone/domain/sources/discovery/source_models.dart';
 import 'package:tometone/ui/pages/discovery/discovery_page.dart';
 import 'package:tometone/ui/pages/sources/source_management_page.dart';
 
@@ -13,6 +17,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
     );
 
@@ -37,6 +42,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
     );
 
@@ -66,6 +72,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
     );
 
@@ -95,6 +102,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
     );
 
@@ -127,6 +135,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
     );
 
@@ -157,6 +166,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
     );
 
@@ -180,6 +190,7 @@ void main() {
     await pumpSourceUi(
       tester,
       db: db,
+      discovery: const _EmptyDiscovery(),
       home: const Scaffold(body: DiscoveryPage()),
       size: const Size(320, 700),
       textScale: 2,
@@ -190,4 +201,49 @@ void main() {
     expect(find.textContaining('非常长的书源'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _EmptyDiscovery implements SourceDiscovery {
+  const _EmptyDiscovery();
+
+  @override
+  Future<SourcePage<SourceBookSummary>> explore(
+    BookSource source,
+    ExploreCategory category,
+    int page,
+  ) async {
+    return _emptyPage();
+  }
+
+  @override
+  Future<SourcePage<SourceBookSummary>> search(
+    BookSource source,
+    String keyword,
+    int page,
+  ) async {
+    return _emptyPage();
+  }
+
+  @override
+  Future<SourceBookInfo> bookInfo(BookSource source, String bookUrl) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<SourceToc> toc(BookSource source, SourceBookInfo info) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<SourceTestReport> test(BookSource source) {
+    throw UnimplementedError();
+  }
+
+  static SourcePage<SourceBookSummary> _emptyPage() {
+    return SourcePage<SourceBookSummary>(
+      items: const <SourceBookSummary>[],
+      hasMore: false,
+      finalUrl: Uri.parse('https://example.com/list'),
+    );
+  }
 }
