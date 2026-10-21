@@ -1,0 +1,49 @@
+{
+  "bookSourceName": "听友听书 M1-B",
+  "bookSourceGroup": "听书",
+  "bookSourceType": 1,
+  "bookSourceUrl": "https://www.tingyou.fm",
+  "header": "{\"User-Agent\":\"TomeTone-Test\",\"Referer\":\"https://www.tingyou.fm/\",\"Origin\":\"https://www.tingyou.fm\",\"x-listening-session\":\"test-session\"}",
+  "exploreUrl": "热门::/api/explore/hot?page={{page}}\n最新::/api/explore/new?page={{page}}\n推荐::/api/explore/recommend?page={{page}}\n连载::/api/explore/serial?page={{page}}\n评书::/api/explore/story?page={{page}}",
+  "ruleExplore": {
+    "bookList": "$.items[*]",
+    "name": "$.title",
+    "bookUrl": "$.url",
+    "author": "$.author",
+    "coverUrl": "$.cover",
+    "intro": "$.intro",
+    "kind": "$.kind",
+    "lastChapter": "$.last_chapter"
+  },
+  "searchUrl": "https://www.tingyou.fm/api/search,{\"method\":\"POST\",\"headers\":{\"Content-Type\":\"application/json\"},\"body\":\"{\\\"keyword\\\":\\\"{{key}}\\\",\\\"page\\\":{{page}}}\"}",
+  "ruleSearch": {
+    "bookList": "$.items[*]",
+    "name": "$.title",
+    "bookUrl": "$.url",
+    "author": "$.author",
+    "coverUrl": "$.cover"
+  },
+  "ruleBookInfo": {
+    "name": "$.title",
+    "author": "$.author",
+    "narrator": "$.narrator",
+    "intro": "$.intro",
+    "coverUrl": "$.cover",
+    "kind": "$.kind",
+    "wordCount": "$.word_count",
+    "lastChapter": "$.last_chapter",
+    "status": "$.status",
+    "tocUrl": "https://www.tingyou.fm/api/chapters/{{$.id}}"
+  },
+  "ruleToc": {
+    "chapterList": "$.chapters[*]",
+    "chapterName": "$.title",
+    "chapterUrl": "$.url",
+    "isVip": "$.vip",
+    "nextTocUrl": "$.next"
+  },
+  "ruleContent": {
+    "content": "$.play_url"
+  },
+  "concurrentRate": "20/60000"
+}

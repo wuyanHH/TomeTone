@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "6",
+      "title": "第二页书目",
+      "author": "作者乙",
+      "cover": "/covers/6.jpg",
+      "url": "/book/6"
+    }
+  ]
+}

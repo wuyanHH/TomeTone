@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "5",
+      "title": "搜索结果",
+      "author": "作者甲",
+      "cover": "/covers/5.jpg",
+      "url": "/book/5"
+    }
+  ]
+}

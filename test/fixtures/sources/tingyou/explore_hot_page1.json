@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "id": "1",
+      "title": "长安十二时辰",
+      "author": "马伯庸",
+      "cover": "/covers/1.jpg",
+      "url": "/book/1",
+      "kind": "历史",
+      "last_chapter": "第 24 章"
+    },
+    {
+      "id": "2",
+      "title": "",
+      "url": "/book/2"
+    },
+    {
+      "id": "3",
+      "title": "重复条目",
+      "url": "https://www.tingyou.fm/book/1"
+    },
+    {
+      "id": "4",
+      "title": "三体",
+      "author": "刘慈欣",
+      "cover": "https://cdn.test/3.jpg",
+      "url": "/book/4"
+    }
+  ]
+}

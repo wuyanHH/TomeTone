@@ -1,0 +1,19 @@
+{
+  "chapters": [
+    {
+      "title": "第一章 长安",
+      "url": "/play/1",
+      "vip": false
+    },
+    {
+      "title": "",
+      "url": "/play/2",
+      "vip": "true"
+    },
+    {
+      "title": "坏章",
+      "url": "javascript:alert(1)"
+    }
+  ],
+  "next": "/api/chapters/1?page=2"
+}
