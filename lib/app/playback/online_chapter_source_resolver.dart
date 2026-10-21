@@ -22,13 +22,14 @@ class OnlineChapterSourceResolver {
       return null;
     }
     try {
+      final Uri? baseUrl = Uri.tryParse(source.sourceUrl);
       final ResolvedAudio audio = await _discovery.resolveAudio(
         source,
         SourceChapter(
           index: chapter.chapterIndex,
           title: chapter.title,
           rawUrl: raw,
-          url: _normalized(raw),
+          url: _normalized(raw, baseUrl: baseUrl),
           isVip: chapter.isVip,
         ),
       );
@@ -38,9 +39,13 @@ class OnlineChapterSourceResolver {
     }
   }
 
-  static String _normalized(String raw) {
+  static String _normalized(String raw, {Uri? baseUrl}) {
     final int options = raw.lastIndexOf(',{');
     final String base = options >= 0 ? raw.substring(0, options) : raw;
-    return normalizeNetworkUrl(base.trim());
+    try {
+      return normalizeNetworkUrl(base.trim(), baseUrl: baseUrl);
+    } on FormatException {
+      return base.trim();
+    }
   }
 }
