@@ -164,6 +164,46 @@ void main() {
     expect(loader.urlCalls, 1);
   });
 
+  testWidgets('HTTP URL 显示明文警告，HTTPS 与清空后消失', (tester) async {
+    final db = openSourceTestDatabase();
+
+    await pumpSourceUi(
+      tester,
+      db: db,
+      loader: FakeSourceImportLoader(),
+      home: const Scaffold(body: SourceImportSheet()),
+    );
+
+    final warning = find.byKey(SourceImportSheetKeys.httpWarningKey);
+    expect(warning, findsNothing);
+
+    await tester.enterText(
+      find.byKey(SourceImportSheetKeys.urlFieldKey),
+      'http://example.com/source.json',
+    );
+    await tester.pump();
+    expect(warning, findsOneWidget);
+    expect(find.text('HTTP 明文书源会暴露请求内容，仅建议用于自建/局域网源。'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(SourceImportSheetKeys.urlFieldKey),
+      'https://example.com/source.json',
+    );
+    await tester.pump();
+    expect(warning, findsNothing);
+
+    await tester.enterText(
+      find.byKey(SourceImportSheetKeys.urlFieldKey),
+      'HTTP://example.com/source.json',
+    );
+    await tester.pump();
+    expect(warning, findsOneWidget);
+
+    await tester.enterText(find.byKey(SourceImportSheetKeys.urlFieldKey), '');
+    await tester.pump();
+    expect(warning, findsNothing);
+  });
+
   testWidgets('320dp、大字体、深色下导入弹层不溢出', (tester) async {
     final db = openSourceTestDatabase();
 

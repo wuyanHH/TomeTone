@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
+import 'package:tometone/modules/source_http/io_source_http_client.dart';
 import 'package:tometone/modules/storage_local/local_book_metadata_file_store.dart';
 import 'package:tometone/modules/storage_local/local_media_source_resolver.dart';
 import 'package:tometone/modules/storage_local/local_storage_provider.dart';
@@ -40,6 +42,7 @@ void main() {
       overrides: [
         databaseProvider.overrideWithValue(database),
         playbackEngineProvider.overrideWithValue(engine),
+        sourceHttpClientProvider.overrideWithValue(IoSourceHttpClient()),
         storageProviderFactoryProvider.overrideWithValue(_createProvider),
         bookMetadataFileStoreFactoryProvider.overrideWithValue(
           _createMetadataStore,

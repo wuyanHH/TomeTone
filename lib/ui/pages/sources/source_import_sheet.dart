@@ -21,6 +21,7 @@ abstract final class SourceImportSheetKeys {
   static const Key resultsKey = Key('source-import-results');
   static const Key closeButtonKey = Key('source-import-close');
   static const Key doneButtonKey = Key('source-import-done');
+  static const Key httpWarningKey = Key('source-import-http-warning');
 }
 
 Future<bool?> showSourceImportSheet(BuildContext context) {
@@ -56,7 +57,20 @@ class _SourceImportSheetState extends ConsumerState<SourceImportSheet> {
   bool _hasSuccess = false;
 
   @override
+  void initState() {
+    super.initState();
+    _url.addListener(_handleUrlChanged);
+  }
+
+  void _handleUrlChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _url.removeListener(_handleUrlChanged);
     _url.dispose();
     _paste.dispose();
     super.dispose();
@@ -259,6 +273,10 @@ class _SourceImportSheetState extends ConsumerState<SourceImportSheet> {
             border: OutlineInputBorder(),
           ),
         ),
+        if (_url.text.trim().toLowerCase().startsWith('http://')) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          _buildHttpWarning(),
+        ],
         const SizedBox(height: AppSpacing.sm),
         Align(
           alignment: Alignment.centerLeft,
@@ -283,6 +301,36 @@ class _SourceImportSheetState extends ConsumerState<SourceImportSheet> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildHttpWarning() {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      key: SourceImportSheetKeys.httpWarningKey,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: colors.errorContainer,
+        borderRadius: AppRadii.sm,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: colors.onErrorContainer,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              'HTTP 明文书源会暴露请求内容，仅建议用于自建/局域网源。',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: colors.onErrorContainer),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
