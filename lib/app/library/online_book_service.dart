@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_initializing_formals
 import 'package:tometone/app/sources/source_discovery.dart';
 import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/book_source.dart';

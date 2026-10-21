@@ -16,8 +16,8 @@ import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
 import 'package:tometone/ui/pages/library/library_browser_page.dart';
-import 'package:tometone/ui/pages/library/library_page.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
+import 'package:tometone/ui/pages/library/local_roots_section.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
 import 'ui_test_harness.dart';
@@ -303,7 +303,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    final Widget page = LibraryPage(suggestedRootPath: suggestedPath);
+    final Widget page = LocalRootsSection(suggestedRootPath: suggestedPath);
     await tester.pumpWidget(
       testApp(
         container,
@@ -328,19 +328,12 @@ void main() {
     expect(find.textContaining('支持 mp3'), findsOneWidget);
     expect(find.byKey(LibraryRootsKeys.addRootKey), findsOneWidget);
     expect(
-      find.byKey(LibraryRootsKeys.addRootButtonKey),
-      findsNothing,
-      reason: '空态没有 `+` 可点，引导在面板里',
-    );
-    expect(
       find.byKey(LibraryRootsKeys.safPickKey),
       findsNothing,
       reason: '两个入口都收进弹层，不再常驻页面',
     );
     expect(find.text('高级：手动输入路径'), findsNothing);
-    expect(find.text('0 个'), findsOneWidget);
-    expect(find.text('书库 · LIBRARY'), findsOneWidget);
-    expect(find.text('书库根'), findsOneWidget);
+    expect(find.text('本机目录'), findsOneWidget);
 
     await openAddSheet(tester, entry: LibraryRootsKeys.addRootKey);
 
@@ -363,7 +356,7 @@ void main() {
     expect(find.byKey(LibraryRootsKeys.addRootKey), findsNothing);
     expect(find.text('选择目录（SAF）'), findsNothing);
     expect(find.text('高级：手动输入路径'), findsNothing);
-    expect(find.text('1 个'), findsOneWidget);
+    expect(find.text('本机目录'), findsOneWidget);
 
     // `+` 的触控目标 ≥48dp，且在标题行的右侧。
     final Size size = tester.getSize(
@@ -406,7 +399,6 @@ void main() {
     expect(find.byKey(LibraryRootsKeys.rootsListKey), findsOneWidget);
     expect(find.text('本地书库'), findsOneWidget);
     expect(find.text('com.tometone.app'), findsOneWidget);
-    expect(find.text('2 个'), findsOneWidget);
     expect(find.text('上次扫描 · 2026-10-19 07:11'), findsOneWidget);
     expect(find.text('从未扫描'), findsOneWidget);
 
@@ -480,7 +472,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -572,7 +564,6 @@ void main() {
     expect(find.byKey(LibraryRootsKeys.noticeKey), findsOneWidget);
     expect(find.textContaining('已添加「我的书库」'), findsOneWidget);
     expect(find.text('我的书库'), findsOneWidget);
-    expect(find.text('2 个'), findsOneWidget);
     expect(
       container.read(libraryRootsProvider).value,
       hasLength(2),
@@ -723,7 +714,6 @@ void main() {
     expect(find.byKey(LibraryRootsKeys.noticeKey), findsOneWidget);
     expect(find.textContaining('已添加「Books」'), findsOneWidget);
     expect(find.byKey(LibraryRootsKeys.safErrorKey), findsNothing);
-    expect(find.text('2 个'), findsOneWidget);
     expect(rootsQueries, 2, reason: '添加成功后必须重新查询书库根');
     expect(
       container.read(libraryRootsProvider).value,
@@ -852,7 +842,7 @@ void main() {
     addTearDown(booksSub.close);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
     expect(rootsQueries, 1);
@@ -937,7 +927,7 @@ void main() {
     service.scanErrors[testRootId] = StateError('目录不存在：/library/books');
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -992,7 +982,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1028,7 +1018,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1065,7 +1055,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1134,7 +1124,7 @@ void main() {
     addTearDown(booksSub.close);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
     expect(rootsQueries, 1);
@@ -1202,7 +1192,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1246,7 +1236,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1279,7 +1269,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1315,7 +1305,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1380,7 +1370,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 
@@ -1444,7 +1434,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      testApp(container, const Scaffold(body: LibraryPage())),
+      testApp(container, const Scaffold(body: LocalRootsSection())),
     );
     await tester.pumpAndSettle();
 

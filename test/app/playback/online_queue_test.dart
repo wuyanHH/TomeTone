@@ -125,8 +125,8 @@ BookSource _source() {
 }
 
 BookDetail _detail() {
-  return BookDetail(
-    summary: const BookSummary(
+  return const BookDetail(
+    summary: BookSummary(
       id: 'book-1',
       title: '在线书',
       libraryRootId: 'root-1',
@@ -176,6 +176,6 @@ BookDetail _detail() {
         ],
       ),
     ],
-    preferences: const PerBookPrefsSnapshot(),
+    preferences: PerBookPrefsSnapshot(),
   );
 }

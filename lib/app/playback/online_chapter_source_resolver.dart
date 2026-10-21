@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_initializing_formals
 import 'package:tometone/app/sources/source_discovery.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';

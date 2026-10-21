@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tometone/app/library/book_metadata_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
-import 'package:tometone/app/providers/metadata_providers.dart';
 import 'package:tometone/app/providers/online_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
-import 'package:tometone/app/sources/book_source_service.dart';
+import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
-import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/queries/online_library_queries.dart';
-import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
 import 'package:tometone/ui/widgets/network_cover.dart';
@@ -172,12 +168,12 @@ BookDetail _detail({required bool onShelf}) {
       onShelf: onShelf,
     ),
     volumes: <VolumeView>[
-      VolumeView(
+      const VolumeView(
         id: 'vol-1',
         title: '正文',
         volumeIndex: 0,
         chapters: <ChapterView>[
-          const ChapterView(
+          ChapterView(
             id: 'ch-1',
             volumeId: 'vol-1',
             title: '正常章',
@@ -186,7 +182,7 @@ BookDetail _detail({required bool onShelf}) {
             missing: false,
             sourceUri: 'https://e.test/play/1',
           ),
-          const ChapterView(
+          ChapterView(
             id: 'ch-vip',
             volumeId: 'vol-1',
             title: 'VIP 章',
@@ -196,7 +192,7 @@ BookDetail _detail({required bool onShelf}) {
             sourceUri: 'https://e.test/play/2',
             isVip: true,
           ),
-          const ChapterView(
+          ChapterView(
             id: 'ch-old',
             volumeId: 'vol-1',
             title: '旧章',

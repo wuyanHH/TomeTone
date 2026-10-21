@@ -11,7 +11,9 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 来源管理页里的本机目录管理段。
 class LocalRootsSection extends ConsumerStatefulWidget {
-  const LocalRootsSection({super.key});
+  const LocalRootsSection({super.key, this.suggestedRootPath});
+
+  final String? suggestedRootPath;
 
   @override
   ConsumerState<LocalRootsSection> createState() => _LocalRootsSectionState();
@@ -115,7 +117,8 @@ class _LocalRootsSectionState extends ConsumerState<LocalRootsSection> {
 
   Future<void> _openAddRootSheet() async {
     _clearNotice();
-    final String suggested = defaultRootPathSuggestion();
+    final String suggested =
+        widget.suggestedRootPath ?? defaultRootPathSuggestion();
     final String? addedName = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,

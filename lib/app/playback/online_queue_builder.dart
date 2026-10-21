@@ -1,5 +1,5 @@
-import 'package:tometone/app/policy/chapter_sequencer.dart';
 import 'package:tometone/app/playback/online_chapter_source_resolver.dart';
+import 'package:tometone/app/policy/chapter_sequencer.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 

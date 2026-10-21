@@ -95,9 +95,8 @@ void main() {
 
     await tester.tap(find.text('书库'));
     await tester.pumpAndSettle();
-    // 书库是新家：空书库根的空态与添加入口都在这页（overrides 注入空列表）。
-    expect(find.text('书库 · LIBRARY'), findsOneWidget);
-    expect(find.text('还没有书库根'), findsOneWidget);
+    expect(find.text('我的书库'), findsOneWidget);
+    expect(find.text('还没有书'), findsOneWidget);
 
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
@@ -126,8 +125,8 @@ void main() {
     await tester.tap(find.byKey(ShelfPage.goToLibraryKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('书库 · LIBRARY'), findsOneWidget);
-    expect(find.text('还没有书库根'), findsOneWidget);
+    expect(find.text('我的书库'), findsOneWidget);
+    expect(find.text('还没有书'), findsOneWidget);
     expect(find.byKey(ShelfPage.emptyKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -206,8 +205,8 @@ void main() {
     // 轨道同样能到达新拆出的书库页。
     await tester.tap(find.text('书库'));
     await tester.pumpAndSettle();
-    expect(find.text('书库 · LIBRARY'), findsOneWidget);
-    expect(find.text('还没有书库根'), findsOneWidget);
+    expect(find.text('我的书库'), findsOneWidget);
+    expect(find.text('还没有书'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

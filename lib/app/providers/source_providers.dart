@@ -33,3 +33,9 @@ final bookSourceByIdProvider = FutureProvider.family<BookSource?, String>((
 ) {
   return ref.watch(bookSourceQueriesProvider).sourceById(id);
 });
+
+/// 全部已导入且未删除的书源列表。
+final FutureProvider<List<BookSource>> bookSourcesProvider =
+    FutureProvider<List<BookSource>>((Ref ref) {
+      return ref.watch(bookSourceQueriesProvider).listSources();
+    });
