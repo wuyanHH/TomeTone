@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/library/batch_refresh_controller.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
@@ -9,6 +10,7 @@ import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/library/library_book_row.dart';
 import 'package:tometone/ui/pages/library/library_filter.dart';
+import 'package:tometone/ui/pages/library/library_refresh_capsule.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
@@ -20,6 +22,7 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 abstract final class LibraryKeys {
   static const Key searchFieldKey = Key('library-search-field');
   static const Key sourcesButtonKey = LibraryRootsKeys.sourcesButtonKey;
+  static const Key refreshButtonKey = Key('library-refresh-button');
   static const Key emptyKey = Key('library-empty');
   static const Key importSourceKey = Key('library-import-source');
   static const Key addLocalRootKey = Key('library-add-local-root');
@@ -95,6 +98,15 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         ),
         actions: <Widget>[
           IconButton(
+            key: LibraryKeys.refreshButtonKey,
+            tooltip: '检查在线更新',
+            onPressed: () async {
+              await ref.read(batchRefreshControllerProvider.notifier).startRefresh();
+              ref.invalidate(booksProvider);
+            },
+            icon: const Icon(Icons.sync_rounded),
+          ),
+          IconButton(
             key: LibraryKeys.sourcesButtonKey,
             tooltip: '来源管理',
             onPressed: () {
@@ -108,81 +120,88 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           ),
         ],
       ),
-      body: booksAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (Object error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Text('加载书库失败'),
-              const SizedBox(height: AppSpacing.sm),
-              FilledButton(
-                onPressed: () => ref.invalidate(booksProvider),
-                child: const Text('重试'),
+      body: Column(
+        children: <Widget>[
+          const LibraryRefreshCapsule(),
+          Expanded(
+            child: booksAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (Object error, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Text('加载书库失败'),
+                    const SizedBox(height: AppSpacing.sm),
+                    FilledButton(
+                      onPressed: () => ref.invalidate(booksProvider),
+                      child: const Text('重试'),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-        data: (_) {
-          if (books.isEmpty) {
-            return _buildEmptyState(context, hasSources);
-          }
+              data: (_) {
+                if (books.isEmpty) {
+                  return _buildEmptyState(context, hasSources);
+                }
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.sm,
-              AppSpacing.lg,
-              AppSpacing.xxl,
-            ),
-            children: <Widget>[
-              _buildFilterBar(context, availableTags),
-              const SizedBox(height: AppSpacing.md),
-              if (filtered.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          '没有找到匹配的书目',
-                          style: Theme.of(context).textTheme.titleMedium,
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxl,
+                  ),
+                  children: <Widget>[
+                    _buildFilterBar(context, availableTags),
+                    const SizedBox(height: AppSpacing.md),
+                    if (filtered.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xxl),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                '没有找到匹配的书目',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _filter = const LibraryFilterState();
+                                    _searchController.clear();
+                                  });
+                                },
+                                child: const Text('清除筛选'),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _filter = const LibraryFilterState();
-                              _searchController.clear();
-                            });
-                          },
-                          child: const Text('清除筛选'),
+                      )
+                    else
+                      for (final BookSummary book in filtered) ...<Widget>[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: LibraryBookRow(
+                            key: LibraryKeys.bookRowKey(book.id),
+                            book: book,
+                            onTap: () {
+                              Navigator.of(context).push<void>(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => BookDetailPage(bookId: book.id),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                )
-              else
-                for (final BookSummary book in filtered) ...<Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: LibraryBookRow(
-                      key: LibraryKeys.bookRowKey(book.id),
-                      book: book,
-                      onTap: () {
-                        Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => BookDetailPage(bookId: book.id),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-            ],
-          );
-        },
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
