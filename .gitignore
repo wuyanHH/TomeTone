@@ -29,3 +29,6 @@ docs/design-preview/icon-splash/
 release/**/*.apk
 release/**/*.aab
 release/**/*.zip
+
+# Superpowers brainstorming & scratchpads
+.superpowers/
