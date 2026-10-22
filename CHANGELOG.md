@@ -8,6 +8,16 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ### 新增
 
+- **在线听书 M1-D：书目与目录刷新、平滑换源、静默预下载与 LRU 缓存池、分级安全删除护栏**：
+  - **网络状态监控契约与实现**（`lib/contracts/network/network_monitor.dart`、`lib/platform/network/connectivity_network_monitor.dart`）：纯 Dart 契约，支持 Wi-Fi 与蜂窝网络实时判定。
+  - **沙盒音频缓存仓储与 LRU 限制控制**（`lib/contracts/audio/audio_cache_repository.dart`、`lib/modules/audio/audio_cache_repository_impl.dart`）：按书籍目录隔离存储音频文件，提供 85% 水位线淘汰机制与全量清理。
+  - **智能静默预载调度器**（`lib/app/playback/audio_preload_manager.dart`）与**在线播放源解析器**（`lib/app/playback/online_chapter_source_resolver.dart`）：收听进度达到 50% 自动预下载后续章节，优先命中本地沙盒离线文件；跳过当前播放章且忽略 `.m3u8` 流媒体。
+  - **单本书目与目录防丢刷新**（`lib/app/library/online_book_service.dart`、`lib/domain/library/toc_refresh_result.dart`）：网络中断或分页不全保护（`complete == false` 绝不丢章）。
+  - **平滑换源与章节对齐**（`lib/app/library/online_book_service.dart`、`lib/domain/library/switch_source_result.dart`）：基于编辑距离与序号多策略匹配，未对齐时锁死原进度，支持 A->B->A 往返换源防唯一键冲突。
+  - **书库后台批量刷新控制器与呼吸胶囊**（`lib/app/library/batch_refresh_controller.dart`、`lib/ui/pages/library/library_refresh_capsule.dart`）：单本网络失败强隔离，书库顶部无阻断动态汇报更新。
+  - **沉浸式换源半屏底部抽屉与独立试听播放器**（`lib/ui/pages/library/switch_source_sheet.dart`、`lib/ui/pages/library/preview_audio_player.dart`）：候选源列表展示延迟、匹配度徽标，支持 10 秒片头独立试听。
+  - **双层流式缓冲轨道与设置页缓存管理**（`lib/ui/player/stream_cache_progress_bar.dart`、`lib/ui/pages/settings/cache_settings_section.dart`）：展示主进度与预载副轨，提供仅 Wi-Fi 预载开关、预载章数滑块与缓存清空入口。
+  - **分级安全删除弹窗与防误删护栏**（`lib/ui/pages/library/safe_delete_book_dialog.dart`）：在线书支持「仅移出书架」与「彻底删除」；本地书默认不勾选物理文件删除，SAF 根目录与空路径强制禁用物理删除，物理删除设二次高危确认弹窗。
 - **书架双布局与筛选**（`lib/ui/pages/shelf/`）：
   网格卡片展示封面、书名、作者/演播、一句简介与收听进度；列表行额外展示标签 chips。
   页首可展开搜索（书名 / 作者 / 演播 / 简介 / 系列），并按全部 / 在听 / 未听 / 已完、
