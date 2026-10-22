@@ -108,37 +108,29 @@ class _SettingsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.xl,
+        AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.lg,
+        AppSpacing.sm,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '偏好 · PREFERENCES',
-            style: text.labelSmall?.copyWith(
-              color: scheme.primary,
-              letterSpacing: 1.4,
+      child: SizedBox(
+        height: 48,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Semantics(
+            header: true,
+            child: Text(
+              '系统偏好',
+              style: text.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Semantics(
-            header: true,
-            child: Text('系统偏好', style: text.headlineMedium),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '外观与关于，都收在这一页；书库根在「书库」里管理。',
-            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
+        ),
       ),
     );
   }

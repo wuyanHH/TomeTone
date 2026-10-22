@@ -372,10 +372,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
   }
 }
 
-/// 藏馆题头：眉题 + 册数徽标 + 标题 + 搜索 / 布局操作 + 一句说明。
-///
-/// 数量放在眉题行右端，标题行留出空间给两个操作按钮，保证 320dp 与
-/// 系统大字号下不溢出（标题最多两行，眉题超宽时省略）。
+/// 藏馆题头：单行紧凑题头（标题 + 册数徽标 + 搜索 / 布局操作）。
 class _ShelfHeader extends StatelessWidget {
   const _ShelfHeader({
     required this.countLabel,
@@ -383,6 +380,7 @@ class _ShelfHeader extends StatelessWidget {
     required this.layout,
     required this.onSearchToggle,
     required this.onLayoutToggle,
+    this.trailing,
   });
 
   /// 册数徽标文案（读取态 / 失败态 / `N 册` / `M / N 册`）。
@@ -400,6 +398,9 @@ class _ShelfHeader extends StatelessWidget {
   /// 切换网格 / 列表。
   final VoidCallback onLayoutToggle;
 
+  /// 右侧附加操作（如更多菜单）。
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -407,78 +408,61 @@ class _ShelfHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.lg,
         AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.xs,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '藏馆 · THE VAULT',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.primary,
-                    letterSpacing: 1.4,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Row(
+                children: <Widget>[
+                  Flexible(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        '我的书架',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                countLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.labelMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    '我的书架',
-                    maxLines: 2,
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    countLabel,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: text.headlineMedium,
+                    style: text.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
+                ],
               ),
-              IconButton(
-                key: ShelfPage.searchToggleKey,
-                onPressed: onSearchToggle,
-                tooltip: searchOpen ? '收起搜索' : '搜索',
-                icon: const Icon(Icons.search_rounded),
+            ),
+            IconButton(
+              key: ShelfPage.searchToggleKey,
+              onPressed: onSearchToggle,
+              tooltip: searchOpen ? '收起搜索' : '搜索',
+              icon: const Icon(Icons.search_rounded),
+            ),
+            IconButton(
+              key: ShelfPage.layoutToggleKey,
+              onPressed: onLayoutToggle,
+              tooltip: layout == ShelfLayout.grid ? '切换为列表视图' : '切换为网格视图',
+              icon: Icon(
+                layout == ShelfLayout.grid
+                    ? Icons.grid_view_rounded
+                    : Icons.view_list_rounded,
               ),
-              IconButton(
-                key: ShelfPage.layoutToggleKey,
-                onPressed: onLayoutToggle,
-                tooltip: layout == ShelfLayout.grid ? '切换为列表视图' : '切换为网格视图',
-                icon: Icon(
-                  layout == ShelfLayout.grid
-                      ? Icons.grid_view_rounded
-                      : Icons.view_list_rounded,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '点开一本，从上次停下的地方继续听。',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
+            ),
+            if (trailing != null) trailing!,
+          ],
+        ),
       ),
     );
   }

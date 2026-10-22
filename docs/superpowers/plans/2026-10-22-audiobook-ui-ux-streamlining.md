@@ -90,27 +90,27 @@ git commit -m "feat(preferences): add shelf display and audio default preference
 - Consumes: `AppPreferences` from Task 1
 - Produces: 紧凑标准的单行标题栏，移除所有 `· THE VAULT`、`· DISCOVER`、`· PREFERENCES` 眉题。
 
-- [ ] **Step 1: 编写移除双层标题后的页面标题栏断言测试**
+- [x] **Step 1: 编写移除双层标题后的页面标题栏断言测试**
 
 在 `test/ui/shelf_page_test.dart` 和 `test/ui/settings_page_test.dart` 中断言：不再渲染 `藏馆 · THE VAULT` 或 `偏好 · PREFERENCES`，主标题与数量或操作栏紧凑并列。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/ui/shelf_page_test.dart test/ui/settings_page_test.dart`
 预期：FAIL（原眉题依然存在）
 
-- [ ] **Step 3: 改造 `ShelfPage`、`DiscoveryPage` 与 `SettingsPage` 顶栏结构**
+- [x] **Step 3: 改造 `ShelfPage`、`DiscoveryPage` 与 `SettingsPage` 顶栏结构**
 
 - `ShelfPage`: 将 `_ShelfHeader` 替换为单层 48~56dp 题头，标题与计数紧凑排列，保留搜索与布局切换动作；
 - `DiscoveryPage`: 移除 `发现 · DISCOVER` 眉题，保留简洁单行 `发现` 标题；
 - `SettingsPage`: 移除 `_SettingsHeader` 中的英文眉题与冗余副文本，精简为单行 `系统设置`。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/ui/shelf_page_test.dart test/ui/settings_page_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/ui/pages/shelf/ lib/ui/pages/discovery/ lib/ui/pages/settings/ test/ui/

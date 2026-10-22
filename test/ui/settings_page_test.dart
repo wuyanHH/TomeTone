@@ -36,6 +36,8 @@ void main() {
     await pumpSettings(tester);
 
     expect(find.text('系统偏好'), findsOneWidget);
+    expect(find.text('偏好 · PREFERENCES'), findsNothing);
+    expect(find.text('外观与关于，都收在这一页；书库根在「书库」里管理。'), findsNothing);
     expect(find.text('外观'), findsOneWidget);
     expect(find.byType(SegmentedButton<BrightnessPreference>), findsOneWidget);
     expect(find.text('跟随系统'), findsOneWidget);

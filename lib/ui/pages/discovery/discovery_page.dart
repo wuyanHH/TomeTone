@@ -20,6 +20,7 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 发现页的稳定测试键。
 abstract final class DiscoveryPageKeys {
+  static const Key headerTitleKey = Key('discovery-header-title');
   static const Key emptyKey = Key('discovery-empty');
   static const Key importKey = Key('discovery-import');
   static const Key sourceCardKey = Key('discovery-source-card');
@@ -558,18 +559,14 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                '发现 · DISCOVER',
-                style: text.labelSmall?.copyWith(
-                  color: scheme.primary,
-                  letterSpacing: 1.4,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                '发现',
-                style: text.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+              Semantics(
+                header: true,
+                child: Text(
+                  '发现',
+                  key: DiscoveryPageKeys.headerTitleKey,
+                  style: text.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               if (_source != null) ...<Widget>[

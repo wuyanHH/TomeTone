@@ -99,7 +99,6 @@ void main() {
     expect(find.text('去发现找书'), findsOneWidget);
     expect(find.text('重新读取书架'), findsOneWidget);
     expect(container.read(appTabProvider), AppTab.shelf);
-
     await tester.tap(find.byKey(ShelfPage.goToLibraryKey));
     await tester.pump();
     expect(
@@ -108,6 +107,19 @@ void main() {
       reason: '空态引导必须切到书库 tab',
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('顶栏规范化：紧凑单行题头，不再渲染双层眉题与冗余副文本', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    await pumpShelf(
+      tester,
+      overrides: testOverrides(controller: controller),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('我的书架'), findsOneWidget);
+    expect(find.text('藏馆 · THE VAULT'), findsNothing);
+    expect(find.text('点开一本，从上次停下的地方继续听。'), findsNothing);
   });
 
   testWidgets('空态：点「去发现找书」切到发现 tab', (WidgetTester tester) async {

@@ -15,6 +15,7 @@ import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app.dart';
 import 'package:tometone/ui/app_shell.dart';
+import 'package:tometone/ui/pages/discovery/discovery_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/app_color_palette.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
@@ -97,7 +98,7 @@ void main() {
 
     await tester.tap(find.text('发现'));
     await tester.pumpAndSettle();
-    expect(find.text('发现 · DISCOVER'), findsOneWidget);
+    expect(find.byKey(DiscoveryPageKeys.headerTitleKey), findsOneWidget);
     expect(find.text('还没有书源'), findsOneWidget);
 
     await tester.tap(find.text('纪年'));
@@ -154,7 +155,7 @@ void main() {
     await tester.tap(find.byKey(ShelfPage.goToDiscoveryKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('发现 · DISCOVER'), findsOneWidget);
+    expect(find.byKey(DiscoveryPageKeys.headerTitleKey), findsOneWidget);
     expect(find.text('还没有书源'), findsOneWidget);
     expect(find.byKey(ShelfPage.emptyKey), findsNothing);
     expect(tester.takeException(), isNull);
