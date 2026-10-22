@@ -24,6 +24,7 @@ dependencies:
   json_path: ^0.9.0
   unorm_dart: ^0.3.3
   crypto: ^3.0.7
+  connectivity_plus: ^6.1.1
 
 dev_dependencies:
   # 代码生成：`dart run build_runner build`

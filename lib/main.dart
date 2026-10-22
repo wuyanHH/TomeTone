@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/app/providers/online_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
+import 'package:tometone/modules/network/network_monitor_impl.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
 import 'package:tometone/modules/source_http/io_source_http_client.dart';
 import 'package:tometone/modules/storage_local/local_book_metadata_file_store.dart';
@@ -49,6 +51,7 @@ void main() {
         ),
         mediaSourceResolverFactoryProvider.overrideWithValue(_createResolver),
         directoryPickerProvider.overrideWithValue(safBridge),
+        networkMonitorProvider.overrideWithValue(NetworkMonitorImpl()),
         // 书库根服务默认装配（`lib/app/providers/` 内）拿不到平台桥，
         // 因此在装配入口 override，注入 authorization 让「移除 SAF 根」能放弃授权。
         libraryRootServiceProvider.overrideWithValue(
