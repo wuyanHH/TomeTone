@@ -129,7 +129,8 @@ void main() {
 
     expect(find.text('山海夜航'), findsOneWidget);
     expect(find.text('山海 · 第 2 卷'), findsOneWidget);
-    expect(find.text('沈砚 著 · 阿岚 演播'), findsOneWidget);
+    expect(find.text('沈砚 著'), findsOneWidget);
+    expect(find.text('阿岚 演播'), findsOneWidget);
     expect(find.text('夜航灯影下打捞旧事的航行。'), findsOneWidget);
     expect(find.text('志怪'), findsOneWidget);
     expect(find.text('长篇'), findsOneWidget);

@@ -16,9 +16,9 @@ import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
 import 'package:tometone/ui/pages/library/safe_delete_book_dialog.dart';
+import 'package:tometone/ui/pages/library/switch_source_sheet.dart';
 import 'package:tometone/ui/pages/shelf/add_to_shelf_sheet.dart';
 import 'package:tometone/ui/pages/shelf/book_metadata_sheet.dart';
-import 'package:tometone/ui/pages/shelf/chapter_list_sheet.dart';
 import 'package:tometone/ui/pages/shelf/open_book_action.dart';
 import 'package:tometone/ui/pages/shelf/shelf_progress.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -55,11 +55,10 @@ typedef BookOpenAction = Future<void> Function(
   String? startChapterId,
 );
 
-/// 书籍详情与目录页（§2.1 / §3.3）：
+/// 统一书籍详情与目录页。
 ///
-/// 统一承接：
-/// 1. 已入库书目（本地书或在线书）完整元数据、标签、简介与章节目录；
-/// 2. 未持久化在线书预览：只读拉取书目信息与目录，保证零写入；支持一键加入书架或立即试听入库。
+/// 无论是本地书、在线已存书，还是从发现页搜索/分类进来的未入架书，
+/// 均统一呈现相同的页面结构与交互模式。
 class BookDetailPage extends ConsumerStatefulWidget {
   /// 创建已持久化书籍的详情页。
   const BookDetailPage({required this.bookId, this.onOpen, super.key})
@@ -100,7 +99,6 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   SourceFailure? _tocFailure;
   bool _loading = true;
   bool _loadingToc = false;
-  bool _introExpanded = false;
   int _generation = 0;
   bool _busy = false;
 
@@ -125,7 +123,6 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         _toc = null;
         _infoFailure = null;
         _tocFailure = null;
-        _introExpanded = false;
       });
     }
 
@@ -265,7 +262,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     }
   }
 
-  Future<void> _listenFromPreview(BookOpenAction open) async {
+  Future<void> _listenFromPreview(BookOpenAction open, {int? startChapterIndex}) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
@@ -292,7 +289,14 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         );
         return;
       }
-      await open(detail, null);
+      String? startChapterId;
+      if (startChapterIndex != null) {
+        final List<ChapterView> allChapters = detail.chapters;
+        if (startChapterIndex >= 0 && startChapterIndex < allChapters.length) {
+          startChapterId = allChapters[startChapterIndex].id;
+        }
+      }
+      await open(detail, startChapterId);
     } on OnlineBookNotPlayable catch (error) {
       if (mounted) {
         setState(() => _busy = false);
@@ -322,12 +326,66 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
             );
 
     final String? activeBookId = _persistedBookId;
+
     if (activeBookId == null) {
-      // 在线只读预览模式（零写入）
-      return _buildOnlinePreviewScaffold(context, open);
+      // 在线只读预览模式：统一复用同一套 BookDetail 页面视觉与操作架构
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('书籍详情'),
+          actions: <Widget>[
+            PopupMenuButton<String>(
+              tooltip: '更多',
+              onSelected: (String value) {
+                if (value == 'refresh') {
+                  unawaited(_loadOnlinePreview());
+                }
+              },
+              itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
+                  value: 'refresh',
+                  child: ListTile(
+                    leading: Icon(Icons.refresh_rounded),
+                    title: Text('刷新目录'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        bottomNavigationBar: _loading
+            ? null
+            : _buildCtaBar(
+                isOnline: true,
+                onShelf: false,
+                onAddShelf: _busy ? null : _addToShelfFromPreview,
+                onRemoveShelf: null,
+                onListen: _busy ? null : () => _listenFromPreview(open),
+                ctaLabel: '立即收听',
+                busy: _busy,
+              ),
+        body: _loading
+            ? const Center(
+                key: OnlineBookPreviewKeys.loadingKey,
+                child: CircularProgressIndicator(),
+              )
+            : _BookDetailBody(
+                previewSummary: _display,
+                previewToc: _toc,
+                previewInfoFailure: _infoFailure,
+                previewTocFailure: _tocFailure,
+                loadingToc: _loadingToc,
+                onRetryInfo: _loadOnlinePreview,
+                onRetryToc: _retryToc,
+                source: widget.source,
+                onOpen: open,
+                onListenPreview: (int? index) =>
+                    _listenFromPreview(open, startChapterIndex: index),
+              ),
+      );
     }
 
-    // 已入库模式
+    // 已入库书籍（本地书或已入库在线书）
     final AsyncValue<BookDetail?> detailAsync = ref.watch(
       bookDetailProvider(activeBookId),
     );
@@ -355,6 +413,10 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                     switch (value) {
                       case 'edit':
                         unawaited(_edit(context, ref, detail, rootUri, online));
+                      case 'switch_source':
+                        if (online) {
+                          unawaited(_openSwitchSource(detail));
+                        }
                       case 'reimport':
                         if (!online) {
                           unawaited(_reimport(context, ref, detail, rootUri));
@@ -381,6 +443,15 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
+                    if (online)
+                      const PopupMenuItem<String>(
+                        value: 'switch_source',
+                        child: ListTile(
+                          leading: Icon(Icons.swap_horiz_rounded),
+                          title: Text('换源'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                     if (!online)
                       const PopupMenuItem<String>(
                         value: 'reimport',
@@ -408,6 +479,17 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                 ),
               ],
       ),
+      bottomNavigationBar: detail == null
+          ? null
+          : _buildCtaBar(
+              isOnline: online,
+              onShelf: detail.summary.onShelf,
+              onAddShelf: online ? () => unawaited(_addToShelf(context, ref, detail)) : null,
+              onRemoveShelf: online ? () => unawaited(_removeFromShelf(context, ref, detail)) : null,
+              onListen: () => _startListening(open, detail),
+              ctaLabel: _primaryLabel(detail.summary),
+              busy: _busy,
+            ),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (Object error, StackTrace stack) => _DetailError(
@@ -436,29 +518,15 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     );
   }
 
-  Widget _buildOnlinePreviewScaffold(
-    BuildContext context,
-    BookOpenAction open,
-  ) {
-    return Scaffold(
-      bottomNavigationBar: _loading ? null : _buildPreviewCta(open),
-      appBar: AppBar(
-        title: Text(
-          '在线预览 · ${widget.source?.name ?? '书源'}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      body: _loading
-          ? const Center(
-              key: OnlineBookPreviewKeys.loadingKey,
-              child: CircularProgressIndicator(),
-            )
-          : _buildPreviewContent(context),
-    );
-  }
-
-  Widget _buildPreviewCta(BookOpenAction open) {
+  Widget _buildCtaBar({
+    required bool isOnline,
+    required bool onShelf,
+    required VoidCallback? onAddShelf,
+    required VoidCallback? onRemoveShelf,
+    required VoidCallback? onListen,
+    required String ctaLabel,
+    bool busy = false,
+  }) {
     return SafeArea(
       top: false,
       child: Padding(
@@ -470,24 +538,28 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         ),
         child: Row(
           children: <Widget>[
-            Expanded(
-              child: OutlinedButton(
-                key: BookDetailKeys.addShelfKey,
-                onPressed: _busy ? null : _addToShelfFromPreview,
-                child: const Text('加入书架'),
+            if (isOnline) ...<Widget>[
+              Expanded(
+                child: OutlinedButton(
+                  key: onShelf
+                      ? BookDetailKeys.removeShelfKey
+                      : BookDetailKeys.addShelfKey,
+                  onPressed: onShelf ? onRemoveShelf : onAddShelf,
+                  child: Text(onShelf ? '移出书架' : '加入书架'),
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: AppSpacing.sm),
+            ],
             Expanded(
               child: FilledButton(
                 key: BookDetailKeys.listenKey,
-                onPressed: _busy ? null : () => _listenFromPreview(open),
-                child: _busy
+                onPressed: onListen,
+                child: busy
                     ? const SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('立即收听'),
+                    : Text(ctaLabel),
               ),
             ),
           ],
@@ -496,142 +568,27 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     );
   }
 
-  Widget _buildPreviewContent(BuildContext context) {
-    final SourceBookSummary display = _display;
-    final SourceToc? toc = _toc;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-
-    return CustomScrollView(
-      slivers: <Widget>[
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.md,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const _PreviewNotice(),
-                if (_infoFailure != null) ...<Widget>[
-                  const SizedBox(height: AppSpacing.md),
-                  _FailureBanner(
-                    message: _infoFailure!.message,
-                    onRetry: _loadOnlinePreview,
-                  ),
-                ],
-                if (_tocFailure != null) ...<Widget>[
-                  const SizedBox(height: AppSpacing.md),
-                  _TocFailure(
-                    message: _tocFailure!.message,
-                    loading: _loadingToc,
-                    onRetry: _retryToc,
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.lg),
-                _BookHeader(
-                  display: display,
-                  sourceName: widget.source?.name,
-                  titleKey: OnlineBookPreviewKeys.titleKey,
-                ),
-                if (_metaLine(display).isNotEmpty) ...<Widget>[
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    _metaLine(display),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-                if (display.intro != null && display.intro!.trim().isNotEmpty)
-                  _IntroSection(
-                    intro: display.intro!.trim(),
-                    expanded: _introExpanded,
-                    onToggle: () {
-                      setState(() => _introExpanded = !_introExpanded);
-                    },
-                  ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  toc == null ? '目录暂不可用' : '目录 · ${toc.chapters.length} 章',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                if (toc != null && !toc.complete) ...<Widget>[
-                  const SizedBox(height: AppSpacing.xs),
-                  Container(
-                    key: OnlineBookPreviewKeys.partialTocKey,
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: scheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(AppRadii.xsValue),
-                    ),
-                    child: Text(
-                      '目录未完整抓取，共 ${toc.chapters.length} 章',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSecondaryContainer,
-                          ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (toc != null)
-          SliverList(
-            key: OnlineBookPreviewKeys.tocListKey,
-            delegate: SliverChildBuilderDelegate(
-              (BuildContext context, int index) {
-                final SourceChapter chapter = toc.chapters[index];
-                return ListTile(
-                  key: OnlineBookPreviewKeys.chapterKey(chapter.index),
-                  dense: true,
-                  leading: Text('${index + 1}'),
-                  title: Text(
-                    chapter.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: chapter.isVip
-                      ? Icon(
-                          Icons.lock_outline_rounded,
-                          size: 18,
-                          color: scheme.onSurfaceVariant,
-                        )
-                      : null,
-                );
-              },
-              childCount: toc.chapters.length,
-            ),
-          ),
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxxl)),
-      ],
-    );
+  void _startListening(BookOpenAction open, BookDetail detail) {
+    if (detail.summary.isFinished && detail.chapters.isNotEmpty) {
+      unawaited(open(detail, detail.chapters.first.id));
+      return;
+    }
+    unawaited(open(detail, null));
   }
 
-  static String _metaLine(SourceBookSummary display) {
-    final List<String> parts = <String>[];
-    if (display.author != null && display.author!.trim().isNotEmpty) {
-      parts.add('作者：${display.author!.trim()}');
-    }
-    if (display.narrator != null && display.narrator!.trim().isNotEmpty) {
-      parts.add('演播：${display.narrator!.trim()}');
-    }
-    if (display.kind != null && display.kind!.trim().isNotEmpty) {
-      parts.add(display.kind!.trim());
-    }
-    if (display.wordCount != null && display.wordCount!.trim().isNotEmpty) {
-      parts.add(display.wordCount!.trim());
-    }
-    if (display.status != null && display.status!.trim().isNotEmpty) {
-      parts.add(display.status!.trim());
-    }
-    return parts.join(' · ');
+  Future<void> _openSwitchSource(BookDetail detail) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) {
+        return SwitchSourceSheet(
+          bookId: detail.summary.id,
+          currentBookTitle: detail.summary.title,
+          currentSourceId: detail.summary.sourceId ?? '',
+        );
+      },
+    );
   }
 
   Future<void> _edit(
@@ -777,26 +734,17 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         try {
           final uri = Uri.parse(rootUri);
           if (uri.scheme == 'file' || uri.scheme.isEmpty) {
-            final dir = Directory(rootUri);
-            final entities = dir.listSync();
-            for (final entity in entities) {
-              if (entity is Directory &&
-                  entity.path.endsWith(book.rootPath)) {
-                entity.deleteSync(recursive: true);
-                break;
-              }
+            final bookDir = Directory.fromUri(uri.resolve(book.rootPath));
+            if (bookDir.existsSync()) {
+              bookDir.deleteSync(recursive: true);
             }
           }
         } catch (_) {}
       }
     }
-
     ref.invalidate(booksProvider);
-    if (_persistedBookId != null) {
-      ref.invalidate(bookDetailProvider(_persistedBookId!));
-    }
     if (context.mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).maybePop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -882,6 +830,20 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     }
   }
 
+  static String _primaryLabel(BookSummary book) {
+    if (book.isOnline && !book.onShelf) {
+      return '立即收听';
+    }
+    if (book.isFinished) {
+      return '重新收听';
+    }
+    if (book.hasProgress) {
+      final int chapter = (book.progressChapterIndex ?? 0) + 1;
+      return '从第 $chapter 章继续收听';
+    }
+    return '开始收听';
+  }
+
   static String? _rootUriFor(List<LibraryRootView>? roots, String rootId) {
     if (roots == null) return null;
     for (final LibraryRootView root in roots) {
@@ -891,300 +853,675 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   }
 }
 
-class _BookDetailBody extends ConsumerWidget {
+/// 统一的书籍详情主体渲染组件。
+class _BookDetailBody extends ConsumerStatefulWidget {
   const _BookDetailBody({
-    required this.detail,
+    this.detail,
+    this.previewSummary,
+    this.previewToc,
+    this.previewInfoFailure,
+    this.previewTocFailure,
+    this.loadingToc = false,
+    this.onRetryInfo,
+    this.onRetryToc,
     required this.source,
     required this.onOpen,
-    required this.onEdit,
+    this.onEdit,
     this.onAddShelf,
     this.onRemoveShelf,
+    this.onListenPreview,
   });
 
-  final BookDetail detail;
+  final BookDetail? detail;
+  final SourceBookSummary? previewSummary;
+  final SourceToc? previewToc;
+  final SourceFailure? previewInfoFailure;
+  final SourceFailure? previewTocFailure;
+  final bool loadingToc;
+  final VoidCallback? onRetryInfo;
+  final VoidCallback? onRetryToc;
   final BookSource? source;
   final BookOpenAction onOpen;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   final VoidCallback? onAddShelf;
   final VoidCallback? onRemoveShelf;
+  final void Function(int? startChapterIndex)? onListenPreview;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final BookSummary book = detail.summary;
+  ConsumerState<_BookDetailBody> createState() => _BookDetailBodyState();
+}
+
+class _BookDetailBodyState extends ConsumerState<_BookDetailBody> {
+  bool _reversed = false;
+  bool _introExpanded = false;
+  final Set<String> _collapsedVolumeIds = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
-    final CoverArt? coverArt = ref
-        .watch(
-          coverArtProvider(
-            CoverArtKey(rootId: book.libraryRootId, coverPath: book.coverPath),
-          ),
-        )
-        .value;
-    final String description = (book.description ?? '').trim();
-    final String? progressTitle = book.progressChapterTitle;
 
-    return Column(
+    final BookDetail? detail = widget.detail;
+    final SourceBookSummary? preview = widget.previewSummary;
+    final BookSummary? book = detail?.summary;
+
+    final String title = book?.title ?? preview?.title ?? '未知书目';
+    final String author = (book?.author ?? preview?.author ?? '').trim();
+    final String narrator = (book?.narrator ?? preview?.narrator ?? '').trim();
+    final String description = (book?.description ?? preview?.intro ?? '').trim();
+    final String? seriesName = book?.seriesName ?? preview?.kind;
+    final int? seriesIndex = book?.seriesIndex;
+    final List<String> tags = book?.tags ?? const <String>[];
+    final bool isOnline = book?.isOnline ?? true;
+    final String? sourceName = widget.source?.name;
+
+    final int totalChapters = book?.totalChapters ??
+        widget.previewToc?.chapters.length ??
+        detail?.chapters.length ??
+        0;
+
+    final CoverArt? coverArt = book == null
+        ? null
+        : ref
+            .watch(
+              coverArtProvider(
+                CoverArtKey(
+                  rootId: book.libraryRootId,
+                  coverPath: book.coverPath,
+                ),
+              ),
+            )
+            .value;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.xxxl,
+      ),
       children: <Widget>[
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.md,
-              AppSpacing.lg,
-              AppSpacing.xl,
+        if (detail == null) ...<Widget>[
+          Container(
+            key: OnlineBookPreviewKeys.previewNoticeKey,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.xs,
             ),
-            children: <Widget>[
-              Row(
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(AppRadii.xsValue),
+            ),
+            child: Text(
+              '预览模式 · 不会写入书库',
+              style: text.bodySmall?.copyWith(
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        if (widget.previewInfoFailure != null) ...<Widget>[
+          _FailureBanner(
+            message: widget.previewInfoFailure!.message,
+            onRetry: widget.onRetryInfo,
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        if (widget.previewTocFailure != null) ...<Widget>[
+          _TocFailure(
+            message: widget.previewTocFailure!.message,
+            loading: widget.loadingToc,
+            onRetry: widget.onRetryToc,
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+
+        // 头部：左侧 2:3 封面，右侧大字标题与双行作者/演播
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SizedBox(
+              width: 96,
+              child: AspectRatio(
+                aspectRatio: 2 / 3,
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    return ClipRRect(
+                      borderRadius: AppRadii.cover,
+                      child: isOnline
+                          ? NetworkCover(
+                              coverUrl: book?.coverUrl ?? preview?.coverUrl,
+                              size: constraints.maxWidth,
+                              headers: widget.source?.header,
+                              borderRadius: AppRadii.cover,
+                            )
+                          : BookCover(
+                              title: title,
+                              size: constraints.maxWidth,
+                              coverPath: coverArt is CoverArtFile
+                                  ? coverArt.absolutePath
+                                  : null,
+                              coverImage: coverArt is CoverArtBytes
+                                  ? MemoryImage(coverArt.bytes)
+                                  : null,
+                            ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  SizedBox(
-                    width: 96,
-                    child: AspectRatio(
-                      aspectRatio: 2 / 3,
-                      child: LayoutBuilder(
-                        builder:
-                            (BuildContext context, BoxConstraints constraints) {
-                          return ClipRRect(
-                            borderRadius: AppRadii.cover,
-                            child: book.isOnline
-                                ? NetworkCover(
-                                    coverUrl: book.coverUrl,
-                                    size: constraints.maxWidth,
-                                    headers: source?.header,
-                                    borderRadius: AppRadii.cover,
-                                  )
-                                : BookCover(
-                                    title: book.title,
-                                    size: constraints.maxWidth,
-                                    coverPath: coverArt is CoverArtFile
-                                        ? coverArt.absolutePath
-                                        : null,
-                                    coverImage: coverArt is CoverArtBytes
-                                        ? MemoryImage(coverArt.bytes)
-                                        : null,
-                                  ),
-                          );
-                        },
+                  if (seriesName != null && seriesName.trim().isNotEmpty) ...<Widget>[
+                    Text(
+                      seriesIndex == null
+                          ? seriesName.trim()
+                          : '${seriesName.trim()} · 第 $seriesIndex 卷',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.labelMedium?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        if (book.seriesName != null &&
-                            book.seriesName!.trim().isNotEmpty) ...<Widget>[
-                          Text(
-                            book.seriesIndex == null
-                                ? book.seriesName!.trim()
-                                : '${book.seriesName!.trim()} · 第 ${book.seriesIndex} 卷',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: text.labelMedium?.copyWith(
-                              color: scheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                        ],
-                        Text(
-                          book.title,
-                          style: text.headlineSmall?.copyWith(height: 1.25),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          _authorNarrator(book),
-                          style: text.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        if (book.isOnline && source != null) ...<Widget>[
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            '书源：${source!.name}',
-                            style: text.labelSmall?.copyWith(
-                              color: scheme.primary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.xs,
-                children: <Widget>[
-                  if (book.isOnline)
-                    _MetaPill(
-                      icon: Icons.cloud_outlined,
-                      label: _sourceStatus(book),
-                    ),
-                  _MetaPill(
-                    icon: Icons.library_music_outlined,
-                    label: '${book.totalChapters} 章',
-                  ),
-                  if (book.totalDurationMs > 0)
-                    _MetaPill(
-                      icon: Icons.timer_outlined,
-                      label: _formatDuration(book.totalDurationMs),
-                    ),
-                  if (book.hasProgress)
-                    _MetaPill(
-                      icon: Icons.headphones_rounded,
-                      label:
-                          '第 ${(book.progressChapterIndex ?? 0) + 1} / ${book.totalChapters} 章',
-                    ),
-                  if (book.missingChapters > 0)
-                    _MetaPill(
-                      icon: Icons.link_off_rounded,
-                      label: '${book.missingChapters} 章缺失',
-                    ),
-                ],
-              ),
-              if (book.tags.isNotEmpty) ...<Widget>[
-                const SizedBox(height: AppSpacing.lg),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: <Widget>[
-                    for (final String tag in book.tags)
-                      Chip(
-                        label: Text(tag),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
+                    const SizedBox(height: AppSpacing.xs),
                   ],
-                ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-              _SectionCard(
-                title: '简介',
-                trailing: TextButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('编辑'),
-                ),
-                child: Text(
-                  description.isEmpty ? '暂无简介' : description,
-                  style: text.bodyMedium?.copyWith(
-                    height: 1.6,
-                    color: description.isEmpty ? scheme.onSurfaceVariant : null,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _EntryCard(
-                      icon: Icons.list_alt_rounded,
-                      title: '章节目录',
-                      value:
-                          '第 ${(book.progressChapterIndex ?? 0) + 1} / ${book.totalChapters} 章',
-                      onTap: () => _openChapters(context),
+                  Text(
+                    title,
+                    key: OnlineBookPreviewKeys.titleKey,
+                    style: text.headlineSmall?.copyWith(
+                      height: 1.25,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _EntryCard(
-                      icon: Icons.library_books_outlined,
-                      title: '卷册',
-                      value: '${detail.volumes.length} 卷',
-                      onTap: () => _openChapters(context),
+                  const SizedBox(height: AppSpacing.sm),
+                  // 作者独立展示（Line 1）
+                  if (author.isNotEmpty) ...<Widget>[
+                    Text(
+                      author.startsWith('作者') || author.endsWith('著')
+                          ? author
+                          : '$author 著',
+                      style: text.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
+                  // 演播独立展示（Line 2）
+                  if (narrator.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      narrator.startsWith('演播') || narrator.endsWith('演播')
+                          ? narrator
+                          : '$narrator 演播',
+                      style: text.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (isOnline && sourceName != null && sourceName.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '书源：$sourceName',
+                      style: text.labelSmall?.copyWith(
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              if (book.hasProgress) ...<Widget>[
-                const SizedBox(height: AppSpacing.md),
-                _SectionCard(
-                  title: '收听进度',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      ShelfProgress(book: book),
-                      if (progressTitle != null &&
-                          progressTitle.trim().isNotEmpty) ...<Widget>[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '上次听到：$progressTitle',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: AppSpacing.md),
+
+        // 指标小胶囊行
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.xs,
+          children: <Widget>[
+            if (isOnline && book != null)
+              _MetaPill(
+                icon: Icons.cloud_outlined,
+                label: _sourceStatus(book),
+              ),
+            _MetaPill(
+              icon: Icons.library_music_outlined,
+              label: '$totalChapters 章',
+            ),
+            if ((book?.totalDurationMs ?? 0) > 0)
+              _MetaPill(
+                icon: Icons.timer_outlined,
+                label: _formatDuration(book!.totalDurationMs),
+              ),
+            if (book?.hasProgress == true)
+              _MetaPill(
+                icon: Icons.headphones_rounded,
+                label:
+                    '第 ${(book!.progressChapterIndex ?? 0) + 1} / ${book.totalChapters} 章',
+              ),
+            if ((book?.missingChapters ?? 0) > 0)
+              _MetaPill(
+                icon: Icons.link_off_rounded,
+                label: '${book!.missingChapters} 章缺失',
+              ),
+          ],
+        ),
+
+        // 标签
+        if (tags.isNotEmpty) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: <Widget>[
+              for (final String tag in tags)
+                Chip(
+                  label: Text(tag),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ],
-              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        ],
+
+        const SizedBox(height: AppSpacing.lg),
+
+        // 简介卡片（去除卡片内编辑按钮）
+        _SectionCard(
+          title: '简介',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
               Text(
-                '共 ${book.totalChapters} 章 · ${_formatDuration(book.totalDurationMs)}',
-                style: text.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+                description.isEmpty ? '暂无简介' : description,
+                maxLines: _introExpanded ? null : 3,
+                overflow: _introExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                style: text.bodyMedium?.copyWith(
+                  height: 1.6,
+                  color: description.isEmpty ? scheme.onSurfaceVariant : null,
                 ),
               ),
+              if (description.length > 80)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () => setState(() => _introExpanded = !_introExpanded),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(48, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(_introExpanded ? '收起' : '展开全文'),
+                  ),
+                ),
             ],
           ),
         ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.sm,
-              AppSpacing.lg,
-              AppSpacing.md,
-            ),
-            child: Row(
+
+        // 收听进度（有进度时显示在章节目录上方）
+        if (book != null && book.hasProgress) ...<Widget>[
+          const SizedBox(height: AppSpacing.md),
+          _SectionCard(
+            title: '收听进度',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                if (book.isOnline) ...<Widget>[
-                  Expanded(
-                    child: OutlinedButton(
-                      key: book.onShelf
-                          ? BookDetailKeys.removeShelfKey
-                          : BookDetailKeys.addShelfKey,
-                      onPressed: book.onShelf ? onRemoveShelf : onAddShelf,
-                      child: Text(book.onShelf ? '移出书架' : '加入书架'),
+                ShelfProgress(book: book),
+                if (book.progressChapterTitle != null &&
+                    book.progressChapterTitle!.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '上次听到：${book.progressChapterTitle}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
                 ],
-                Expanded(
-                  child: FilledButton(
-                    key: BookDetailKeys.listenKey,
-                    onPressed: () => _start(context),
-                    child: Text(
-                      book.isOnline && !book.onShelf
-                          ? '立即收听'
-                          : _primaryLabel(book),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
+        ],
+
+        const SizedBox(height: AppSpacing.lg),
+
+        // 章节目录表头与排序切换
+        Row(
+          children: <Widget>[
+            Text(
+              '章节目录',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              '目录 · $totalChapters 章',
+              style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: _reversed ? '切换为正序' : '切换为倒序',
+              icon: Icon(
+                _reversed
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded,
+                size: 20,
+              ),
+              onPressed: () => setState(() => _reversed = !_reversed),
+            ),
+          ],
         ),
+
+        if (widget.previewToc != null && !widget.previewToc!.complete) ...<Widget>[
+          const SizedBox(height: AppSpacing.xs),
+          Container(
+            key: OnlineBookPreviewKeys.partialTocKey,
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(AppRadii.xsValue),
+            ),
+            child: Text(
+              '目录未完整抓取，共 ${widget.previewToc!.chapters.length} 章',
+              style: text.bodySmall?.copyWith(
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: AppSpacing.xs),
+
+        // 直接内嵌渲染的章节与卷册列表
+        _buildCatalogContent(context, detail),
       ],
     );
   }
 
-  static String _authorNarrator(BookSummary book) {
-    final List<String> parts = <String>[];
-    if (book.author != null && book.author!.trim().isNotEmpty) {
-      parts.add('${book.author!.trim()} 著');
+  Widget _buildCatalogContent(BuildContext context, BookDetail? detail) {
+    if (detail != null) {
+      final List<VolumeView> volumes = detail.volumes;
+      if (volumes.length > 1) {
+        // 多卷模式：带折叠/展开的卷卡片
+        final List<VolumeView> orderedVolumes =
+            _reversed ? volumes.reversed.toList() : volumes;
+        return Column(
+          children: <Widget>[
+            for (final VolumeView volume in orderedVolumes)
+              _buildVolumeSection(context, detail, volume),
+            if (detail.retiredChapters.isNotEmpty)
+              _buildRetiredSection(context, detail.retiredChapters),
+          ],
+        );
+      } else {
+        // 单卷模式：平铺章节列表
+        final List<ChapterView> chapters = _reversed
+            ? detail.chapters.reversed.toList()
+            : detail.chapters;
+        return Column(
+          children: <Widget>[
+            Card(
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: chapters.length,
+                separatorBuilder: (BuildContext _, int _) => const Divider(height: 1),
+                itemBuilder: (BuildContext context, int index) {
+                  final ChapterView chapter = chapters[index];
+                  return _buildChapterTile(context, detail, chapter);
+                },
+              ),
+            ),
+            if (detail.retiredChapters.isNotEmpty)
+              _buildRetiredSection(context, detail.retiredChapters),
+          ],
+        );
+      }
     }
-    if (book.narrator != null && book.narrator!.trim().isNotEmpty) {
-      parts.add('${book.narrator!.trim()} 演播');
+
+    // 在线预览模式平铺目录
+    final SourceToc? toc = widget.previewToc;
+    if (toc == null) {
+      return const SizedBox.shrink();
     }
-    return parts.isEmpty ? '佚名' : parts.join(' · ');
+    final List<SourceChapter> chapters =
+        _reversed ? toc.chapters.reversed.toList() : toc.chapters;
+    final int total = toc.chapters.length;
+
+    return Card(
+      key: OnlineBookPreviewKeys.tocListKey,
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: chapters.length,
+        separatorBuilder: (BuildContext _, int _) => const Divider(height: 1),
+        itemBuilder: (BuildContext context, int index) {
+          final SourceChapter chapter = chapters[index];
+          final int displayNum = _reversed ? total - index : index + 1;
+          return ListTile(
+            key: OnlineBookPreviewKeys.chapterKey(chapter.index),
+            dense: true,
+            leading: SizedBox(
+              width: 32,
+              child: Text(
+                '$displayNum',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+            title: Text(
+              chapter.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: chapter.isVip
+                ? Icon(
+                    Icons.lock_outline_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )
+                : null,
+            onTap: () => widget.onListenPreview?.call(chapter.index),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildVolumeSection(
+    BuildContext context,
+    BookDetail detail,
+    VolumeView volume,
+  ) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final bool collapsed = _collapsedVolumeIds.contains(volume.id);
+    final List<ChapterView> chapters =
+        _reversed ? volume.chapters.reversed.toList() : volume.chapters;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Column(
+        children: <Widget>[
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (collapsed) {
+                  _collapsedVolumeIds.remove(volume.id);
+                } else {
+                  _collapsedVolumeIds.add(volume.id);
+                }
+              });
+            },
+            borderRadius: BorderRadius.circular(AppRadii.smValue),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              child: Row(
+                children: <Widget>[
+                  Container(width: 3, height: 14, color: scheme.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      volume.title,
+                      style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    '${volume.chapters.length} 章',
+                    style: text.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Icon(
+                    collapsed
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    color: scheme.onSurfaceVariant,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (!collapsed) ...<Widget>[
+            const Divider(height: 1),
+            for (final ChapterView chapter in chapters)
+              _buildChapterTile(context, detail, chapter),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRetiredSection(
+    BuildContext context,
+    List<ChapterView> retiredChapters,
+  ) {
+    final List<ChapterView> chapters =
+        _reversed ? retiredChapters.reversed.toList() : retiredChapters;
+    return Card(
+      margin: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
+            child: Text(
+              '已下架 ${retiredChapters.length} 章',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          const Divider(height: 1),
+          for (final ChapterView chapter in chapters)
+            ListTile(
+              dense: true,
+              enabled: false,
+              title: Text(
+                chapter.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: const Text('已下架'),
+              trailing: const Icon(Icons.lock_outline_rounded, size: 18),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已下架')),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChapterTile(
+    BuildContext context,
+    BookDetail detail,
+    ChapterView chapter,
+  ) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isCurrent = chapter.id == detail.summary.progressChapterId;
+    final bool isPlayable = !chapter.missing && !chapter.isVip;
+
+    Widget? trailing;
+    if (chapter.missing) {
+      trailing = Text(
+        '缺失',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.error.withValues(alpha: 0.8),
+            ),
+      );
+    } else if (chapter.isVip) {
+      trailing = Icon(
+        Icons.lock_outline_rounded,
+        size: 18,
+        color: scheme.onSurfaceVariant,
+      );
+    } else if (isCurrent) {
+      trailing = Text(
+        '正在播放',
+        style: TextStyle(
+          color: scheme.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
+    return ListTile(
+      dense: true,
+      enabled: isPlayable,
+      selected: isCurrent,
+      selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.2),
+      leading: SizedBox(
+        width: 32,
+        child: Text(
+          '${chapter.chapterIndex + 1}',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: isCurrent ? scheme.primary : scheme.onSurfaceVariant,
+                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+              ),
+        ),
+      ),
+      title: Text(
+        chapter.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: isCurrent ? scheme.primary : null,
+          fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+      subtitle: chapter.missing
+          ? Text(
+              '文件缺失，暂不可播放',
+              style: TextStyle(color: scheme.error, fontSize: 12),
+            )
+          : null,
+      trailing: trailing,
+      onTap: isPlayable
+          ? () => unawaited(widget.onOpen(detail, chapter.id))
+          : null,
+    );
   }
 
   static String _formatDuration(int ms) {
@@ -1206,282 +1543,13 @@ class _BookDetailBody extends ConsumerWidget {
     }
     return '来源正常';
   }
-
-  void _openChapters(BuildContext context) {
-    showChapterListSheet(
-      context,
-      detail: detail,
-      currentChapterId: detail.summary.progressChapterId,
-      onChapterSelected: (ChapterView chapter) {
-        unawaited(onOpen(detail, chapter.id));
-      },
-    );
-  }
-
-  void _start(BuildContext context) {
-    if (detail.summary.isFinished && detail.chapters.isNotEmpty) {
-      unawaited(onOpen(detail, detail.chapters.first.id));
-      return;
-    }
-    unawaited(onOpen(detail, null));
-  }
-
-  static String _primaryLabel(BookSummary book) {
-    if (book.isFinished) {
-      return '重新收听';
-    }
-    if (book.hasProgress) {
-      final int chapter = (book.progressChapterIndex ?? 0) + 1;
-      return '从第 $chapter 章继续收听';
-    }
-    return '开始收听';
-  }
-}
-
-class _PreviewNotice extends StatelessWidget {
-  const _PreviewNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Container(
-      key: OnlineBookPreviewKeys.previewNoticeKey,
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(AppRadii.xsValue),
-      ),
-      child: Text(
-        '预览模式 · 不会写入书库',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onPrimaryContainer,
-            ),
-      ),
-    );
-  }
-}
-
-class _FailureBanner extends StatelessWidget {
-  const _FailureBanner({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Container(
-      key: OnlineBookPreviewKeys.errorKey,
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(AppRadii.xsValue),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            message,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onErrorContainer,
-                ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              key: OnlineBookPreviewKeys.retryKey,
-              onPressed: () => unawaited(onRetry()),
-              child: const Text('重试'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TocFailure extends StatelessWidget {
-  const _TocFailure({
-    required this.message,
-    required this.loading,
-    required this.onRetry,
-  });
-
-  final String message;
-  final bool loading;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadii.xsValue),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '目录暂不可用 · $message',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              key: OnlineBookPreviewKeys.tocRetryKey,
-              onPressed: loading ? null : () => unawaited(onRetry()),
-              child: loading
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('重试目录'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BookHeader extends StatelessWidget {
-  const _BookHeader({
-    required this.display,
-    required this.titleKey,
-    this.sourceName,
-  });
-
-  final SourceBookSummary display;
-  final Key titleKey;
-  final String? sourceName;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        SizedBox(
-          width: 96,
-          child: AspectRatio(
-            aspectRatio: 2 / 3,
-            child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                return ClipRRect(
-                  borderRadius: AppRadii.cover,
-                  child: NetworkCover(
-                    coverUrl: display.coverUrl,
-                    size: constraints.maxWidth,
-                    borderRadius: AppRadii.cover,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                display.title,
-                key: titleKey,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              if (sourceName != null && sourceName!.isNotEmpty) ...<Widget>[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '书源：$sourceName',
-                  style: text.labelSmall?.copyWith(color: scheme.primary),
-                ),
-              ],
-              if (display.lastChapter != null &&
-                  display.lastChapter!.trim().isNotEmpty) ...<Widget>[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '最新：${display.lastChapter!.trim()}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _IntroSection extends StatelessWidget {
-  const _IntroSection({
-    required this.intro,
-    required this.expanded,
-    required this.onToggle,
-  });
-
-  final String intro;
-  final bool expanded;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool canExpand = intro.length > 80;
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '简介',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            intro,
-            maxLines: expanded ? null : 4,
-            overflow: expanded ? null : TextOverflow.ellipsis,
-          ),
-          if (canExpand)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: onToggle,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(48, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(expanded ? '收起' : '展开全文'),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child, this.trailing});
+  const _SectionCard({required this.title, required this.child});
 
   final String title;
   final Widget child;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1493,78 +1561,13 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                Text(
-                  title,
-                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                if (trailing != null) ...<Widget>[
-                  const Spacer(),
-                  trailing!,
-                ],
-              ],
+            Text(
+              title,
+              style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             child,
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EntryCard extends StatelessWidget {
-  const _EntryCard({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Card(
-      child: InkWell(
-        borderRadius: AppRadii.lg,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            children: <Widget>[
-              Icon(icon, color: scheme.primary),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(title, style: text.bodyMedium),
-                    Text(
-                      value,
-                      style: text.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: scheme.onSurfaceVariant,
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1597,6 +1600,95 @@ class _MetaPill extends StatelessWidget {
           Icon(icon, size: 14, color: scheme.primary),
           const SizedBox(width: AppSpacing.xs),
           Text(label, style: text.labelSmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _FailureBanner extends StatelessWidget {
+  const _FailureBanner({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Container(
+      key: OnlineBookPreviewKeys.errorKey,
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(AppRadii.xsValue),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onErrorContainer,
+                ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              key: OnlineBookPreviewKeys.retryKey,
+              onPressed: onRetry,
+              child: const Text('重试'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TocFailure extends StatelessWidget {
+  const _TocFailure({
+    required this.message,
+    required this.loading,
+    required this.onRetry,
+  });
+
+  final String message;
+  final bool loading;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadii.xsValue),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            '目录暂不可用 · $message',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              key: OnlineBookPreviewKeys.tocRetryKey,
+              onPressed: loading ? null : onRetry,
+              child: loading
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('重试目录'),
+            ),
+          ),
         ],
       ),
     );

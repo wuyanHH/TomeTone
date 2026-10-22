@@ -11,6 +11,7 @@ import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/ui/pages/library/switch_source_sheet.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 
@@ -192,8 +193,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                                       book,
                                       chapter,
                                     ),
-                                    const SizedBox(height: AppSpacing.sm),
-                                    _buildSecondaryRow(context, controller),
                                   ],
                                 ),
                               ),
@@ -202,6 +201,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                     ),
                   ),
                   _buildConsole(context, controller, chapter),
+                  _buildBottomToolbar(context, controller, book),
                 ],
               ),
             ),
@@ -289,12 +289,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               ],
             ),
           ),
-          IconButton(
-            key: PlayerPage.chaptersKey,
-            tooltip: '章节目录',
-            onPressed: () => unawaited(_openChapterSheet()),
-            icon: const Icon(Icons.queue_music_rounded),
-          ),
+          const SizedBox(width: 48),
         ],
       ),
     );
@@ -505,36 +500,101 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
   }
 
-  Widget _buildSecondaryRow(
+  Future<void> _openSwitchSource(BookDetail? book) async {
+    if (book == null || !book.summary.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('本地书籍无需换源')),
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) {
+        return SwitchSourceSheet(
+          bookId: book.summary.id,
+          currentBookTitle: book.summary.title,
+          currentSourceId: book.summary.sourceId ?? '',
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomToolbar(
     BuildContext context,
     PlaybackController controller,
+    BookDetail? book,
   ) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: <Widget>[
-        _PillButton(
-          key: PlayerPage.speedKey,
-          icon: Icons.speed_rounded,
-          label: '${_formatSpeed(controller.preferences.speed)}×',
-          onPressed: () => unawaited(_openSpeedSheet(controller)),
-        ),
-        _PillButton(
-          key: PlayerPage.sleepKey,
-          icon: Icons.bedtime_outlined,
-          label: _sleepLabel(controller.sleep),
-          active: controller.sleep.isActive,
-          onPressed: () => unawaited(_openSleepSheet(controller)),
-        ),
-        if (controller.canUndoRewind)
-          _PillButton(
-            key: PlayerPage.undoRewindKey,
-            icon: Icons.undo_rounded,
-            label: '撤销回退',
-            onPressed: () => unawaited(_undoRewind(controller)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: <Widget>[
+          _BottomToolItem(
+            key: PlayerPage.speedKey,
+            icon: Icons.speed_rounded,
+            label: '${_formatSpeed(controller.preferences.speed)}×',
+            tooltip: '播放速度',
+            onTap: () => unawaited(_openSpeedSheet(controller)),
           ),
-      ],
+          _BottomToolItem(
+            key: PlayerPage.sleepKey,
+            icon: controller.sleep.isActive
+                ? Icons.bedtime_rounded
+                : Icons.bedtime_outlined,
+            label: _sleepLabel(controller.sleep),
+            tooltip: '睡眠守夜',
+            active: controller.sleep.isActive,
+            onTap: () => unawaited(_openSleepSheet(controller)),
+          ),
+          _BottomToolItem(
+            key: PlayerPage.chaptersKey,
+            icon: Icons.format_list_bulleted_rounded,
+            label: '目录',
+            tooltip: '章节目录',
+            onTap: () => unawaited(_openChapterSheet()),
+          ),
+          _BottomToolItem(
+            key: const Key('player-switch-source'),
+            icon: Icons.swap_horiz_rounded,
+            label: '换源',
+            tooltip: '换源',
+            disabled: book == null || !book.summary.isOnline,
+            onTap: () => unawaited(_openSwitchSource(book)),
+          ),
+          if (controller.canUndoRewind)
+            _BottomToolItem(
+              key: PlayerPage.undoRewindKey,
+              icon: Icons.undo_rounded,
+              label: '撤销回退',
+              tooltip: '撤销回退',
+              active: true,
+              onTap: () => unawaited(_undoRewind(controller)),
+            )
+          else
+            _BottomToolItem(
+              key: const Key('player-more'),
+              icon: Icons.more_horiz_rounded,
+              label: '更多',
+              tooltip: '更多',
+              onTap: () {
+                if (book != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('《${book.summary.title}》共 ${book.chapters.length} 章'),
+                    ),
+                  );
+                }
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -974,50 +1034,78 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 }
 
-/// 倍速 / 睡眠 / 撤销共用的小胶囊按钮。
-class _PillButton extends StatelessWidget {
-  const _PillButton({
+/// 底部高频听书工具栏的单一操作项（满足 ≥48dp 触控标准）。
+class _BottomToolItem extends StatelessWidget {
+  const _BottomToolItem({
     required this.icon,
     required this.label,
-    required this.onPressed,
+    required this.onTap,
+    this.tooltip,
     this.active = false,
+    this.disabled = false,
     super.key,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onTap;
+  final String? tooltip;
   final bool active;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color foreground = active
-        ? scheme.onPrimaryContainer
-        : scheme.onSurface;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: AppSizes.minTouchTarget),
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18, color: foreground),
-        label: Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium
-              ?.copyWith(color: foreground),
-        ),
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, AppSizes.minTouchTarget),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          backgroundColor: active
-              ? scheme.primaryContainer
-              : scheme.surfaceContainerHigh,
-          side: BorderSide(
-            color: active ? scheme.primary : scheme.outlineVariant,
+    final Color color = disabled
+        ? scheme.onSurface.withValues(alpha: 0.38)
+        : active
+            ? scheme.primary
+            : scheme.onSurfaceVariant;
+
+    Widget child = Semantics(
+      button: true,
+      enabled: !disabled,
+      label: tooltip ?? label,
+      child: InkWell(
+        onTap: disabled ? null : onTap,
+        borderRadius: BorderRadius.circular(AppRadii.smValue),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: AppSizes.minTouchTarget,
+            minHeight: AppSizes.minTouchTarget,
           ),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadii.pill),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: AppSpacing.xxs,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(icon, size: 22, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontSize: 11,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                        color: color,
+                      ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
+
+    if (tooltip != null) {
+      child = Tooltip(message: tooltip!, child: child);
+    }
+    return child;
   }
 }
 
