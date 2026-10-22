@@ -6,8 +6,19 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ## [未发布]
 
+## [0.2.0-beta.2] - 2026-10-22
+
+> 版本号三处一致：`pubspec.yaml` / `AppInfo.version` / 本节标题（由 `test/app_info_test.dart` 守门）。
+
 ### 新增
 
+- **主题外观偏好**（`lib/ui/theme/app_color_palette.dart`、`lib/ui/pages/settings/`）：
+  - 5 套东方雅致色盘（竹海幽青、暮山紫烟、琥珀温润、玄墨沉金、霁蓝静心），纯色色块点击即刻换肤；
+  - 亮色 / 暗色 / 跟随系统三档切换；深色模式下提供暗夜纯黑（OLED 像素级节电）。
+- **应用内检查更新**（`lib/app/update/`、`lib/ui/pages/settings/update_page.dart`、`lib/ui/pages/settings/update_history_page.dart`）：
+  - 以 GitHub Releases 为更新主渠道，支持 304 ETag 条件请求缓存、API 限流优雅降级与网络错误提示；
+  - 自动识别设备 CPU 架构（arm64-v8a / armeabi-v7a / x86_64）并智能高亮「推荐」资产；
+  - 支持调用系统默认浏览器直链下载；支持更新提醒红点、弹窗提示、跳过版本与离线更新历史查看。
 - **在线听书 M1-D：书目与目录刷新、平滑换源、静默预下载与 LRU 缓存池、分级安全删除护栏**：
   - **网络状态监控契约与实现**（`lib/contracts/network/network_monitor.dart`、`lib/platform/network/connectivity_network_monitor.dart`）：纯 Dart 契约，支持 Wi-Fi 与蜂窝网络实时判定。
   - **沙盒音频缓存仓储与 LRU 限制控制**（`lib/contracts/audio/audio_cache_repository.dart`、`lib/modules/audio/audio_cache_repository_impl.dart`）：按书籍目录隔离存储音频文件，提供 85% 水位线淘汰机制与全量清理。
@@ -78,7 +89,7 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 - 新增 `test/ui/library_browser_page_test.dart`、`test/ui/library_root_location_test.dart`、
   `test/ui/scroll_marquee_text_test.dart`；同步 `test/ui/library_page_test.dart`
   的卡片、窄屏与进入浏览页用例。
-- `flutter analyze` 无问题，`flutter test` 574 项全部通过。
+- 新增主题偏好与检查更新测试套件；`flutter analyze` 无问题，`flutter test` 983 项全部通过。
 
 ### 已知限制
 

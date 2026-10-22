@@ -15,7 +15,7 @@ void main() {
 
 - 计划中的新特性
 
-## [0.2.0-beta.1] - 2026-10-19
+## [${AppInfo.version}] - 2026-10-22
 
 ### 新增功能
 - 离线更新历史查看
@@ -66,7 +66,7 @@ void main() {
 
     // 版本标题与日期展示
     expect(find.text('v${AppInfo.version}'), findsOneWidget);
-    expect(find.text('2026-10-19'), findsOneWidget);
+    expect(find.text('2026-10-22'), findsOneWidget);
     expect(find.text('v0.1.0'), findsOneWidget);
     expect(find.text('2026-10-01'), findsOneWidget);
     expect(find.text('未发布'), findsOneWidget);
