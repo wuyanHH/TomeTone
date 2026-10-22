@@ -7,8 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
+import 'package:tometone/app/preferences/app_preferences.dart';
+import 'package:tometone/app/preferences/app_preferences_store.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/playback/engine_error.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
@@ -59,6 +62,10 @@ void main() {
         Completer<List<BookSummary>>();
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
+        preferencesStoreProvider.overrideWithValue(
+          InMemoryAppPreferencesStore(),
+        ),
+        initialPreferencesProvider.overrideWithValue(AppPreferences.defaults),
         booksProvider.overrideWith((Ref ref) => completer.future),
         libraryRootsProvider.overrideWith(
           (Ref ref) async => const <LibraryRootView>[testRoot],
@@ -122,6 +129,51 @@ void main() {
     expect(find.text('点开一本，从上次停下的地方继续听。'), findsNothing);
   });
 
+  testWidgets('书架设置与 2:3 护封：右上角更多菜单可切换列数与字段，卡片隐藏进度条', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final BookSummary book = testSummary(
+      id: 'book-1',
+      title: '长夜行舟',
+      author: '沈砚',
+      narrator: '白露',
+      description: '夜航灯影下打捞旧事的航行',
+      progressPositionMs: 60 * 1000,
+      progressChapterIndex: 1,
+      totalChapters: 4,
+    );
+    await pumpShelf(
+      tester,
+      overrides: testOverrides(
+        controller: controller,
+        books: <BookSummary>[book],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 默认展示书名与作者，不渲染进度条
+    expect(find.text('长夜行舟'), findsOneWidget);
+    expect(find.text('沈砚 著 · 白露 演播'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+
+    // 点击右上角更多菜单
+    expect(find.byKey(ShelfPage.moreMenuKey), findsOneWidget);
+    await tester.tap(find.byKey(ShelfPage.moreMenuKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 列'), findsOneWidget);
+    expect(find.text('3 列'), findsOneWidget);
+    expect(find.text('4 列'), findsOneWidget);
+    expect(find.text('显示书名'), findsOneWidget);
+    expect(find.text('显示作者'), findsOneWidget);
+    expect(find.text('显示演播'), findsOneWidget);
+
+    // 切换隐藏书名
+    await tester.tap(find.text('显示书名'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('长夜行舟'), findsNothing);
+  });
+
   testWidgets('空态：点「去发现找书」切到发现 tab', (WidgetTester tester) async {
     usePhoneViewport(tester);
     final ProviderContainer container = await pumpShelf(
@@ -144,6 +196,10 @@ void main() {
     await pumpShelf(
       tester,
       overrides: <Override>[
+        preferencesStoreProvider.overrideWithValue(
+          InMemoryAppPreferencesStore(),
+        ),
+        initialPreferencesProvider.overrideWithValue(AppPreferences.defaults),
         booksProvider.overrideWith((Ref ref) async {
           attempts++;
           throw StateError('database not ready');
@@ -194,17 +250,20 @@ void main() {
 
     expect(find.text('山海夜航'), findsOneWidget);
     expect(find.text('北境旧事录'), findsOneWidget);
-    // 两本都没有进度 → 卡片内各显示「未听」（工具栏的「未听」chip 不算）。
+    expect(find.text('2 章缺失'), findsOneWidget);
+
+    // 切换到列表视图验证未听与无简介提示
+    await tester.tap(find.byKey(ShelfPage.layoutToggleKey));
+    await tester.pumpAndSettle();
+
     expect(
       find.descendant(
-        of: find.byType(ShelfBookCard),
+        of: find.byType(ShelfBookRow),
         matching: find.text('未听'),
       ),
       findsNWidgets(2),
     );
-    // 两本都没有简介 → 都显示「暂无简介」。
     expect(find.text('暂无简介'), findsNWidgets(2));
-    expect(find.text('2 章缺失'), findsOneWidget);
 
     final List<BookCover> covers = tester
         .widgetList<BookCover>(find.byType(BookCover))
@@ -847,7 +906,7 @@ void main() {
   });
 
   group('书架卡片与列表行', () {
-    testWidgets('网格卡片：书名 / 作者·演播 / 一句简介 / 进度百分比', (WidgetTester tester) async {
+    testWidgets('网格卡片：2:3 护封比例、书名与作者演播、卡片默认隐藏干扰进度条', (WidgetTester tester) async {
       usePhoneViewport(tester);
       final BookSummary book = testSummary(
         title: '长夜行舟',
@@ -869,8 +928,7 @@ void main() {
 
       expect(find.text('长夜行舟'), findsOneWidget);
       expect(find.text('沈砚 著 · 白露 演播'), findsOneWidget);
-      expect(find.text('夜航灯影下打捞旧事的航行'), findsOneWidget);
-      expect(find.text('50%'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

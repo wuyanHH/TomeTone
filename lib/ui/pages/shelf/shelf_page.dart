@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/preferences/app_preferences.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/online_providers.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
@@ -47,6 +50,9 @@ class ShelfPage extends ConsumerStatefulWidget {
 
   /// 书籍列表。
   static const Key listKey = Key('shelf-list');
+
+  /// 更多设置菜单（列数与字段显隐）。
+  static const Key moreMenuKey = Key('shelf-more-menu');
 
   /// 空态里「去书库添加目录」的引导按钮。
   static const Key goToLibraryKey = Key('shelf-open-library');
@@ -182,6 +188,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
 
     final List<BookSummary> books = booksAsync.value ?? const <BookSummary>[];
     final List<BookSummary> visibleBooks = _filter.apply(books);
+    final AppPreferences prefs = ref.watch(preferencesProvider);
 
     // 工具行只在「加载完成且有书」时出现：加载 / 错误 / 全局空态保持原样。
     final bool toolbarVisible = !failed && !loading && books.isNotEmpty;
@@ -198,24 +205,37 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double width = constraints.maxWidth;
-        final int columns = width >= 960
-            ? 4
-            : width >= AppSizes.wideBreakpoint
-            ? 3
-            : 2;
+        final int columns;
+        if (width >= 960) {
+          columns = prefs.shelfColumns == 2 ? 2 : 4;
+        } else if (width >= AppSizes.wideBreakpoint) {
+          columns = prefs.shelfColumns == 2
+              ? 2
+              : (prefs.shelfColumns == 4 ? 4 : 3);
+        } else {
+          columns = prefs.shelfColumns.clamp(2, 4);
+        }
         final double tileWidth =
             (width - AppSpacing.lg * 2 - AppSpacing.md * (columns - 1)) /
             columns;
         final double textScale = MediaQuery.textScalerOf(context).scale(1);
-        // 卡片正文块高度（书名 + 作者·演播 + 一句简介 + 进度 + 缺失提示）：
-        // 按最坏情况（含元信息行与缺失提示）预留，避免大字号下溢出。
-        final double textBlock = 116 * (textScale < 1 ? 1 : textScale);
+        final double scale = textScale < 1 ? 1 : textScale;
+        double textBlock = 0;
+        if (prefs.shelfShowTitle) {
+          textBlock += 30 * scale + AppSpacing.xs;
+        }
+        if (prefs.shelfShowAuthor || prefs.shelfShowNarrator) {
+          textBlock += 24 * scale + AppSpacing.xxs;
+        }
+        // 预留告警行空间（如章节缺失、来源停用）
+        textBlock += 26 * scale + AppSpacing.xs;
+        final double coverHeight = tileWidth * 1.5;
         final SliverGridDelegate delegate =
             SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
-              mainAxisSpacing: AppSpacing.xl,
+              mainAxisSpacing: AppSpacing.lg,
               crossAxisSpacing: AppSpacing.md,
-              childAspectRatio: tileWidth / (tileWidth + textBlock),
+              childAspectRatio: tileWidth / (coverHeight + textBlock),
             );
 
         return CustomScrollView(
@@ -225,6 +245,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                 countLabel: countLabel,
                 searchOpen: _searchOpen,
                 layout: _layout,
+                prefs: prefs,
                 onSearchToggle: _toggleSearch,
                 onLayoutToggle: () {
                   setState(() {
@@ -232,6 +253,9 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                         ? ShelfLayout.list
                         : ShelfLayout.grid;
                   });
+                },
+                onPrefsChanged: (AppPreferences newPrefs) {
+                  ref.read(preferencesProvider.notifier).replace(newPrefs);
                 },
               ),
             ),
@@ -320,6 +344,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                     return ShelfBookCard(
                       book: book,
                       onOpen: () => _openDetail(context, book),
+                      onLongPress: () => _showBookActions(context, book),
                       onPlay: () => unawaited(
                         playBookFromSummary(
                           context: context,
@@ -353,6 +378,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                       child: ShelfBookRow(
                         book: book,
                         onOpen: () => _openDetail(context, book),
+                        onLongPress: () => _showBookActions(context, book),
                         onPlay: () => unawaited(
                           playBookFromSummary(
                             context: context,
@@ -370,6 +396,69 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
       },
     );
   }
+
+  void _showBookActions(BuildContext context, BookSummary book) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.info_outline_rounded),
+                title: Text(book.title),
+                subtitle: Text(
+                  (book.author?.trim().isNotEmpty ?? false)
+                      ? book.author!
+                      : '查看详情与目录',
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _openDetail(context, book);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.bookmark_remove_outlined),
+                title: const Text('移出书架'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  final bool? confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return AlertDialog(
+                        title: const Text('移出书架'),
+                        content: Text('确定将《${book.title}》移出书架？\n（不会删除本地音频文件）'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(dialogContext, false),
+                            child: const Text('取消'),
+                          ),
+                          FilledButton(
+                            onPressed: () =>
+                                Navigator.pop(dialogContext, true),
+                            child: const Text('确定移出'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  if (confirmed == true && mounted) {
+                    await ref
+                        .read(onlineLibraryQueriesProvider)
+                        .setBookShelf(book.id, onShelf: false);
+                    ref.invalidate(booksProvider);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// 藏馆题头：单行紧凑题头（标题 + 册数徽标 + 搜索 / 布局操作）。
@@ -378,8 +467,10 @@ class _ShelfHeader extends StatelessWidget {
     required this.countLabel,
     required this.searchOpen,
     required this.layout,
+    required this.prefs,
     required this.onSearchToggle,
     required this.onLayoutToggle,
+    required this.onPrefsChanged,
     this.trailing,
   });
 
@@ -389,14 +480,20 @@ class _ShelfHeader extends StatelessWidget {
   /// 搜索输入是否展开（决定搜索按钮的提示文案）。
   final bool searchOpen;
 
-  /// 当前布局密度。
+  /// 当前视图模式。
   final ShelfLayout layout;
+
+  /// 应用偏好配置。
+  final AppPreferences prefs;
 
   /// 展开 / 收起搜索。
   final VoidCallback onSearchToggle;
 
   /// 切换网格 / 列表。
   final VoidCallback onLayoutToggle;
+
+  /// 偏好变更回调。
+  final ValueChanged<AppPreferences> onPrefsChanged;
 
   /// 右侧附加操作（如更多菜单）。
   final Widget? trailing;
@@ -459,6 +556,88 @@ class _ShelfHeader extends StatelessWidget {
                     ? Icons.grid_view_rounded
                     : Icons.view_list_rounded,
               ),
+            ),
+            PopupMenuButton<String>(
+              key: ShelfPage.moreMenuKey,
+              tooltip: '书架设置',
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (String value) {
+                switch (value) {
+                  case 'col-2':
+                    onPrefsChanged(prefs.copyWith(shelfColumns: 2));
+                    if (layout == ShelfLayout.list) onLayoutToggle();
+                    break;
+                  case 'col-3':
+                    onPrefsChanged(prefs.copyWith(shelfColumns: 3));
+                    if (layout == ShelfLayout.list) onLayoutToggle();
+                    break;
+                  case 'col-4':
+                    onPrefsChanged(prefs.copyWith(shelfColumns: 4));
+                    if (layout == ShelfLayout.list) onLayoutToggle();
+                    break;
+                  case 'layout-list':
+                    if (layout == ShelfLayout.grid) onLayoutToggle();
+                    break;
+                  case 'toggle-title':
+                    onPrefsChanged(
+                      prefs.copyWith(shelfShowTitle: !prefs.shelfShowTitle),
+                    );
+                    break;
+                  case 'toggle-author':
+                    onPrefsChanged(
+                      prefs.copyWith(shelfShowAuthor: !prefs.shelfShowAuthor),
+                    );
+                    break;
+                  case 'toggle-narrator':
+                    onPrefsChanged(
+                      prefs.copyWith(
+                        shelfShowNarrator: !prefs.shelfShowNarrator,
+                      ),
+                    );
+                    break;
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                CheckedPopupMenuItem<String>(
+                  value: 'col-2',
+                  checked:
+                      layout == ShelfLayout.grid && prefs.shelfColumns == 2,
+                  child: const Text('2 列'),
+                ),
+                CheckedPopupMenuItem<String>(
+                  value: 'col-3',
+                  checked:
+                      layout == ShelfLayout.grid && prefs.shelfColumns == 3,
+                  child: const Text('3 列'),
+                ),
+                CheckedPopupMenuItem<String>(
+                  value: 'col-4',
+                  checked:
+                      layout == ShelfLayout.grid && prefs.shelfColumns == 4,
+                  child: const Text('4 列'),
+                ),
+                CheckedPopupMenuItem<String>(
+                  value: 'layout-list',
+                  checked: layout == ShelfLayout.list,
+                  child: const Text('列表视图'),
+                ),
+                const PopupMenuDivider(),
+                CheckedPopupMenuItem<String>(
+                  value: 'toggle-title',
+                  checked: prefs.shelfShowTitle,
+                  child: const Text('显示书名'),
+                ),
+                CheckedPopupMenuItem<String>(
+                  value: 'toggle-author',
+                  checked: prefs.shelfShowAuthor,
+                  child: const Text('显示作者'),
+                ),
+                CheckedPopupMenuItem<String>(
+                  value: 'toggle-narrator',
+                  checked: prefs.shelfShowNarrator,
+                  child: const Text('显示演播'),
+                ),
+              ],
             ),
             if (trailing != null) trailing!,
           ],

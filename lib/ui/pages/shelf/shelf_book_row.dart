@@ -20,6 +20,7 @@ class ShelfBookRow extends ConsumerWidget {
     required this.book,
     required this.onOpen,
     required this.onPlay,
+    this.onLongPress,
     super.key,
   });
 
@@ -34,6 +35,9 @@ class ShelfBookRow extends ConsumerWidget {
 
   /// 点播放按钮（直接起播）。
   final VoidCallback onPlay;
+
+  /// 长按行主体。
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,6 +70,7 @@ class ShelfBookRow extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: onOpen,
+        onLongPress: onLongPress,
         borderRadius: AppRadii.md,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),

@@ -134,27 +134,27 @@ git commit -m "refactor(ui): streamline app bars and remove double-tier headers"
   - 标准 2:3 书籍封面与可控显示字段
   - 长按卡片调出底部操作栏（移出书架、编辑标签、换源）
 
-- [ ] **Step 1: 编写书架更多设置与 2:3 封面排布的组件测试**
+- [x] **Step 1: 编写书架更多设置与 2:3 封面排布的组件测试**
 
 测试在 `ShelfPage` 点击右上角 `⋮` 菜单切换列数（2/3/4列）以及切换显示书名/作者字段时的响应渲染；断言卡片上不渲染干扰进度条。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/ui/shelf_page_test.dart`
 预期：FAIL（未定义更多菜单与 2:3 比例自适应）
 
-- [ ] **Step 3: 实现书架 2:3 封面与更多设置菜单**
+- [x] **Step 3: 实现书架 2:3 封面与更多设置菜单**
 
 - 在 `ShelfPage` 的顶栏添加 `PopupMenuButton` (`ShelfPage.moreMenuKey`)，支持列数切换与字段开关，与 `preferencesProvider` 双向绑定；
 - 更新 `SliverGridDelegate` 计算：基于 `columns`（2/3/4）与 2:3 护封比例计算 `childAspectRatio`；
 - 更新 `ShelfBookCard`：彻底隐藏进度条等杂项，按设置项动态显示标题/作者/演播；添加 `onLongPress` 触发底部操作栏（移出书架等）。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/ui/shelf_page_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/ui/pages/shelf/ test/ui/shelf_page_test.dart

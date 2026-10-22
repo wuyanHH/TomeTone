@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/cover_art.dart';
+import 'package:tometone/app/preferences/app_preferences.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/sources/book_source.dart';
-import 'package:tometone/ui/pages/shelf/shelf_progress.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 import 'package:tometone/ui/widgets/network_cover.dart';
 
-/// 书架网格卡片（双列藏书格）。
+/// 书架网格卡片（标准 2:3 书籍护封）。
 ///
-/// 自上而下：封面（右下角播放按钮）→ 书名 → 作者·演播 → 一句简介 → 进度。
-/// 播放按钮独立于卡片主体的 [InkWell]：点卡片触发 [onOpen]，点播放按钮
-/// 只触发 [onPlay]。
+/// 自上而下：2:3 护封（右下角播放按钮）→ 书名（可选）→ 作者·演播（可选）。
+/// 默认隐藏进度条，保持封面纯粹；播放按钮独立于卡片主体，点卡片触发 [onOpen]，
+/// 点播放按钮触发 [onPlay]，长按触发 [onLongPress]。
 class ShelfBookCard extends ConsumerWidget {
   /// 创建网格卡片。
   const ShelfBookCard({
     required this.book,
     required this.onOpen,
     required this.onPlay,
+    this.onLongPress,
     super.key,
   });
 
@@ -36,10 +38,14 @@ class ShelfBookCard extends ConsumerWidget {
   /// 点播放按钮（直接起播）。
   final VoidCallback onPlay;
 
+  /// 长按卡片（呼出操作菜单）。
+  final VoidCallback? onLongPress;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
+    final AppPreferences prefs = ref.watch(preferencesProvider);
     final CoverArt? coverArt = ref
         .watch(
           coverArtProvider(
@@ -51,7 +57,11 @@ class ShelfBookCard extends ConsumerWidget {
     final BookSource? source = book.isOnline && book.sourceId != null
         ? ref.watch(bookSourceByIdProvider(book.sourceId!)).value
         : null;
-    final String meta = _byline(book);
+    final String meta = _byline(
+      book,
+      showAuthor: prefs.shelfShowAuthor,
+      showNarrator: prefs.shelfShowNarrator,
+    );
     final String description = (book.description ?? '').trim();
     final String missing = book.missingChapters > 0
         ? '${book.missingChapters} 章缺失'
@@ -77,12 +87,13 @@ class ShelfBookCard extends ConsumerWidget {
       child: ExcludeSemantics(
         child: InkWell(
           onTap: onOpen,
+          onLongPress: onLongPress,
           borderRadius: AppRadii.md,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               AspectRatio(
-                aspectRatio: 1,
+                aspectRatio: 2 / 3,
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
                     return Stack(
@@ -120,14 +131,17 @@ class ShelfBookCard extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                book.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.titleSmall?.copyWith(height: 1.35),
-              ),
-              if (meta.isNotEmpty) ...<Widget>[
+              if (prefs.shelfShowTitle) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  book.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.titleSmall?.copyWith(height: 1.35),
+                ),
+              ],
+              if ((prefs.shelfShowAuthor || prefs.shelfShowNarrator) &&
+                  meta.isNotEmpty) ...<Widget>[
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   meta,
@@ -138,15 +152,6 @@ class ShelfBookCard extends ConsumerWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                description.isEmpty ? '暂无简介' : description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              ShelfProgress(book: book, compact: true),
               if (warning.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.xxs),
@@ -178,14 +183,18 @@ class ShelfBookCard extends ConsumerWidget {
     );
   }
 
-  static String _byline(BookSummary book) {
+  static String _byline(
+    BookSummary book, {
+    bool showAuthor = true,
+    bool showNarrator = true,
+  }) {
     final String? author = book.author?.trim();
     final String? narrator = book.narrator?.trim();
     final List<String> parts = <String>[];
-    if (author != null && author.isNotEmpty) {
+    if (showAuthor && author != null && author.isNotEmpty) {
       parts.add('$author 著');
     }
-    if (narrator != null && narrator.isNotEmpty) {
+    if (showNarrator && narrator != null && narrator.isNotEmpty) {
       parts.add('$narrator 演播');
     }
     return parts.join(' · ');
