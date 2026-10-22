@@ -40,6 +40,13 @@ void main() {
       expect(prefs.lastCheckAt, isNull);
       expect(prefs.lastAttemptAt, isNull);
       expect(prefs.cachedRelease, isNull);
+      expect(prefs.shelfColumns, 3);
+      expect(prefs.shelfShowTitle, isTrue);
+      expect(prefs.shelfShowAuthor, isTrue);
+      expect(prefs.shelfShowNarrator, isTrue);
+      expect(prefs.defaultPlaybackSpeed, 1.0);
+      expect(prefs.defaultSkipIntroSeconds, 0);
+      expect(prefs.defaultSkipOutroSeconds, 0);
     });
 
     test('无参构造函数产生与 defaults 一致的偏好', () {
@@ -54,6 +61,13 @@ void main() {
         paletteId: 'bambooMist',
         brightness: BrightnessPreference.dark,
         oledDark: true,
+        shelfColumns: 4,
+        shelfShowTitle: false,
+        shelfShowAuthor: false,
+        shelfShowNarrator: false,
+        defaultPlaybackSpeed: 1.25,
+        defaultSkipIntroSeconds: 30,
+        defaultSkipOutroSeconds: 45,
       );
 
       expect(updated.paletteId, 'bambooMist');
@@ -61,6 +75,13 @@ void main() {
       expect(updated.oledDark, isTrue);
       expect(updated.autoCheckUpdates, isTrue);
       expect(updated.skippedVersion, isNull);
+      expect(updated.shelfColumns, 4);
+      expect(updated.shelfShowTitle, isFalse);
+      expect(updated.shelfShowAuthor, isFalse);
+      expect(updated.shelfShowNarrator, isFalse);
+      expect(updated.defaultPlaybackSpeed, 1.25);
+      expect(updated.defaultSkipIntroSeconds, 30);
+      expect(updated.defaultSkipOutroSeconds, 45);
     });
 
     test('显式传入 null 可以清空可空字段', () {
@@ -120,6 +141,13 @@ void main() {
         lastCheckAt: DateTime.utc(2026, 10, 19, 12, 30, 45),
         lastAttemptAt: DateTime.utc(2026, 10, 19, 12, 35, 0),
         cachedRelease: sampleCachedRelease,
+        shelfColumns: 2,
+        shelfShowTitle: false,
+        shelfShowAuthor: false,
+        shelfShowNarrator: false,
+        defaultPlaybackSpeed: 1.5,
+        defaultSkipIntroSeconds: 15,
+        defaultSkipOutroSeconds: 20,
       );
 
       final json = original.toJson();

@@ -50,25 +50,25 @@
   - `AppPreferences.defaultSkipIntroSeconds`: `int` (默认 0)
   - `AppPreferences.defaultSkipOutroSeconds`: `int` (默认 0)
 
-- [ ] **Step 1: 编写 AppPreferences 扩展的失败测试**
+- [x] **Step 1: 编写 AppPreferences 扩展的失败测试**
 
 在 `test/app/preferences/app_preferences_test.dart` 中编写对书架显示列数、字段显隐开关以及全局默认听书偏好（倍速、跳过片头片尾）的默认值与持久化序列化测试。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/app/preferences/app_preferences_test.dart`
 预期：FAIL（字段不存在）
 
-- [ ] **Step 3: 实现 `AppPreferences` 与 `AppPreferencesStore` 扩展字段与序列化**
+- [x] **Step 3: 实现 `AppPreferences` 与 `AppPreferencesStore` 扩展字段与序列化**
 
 在 `lib/app/preferences/app_preferences.dart` 和 `lib/app/preferences/app_preferences_store.dart` 中添加对应字段、copyWith、toJson/fromJson 及 SharedPreferences 读写逻辑。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/app/preferences/app_preferences_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/app/preferences/ test/app/preferences/

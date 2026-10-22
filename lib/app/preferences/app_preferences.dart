@@ -32,6 +32,13 @@ class AppPreferences {
     this.lastCheckAt,
     this.lastAttemptAt,
     this.cachedRelease,
+    this.shelfColumns = 3,
+    this.shelfShowTitle = true,
+    this.shelfShowAuthor = true,
+    this.shelfShowNarrator = true,
+    this.defaultPlaybackSpeed = 1.0,
+    this.defaultSkipIntroSeconds = 0,
+    this.defaultSkipOutroSeconds = 0,
   });
 
   /// 默认应用偏好（琥珀旧卷、跟随系统、关闭 OLED 纯黑、开启自动检查）。
@@ -67,6 +74,27 @@ class AppPreferences {
   /// 本地缓存的最新 Release 详情（用于离线展示与 304 快速比对，默认 null）。
   final CachedRelease? cachedRelease;
 
+  /// 书架展示列数（2 / 3 / 4 / 1 表示列表，默认 3）。
+  final int shelfColumns;
+
+  /// 书架卡片是否显示书名（默认开启）。
+  final bool shelfShowTitle;
+
+  /// 书架卡片是否显示作者（默认开启）。
+  final bool shelfShowAuthor;
+
+  /// 书架卡片是否显示演播（默认开启）。
+  final bool shelfShowNarrator;
+
+  /// 全局默认播放倍速（默认 1.0）。
+  final double defaultPlaybackSpeed;
+
+  /// 全局默认跳过片头秒数（默认 0）。
+  final int defaultSkipIntroSeconds;
+
+  /// 全局默认跳过片尾秒数（默认 0）。
+  final int defaultSkipOutroSeconds;
+
   static const Object _sentinel = Object();
 
   /// 复制并覆盖部分字段。
@@ -83,6 +111,13 @@ class AppPreferences {
     Object? lastCheckAt = _sentinel,
     Object? lastAttemptAt = _sentinel,
     Object? cachedRelease = _sentinel,
+    int? shelfColumns,
+    bool? shelfShowTitle,
+    bool? shelfShowAuthor,
+    bool? shelfShowNarrator,
+    double? defaultPlaybackSpeed,
+    int? defaultSkipIntroSeconds,
+    int? defaultSkipOutroSeconds,
   }) {
     return AppPreferences(
       paletteId: paletteId ?? this.paletteId,
@@ -107,6 +142,15 @@ class AppPreferences {
       cachedRelease: identical(cachedRelease, _sentinel)
           ? this.cachedRelease
           : cachedRelease as CachedRelease?,
+      shelfColumns: shelfColumns ?? this.shelfColumns,
+      shelfShowTitle: shelfShowTitle ?? this.shelfShowTitle,
+      shelfShowAuthor: shelfShowAuthor ?? this.shelfShowAuthor,
+      shelfShowNarrator: shelfShowNarrator ?? this.shelfShowNarrator,
+      defaultPlaybackSpeed: defaultPlaybackSpeed ?? this.defaultPlaybackSpeed,
+      defaultSkipIntroSeconds:
+          defaultSkipIntroSeconds ?? this.defaultSkipIntroSeconds,
+      defaultSkipOutroSeconds:
+          defaultSkipOutroSeconds ?? this.defaultSkipOutroSeconds,
     );
   }
 
@@ -124,6 +168,13 @@ class AppPreferences {
         'lastCheckAt': lastCheckAt?.toUtc().toIso8601String(),
         'lastAttemptAt': lastAttemptAt?.toUtc().toIso8601String(),
         'cachedRelease': cachedRelease?.toJson(),
+        'shelfColumns': shelfColumns,
+        'shelfShowTitle': shelfShowTitle,
+        'shelfShowAuthor': shelfShowAuthor,
+        'shelfShowNarrator': shelfShowNarrator,
+        'defaultPlaybackSpeed': defaultPlaybackSpeed,
+        'defaultSkipIntroSeconds': defaultSkipIntroSeconds,
+        'defaultSkipOutroSeconds': defaultSkipOutroSeconds,
       };
 
   /// 从 JSON Map 反序列化偏好。
@@ -173,6 +224,35 @@ class AppPreferences {
       cachedRelease = null;
     }
 
+    final rawColumns = json['shelfColumns'];
+    final shelfColumns =
+        rawColumns is int ? rawColumns : defaults.shelfColumns;
+
+    final rawShowTitle = json['shelfShowTitle'];
+    final shelfShowTitle =
+        rawShowTitle is bool ? rawShowTitle : defaults.shelfShowTitle;
+
+    final rawShowAuthor = json['shelfShowAuthor'];
+    final shelfShowAuthor =
+        rawShowAuthor is bool ? rawShowAuthor : defaults.shelfShowAuthor;
+
+    final rawShowNarrator = json['shelfShowNarrator'];
+    final shelfShowNarrator =
+        rawShowNarrator is bool ? rawShowNarrator : defaults.shelfShowNarrator;
+
+    final rawSpeed = json['defaultPlaybackSpeed'];
+    final defaultPlaybackSpeed = rawSpeed is num
+        ? rawSpeed.toDouble()
+        : defaults.defaultPlaybackSpeed;
+
+    final rawIntro = json['defaultSkipIntroSeconds'];
+    final defaultSkipIntroSeconds =
+        rawIntro is int ? rawIntro : defaults.defaultSkipIntroSeconds;
+
+    final rawOutro = json['defaultSkipOutroSeconds'];
+    final defaultSkipOutroSeconds =
+        rawOutro is int ? rawOutro : defaults.defaultSkipOutroSeconds;
+
     return AppPreferences(
       paletteId: paletteId,
       brightness: brightness,
@@ -184,6 +264,13 @@ class AppPreferences {
       lastCheckAt: lastCheckAt,
       lastAttemptAt: lastAttemptAt,
       cachedRelease: cachedRelease,
+      shelfColumns: shelfColumns,
+      shelfShowTitle: shelfShowTitle,
+      shelfShowAuthor: shelfShowAuthor,
+      shelfShowNarrator: shelfShowNarrator,
+      defaultPlaybackSpeed: defaultPlaybackSpeed,
+      defaultSkipIntroSeconds: defaultSkipIntroSeconds,
+      defaultSkipOutroSeconds: defaultSkipOutroSeconds,
     );
   }
 
@@ -225,7 +312,14 @@ class AppPreferences {
           acknowledgedVersion == other.acknowledgedVersion &&
           lastCheckAt == other.lastCheckAt &&
           lastAttemptAt == other.lastAttemptAt &&
-          cachedRelease == other.cachedRelease;
+          cachedRelease == other.cachedRelease &&
+          shelfColumns == other.shelfColumns &&
+          shelfShowTitle == other.shelfShowTitle &&
+          shelfShowAuthor == other.shelfShowAuthor &&
+          shelfShowNarrator == other.shelfShowNarrator &&
+          defaultPlaybackSpeed == other.defaultPlaybackSpeed &&
+          defaultSkipIntroSeconds == other.defaultSkipIntroSeconds &&
+          defaultSkipOutroSeconds == other.defaultSkipOutroSeconds;
 
   @override
   int get hashCode => Object.hash(
@@ -239,6 +333,13 @@ class AppPreferences {
         lastCheckAt,
         lastAttemptAt,
         cachedRelease,
+        shelfColumns,
+        shelfShowTitle,
+        shelfShowAuthor,
+        shelfShowNarrator,
+        defaultPlaybackSpeed,
+        defaultSkipIntroSeconds,
+        defaultSkipOutroSeconds,
       );
 
   @override
@@ -248,5 +349,9 @@ class AppPreferences {
       'skippedVersion: $skippedVersion, promptedVersion: $promptedVersion, '
       'acknowledgedVersion: $acknowledgedVersion, '
       'lastCheckAt: $lastCheckAt, lastAttemptAt: $lastAttemptAt, '
-      'cachedRelease: $cachedRelease)';
+      'cachedRelease: $cachedRelease, shelfColumns: $shelfColumns, '
+      'shelfShowTitle: $shelfShowTitle, shelfShowAuthor: $shelfShowAuthor, '
+      'shelfShowNarrator: $shelfShowNarrator, defaultPlaybackSpeed: $defaultPlaybackSpeed, '
+      'defaultSkipIntroSeconds: $defaultSkipIntroSeconds, '
+      'defaultSkipOutroSeconds: $defaultSkipOutroSeconds)';
 }
