@@ -144,6 +144,8 @@ abstract interface class OnlineLibraryQueries {
 
   Future<ProgressSnapshot?> getPlaybackProgress(String bookId);
 
+  Future<List<OnlineBookRecord>> getOnShelfOnlineBooks();
+
   Future<SwitchSourceResult> applySwitchSource({
     required String bookId,
     required BookSource targetSource,
@@ -392,6 +394,36 @@ class DriftOnlineLibraryQueries implements OnlineLibraryQueries {
         updatedAt: Value<DateTime>(now),
       ),
     );
+  }
+
+  @override
+  Future<List<OnlineBookRecord>> getOnShelfOnlineBooks() async {
+    final rows = await (_database.select(_database.books)
+          ..where((tbl) =>
+              tbl.sourceType.equals('online') & tbl.onShelf.equals(true)))
+        .get();
+    return rows
+        .where((r) => r.sourceId != null)
+        .map((row) => OnlineBookRecord(
+              id: row.id,
+              sourceId: row.sourceId!,
+              bookUrl: row.rootPath,
+              title: row.title,
+              libraryRootId: row.libraryRootId,
+              author: row.author,
+              coverUrl: row.coverUrl,
+              intro: row.description,
+              kind: row.kind,
+              wordCount: row.wordCount,
+              status: row.sourceStatus,
+              lastChapter: row.lastChapter,
+              totalChapters: row.totalChapters,
+              onShelf: row.onShelf,
+              lastRefreshAt: row.lastRefreshAt,
+              lastRefreshOk: row.lastRefreshOk,
+              lastRefreshError: row.lastRefreshError,
+            ))
+        .toList();
   }
 
   @override
