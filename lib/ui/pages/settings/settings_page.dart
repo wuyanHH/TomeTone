@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tometone/app/app_info.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
+import 'cache_settings_section.dart';
 
 /// 设置页（《架构需求文档》§2.1 / §2.8 / §3.3）。
 ///
@@ -34,6 +35,11 @@ class SettingsPage extends StatelessWidget {
               const Padding(
                 padding: AppSpacing.pagePadding,
                 child: _AppearanceSection(),
+              ),
+              const _SectionRule(),
+              const Padding(
+                padding: AppSpacing.pagePadding,
+                child: CacheSettingsSection(),
               ),
               const _SectionRule(),
               Padding(
