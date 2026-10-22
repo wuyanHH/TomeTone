@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/library_root_service.dart';
@@ -10,6 +11,7 @@ import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
+import 'package:tometone/modules/audio/audio_cache_repository_impl.dart';
 import 'package:tometone/modules/network/network_monitor_impl.dart';
 import 'package:tometone/modules/playback_just_audio/just_audio_playback_engine.dart';
 import 'package:tometone/modules/source_http/io_source_http_client.dart';
@@ -34,6 +36,9 @@ void main() {
   // 数据库与引擎是进程级单例：随进程生命周期存在，退出即由系统回收。
   final database = TomeToneDatabase(openTomeToneDatabaseConnection());
   final engine = JustAudioPlaybackEngine();
+  final audioCache = AudioCacheRepositoryImpl(
+    cacheRoot: Directory('${Directory.systemTemp.path}/tometone_audio_cache'),
+  );
 
   // 平台桥同时承担「目录选择」与「放弃授权」两种能力（接口见契约层），
   // 复用同一份 const 实例：两处共用一条 MethodChannel，不必 new 第二份。
@@ -52,6 +57,7 @@ void main() {
         mediaSourceResolverFactoryProvider.overrideWithValue(_createResolver),
         directoryPickerProvider.overrideWithValue(safBridge),
         networkMonitorProvider.overrideWithValue(NetworkMonitorImpl()),
+        audioCacheRepositoryProvider.overrideWithValue(audioCache),
         // 书库根服务默认装配（`lib/app/providers/` 内）拿不到平台桥，
         // 因此在装配入口 override，注入 authorization 让「移除 SAF 根」能放弃授权。
         libraryRootServiceProvider.overrideWithValue(
