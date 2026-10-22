@@ -70,7 +70,10 @@ class LegadoRequestBuilder {
       }
     }
 
-    final body = _string(parsed.options['body']);
+    final rawBody = parsed.options['body'];
+    final body = rawBody is String
+        ? rawBody
+        : (rawBody is Map || rawBody is List ? jsonEncode(rawBody) : null);
     final charset = _string(parsed.options['charset']) ?? defaultCharset;
 
     return LegadoRequest(

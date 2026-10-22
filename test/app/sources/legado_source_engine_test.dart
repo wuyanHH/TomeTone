@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/sources/legado/legado_source_engine.dart';
+import 'package:tometone/app/sources/legado/restricted_js_runtime.dart';
 import 'package:tometone/app/sources/source_rate_limiter.dart';
 import 'package:tometone/contracts/sources/js_runtime.dart';
 import 'package:tometone/contracts/sources/source_http.dart';
@@ -531,6 +532,141 @@ void main() {
       expect(toc.chapters, hasLength(3));
       expect(toc.complete, isFalse);
       expect(toc.warnings, isNotEmpty);
+    });
+
+    test('第一页单章 chapterUrl 求值抛出异常时记录 warning 并继续解析后续章节', () async {
+      final source = _source(
+        mutate: (raw) {
+          (raw['ruleToc'] as Map<String, dynamic>)['chapterUrl'] =
+              r'@js: result.url.trim()';
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'chapters': <Object?>[
+              <String, Object?>{'title': '破损章', 'url': null},
+              <String, Object?>{'title': '完好章', 'url': ' /play/2 '},
+            ],
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: RestrictedJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final toc = await engine.toc(source, info());
+
+      expect(toc.chapters, hasLength(1));
+      expect(toc.chapters.single.title, '完好章');
+      expect(toc.chapters.single.url, 'https://www.tingyou.fm/play/2');
+      expect(toc.warnings, anyElement(contains('地址解析失败')));
+    });
+
+    test('第一页全部章节 chapterUrl 求值均抛出异常时返回空目录与不完整状态，不抛出 SourceFailure', () async {
+      final source = _source(
+        mutate: (raw) {
+          (raw['ruleToc'] as Map<String, dynamic>)['chapterUrl'] =
+              r'@js: baseUrl.match(/missing/)[1]';
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'chapters': <Object?>[
+              <String, Object?>{'title': '章一', 'id': 1},
+              <String, Object?>{'title': '章二', 'id': 2},
+            ],
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: RestrictedJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final toc = await engine.toc(source, info());
+
+      expect(toc.chapters, isEmpty);
+      expect(toc.complete, isFalse);
+      expect(toc.warnings, hasLength(2));
+    });
+
+    test('第一页抓出章节后 nextTocUrl 求值异常保留第一页章节并标记不完整', () async {
+      final source = _source(
+        mutate: (raw) {
+          (raw['ruleToc'] as Map<String, dynamic>)['nextTocUrl'] =
+              r'$.next || $[';
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'chapters': <Object?>[
+              <String, Object?>{'title': '第一章', 'url': '/play/1'},
+            ],
+            'next': null,
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: _FakeJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final toc = await engine.toc(source, info());
+
+      expect(toc.chapters, hasLength(1));
+      expect(toc.complete, isFalse);
+      expect(toc.warnings, anyElement(contains('链接解析失败')));
+    });
+
+    test('bookInfo 中 tocUrl 包含 options 时在 toc 请求中保留并生效', () async {
+      final source = _source(
+        mutate: (raw) {
+          (raw['ruleBookInfo'] as Map<String, dynamic>)['tocUrl'] =
+              r'https://www.tingyou.fm/api/chapters/{{$.id}},{"method":"POST"}';
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        if (request.url.path.contains('book')) {
+          return _response(
+            request.url,
+            jsonEncode(<String, Object?>{'id': '123', 'title': '书名'}),
+          );
+        }
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'chapters': <Object?>[
+              <String, Object?>{'title': '第一章', 'url': '/play/1'},
+            ],
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: _FakeJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final bookInfo = await engine.bookInfo(
+        source,
+        'https://www.tingyou.fm/api/book/123',
+      );
+      expect(bookInfo.tocUrl, contains(',{"method":"POST"}'));
+
+      await engine.toc(source, bookInfo);
+      final tocRequest = http.requests.last;
+      expect(tocRequest.method, 'POST');
+      expect(tocRequest.url.toString(), 'https://www.tingyou.fm/api/chapters/123');
     });
 
     test('目录最多抓 50 页，超过上限标记不完整', () async {

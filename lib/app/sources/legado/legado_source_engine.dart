@@ -159,9 +159,9 @@ class LegadoSourceEngine implements SourceEngine {
       );
       final tocUrl = tocValue == null
           ? normalizedBookUrl
-          : _normalizeOrFallback(
+          : _normalizeUrlPreservingOptions(
               fetched.response.finalUrl,
-              _stripOptions(tocValue),
+              tocValue,
               fallback: normalizedBookUrl,
             );
 
@@ -251,9 +251,15 @@ class LegadoSourceEngine implements SourceEngine {
             result: item,
             baseUrl: fetched.response.finalUrl.toString(),
           );
-          final rawUrl = _text(
-            await _evaluateOptional(rules.tocFields['chapterUrl'], context),
-          );
+          String? rawUrl;
+          try {
+            rawUrl = _text(
+              await _evaluateOptional(rules.tocFields['chapterUrl'], context),
+            );
+          } on Object {
+            warnings.add('第 ${pageIndex + 1} 页第 ${itemIndex + 1} 章地址解析失败');
+            continue;
+          }
           if (rawUrl == null) {
             warnings.add('第 ${pageIndex + 1} 页第 ${itemIndex + 1} 章缺少地址');
             continue;
@@ -268,18 +274,28 @@ class LegadoSourceEngine implements SourceEngine {
             continue;
           }
 
-          final title =
-              _text(
-                await _evaluateOptional(
-                  rules.tocFields['chapterName'],
-                  context,
-                ),
-              ) ??
-              '第 ${chapters.length + 1} 章';
-          final vipValue = await _evaluateOptional(
-            rules.tocFields['isVip'],
-            context,
-          );
+          String? title;
+          try {
+            title = _text(
+              await _evaluateOptional(
+                rules.tocFields['chapterName'],
+                context,
+              ),
+            );
+          } on Object {
+            // 忽略名称解析异常，降级到默认章节名
+          }
+          title ??= '第 ${chapters.length + 1} 章';
+
+          Object? vipValue;
+          try {
+            vipValue = await _evaluateOptional(
+              rules.tocFields['isVip'],
+              context,
+            );
+          } on Object {
+            // 忽略 VIP 解析异常，降级为 false
+          }
 
           chapters.add(
             SourceChapter(
@@ -290,6 +306,9 @@ class LegadoSourceEngine implements SourceEngine {
               isVip: _asBool(vipValue),
             ),
           );
+        }
+        if (rawItems.isNotEmpty && chapters.isEmpty) {
+          complete = false;
         }
       } on SourceFailure {
         if (pageIndex == 0) {
@@ -318,7 +337,7 @@ class LegadoSourceEngine implements SourceEngine {
           ),
         );
       } on Object catch (error) {
-        if (pageIndex == 0) {
+        if (pageIndex == 0 && chapters.isEmpty) {
           throw _mapFailure(error, SourceStage.toc);
         }
         complete = false;
@@ -327,7 +346,6 @@ class LegadoSourceEngine implements SourceEngine {
       }
       final nextValue = _text(nextEvaluated);
       if (nextValue == null) {
-        complete = true;
         break;
       }
 
@@ -806,16 +824,37 @@ class LegadoSourceEngine implements SourceEngine {
   String _stripOptions(String raw) {
     final index = raw.lastIndexOf(',{');
     if (index >= 0) {
-      try {
-        final decoded = jsonDecode(raw.substring(index + 1));
-        if (decoded is Map) {
+      final optionsPart = raw.substring(index + 1).trim();
+      if (optionsPart.startsWith('{') && optionsPart.endsWith('}')) {
+        try {
+          final decoded = jsonDecode(optionsPart);
+          if (decoded is Map) {
+            return raw.substring(0, index).trim();
+          }
+        } on FormatException {
+          // 容错：即使 options 内嵌套 JSON 字符串存在未完全转义，只要形式为 ,{...} 也安全剥除 options
           return raw.substring(0, index).trim();
         }
-      } on FormatException {
-        // 不是 options，按原 URL 处理。
       }
     }
     return raw.trim();
+  }
+
+  String _normalizeUrlPreservingOptions(
+    Uri base,
+    String raw, {
+    String fallback = '',
+  }) {
+    final separator = raw.lastIndexOf(',{');
+    if (separator >= 0) {
+      final urlPart = raw.substring(0, separator).trim();
+      final optionsPart = raw.substring(separator);
+      final normalized = _normalizeOrNull(urlPart, base);
+      if (normalized != null) {
+        return '$normalized$optionsPart';
+      }
+    }
+    return _normalizeOrFallback(base, _stripOptions(raw), fallback: fallback);
   }
 
   Uri _sourceUri(BookSource source) => Uri.parse(source.sourceUrl);
