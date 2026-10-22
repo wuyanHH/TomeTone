@@ -19,6 +19,62 @@ class OnlineBookStatus {
   final bool onShelf;
 }
 
+/// 目录刷新结果。
+class TocRefreshResult {
+  const TocRefreshResult({
+    required this.isComplete,
+    required this.newChaptersCount,
+    required this.updatedChaptersCount,
+    this.error,
+  });
+
+  final bool isComplete;
+  final int newChaptersCount;
+  final int updatedChaptersCount;
+  final String? error;
+}
+
+/// 在线书籍基本记录。
+class OnlineBookRecord {
+  const OnlineBookRecord({
+    required this.id,
+    required this.sourceId,
+    required this.bookUrl,
+    required this.title,
+    required this.libraryRootId,
+    this.author,
+    this.coverUrl,
+    this.intro,
+    this.kind,
+    this.wordCount,
+    this.status,
+    this.lastChapter,
+    this.totalChapters = 0,
+    this.onShelf = true,
+    this.lastRefreshAt,
+    this.lastRefreshOk,
+    this.lastRefreshError,
+  });
+
+  final String id;
+  final String sourceId;
+  final String bookUrl;
+  final String title;
+  final String libraryRootId;
+  final String? author;
+  final String? coverUrl;
+  final String? intro;
+  final String? kind;
+  final String? wordCount;
+  final String? status;
+  final String? lastChapter;
+  final int totalChapters;
+  final bool onShelf;
+  final DateTime? lastRefreshAt;
+  final bool? lastRefreshOk;
+  final String? lastRefreshError;
+}
+
 /// 一次在线书入库所需的预览数据。
 class OnlineBookUpsert {
   const OnlineBookUpsert({
@@ -56,6 +112,19 @@ abstract interface class OnlineLibraryQueries {
     required String sourceId,
     required List<String> bookUrls,
   });
+
+  Future<OnlineBookRecord?> getOnlineBook(String bookId);
+
+  Future<void> updateBookInfo(String bookId, SourceBookInfo info);
+
+  Future<TocRefreshResult> refreshToc({
+    required String bookId,
+    required BookSource source,
+    required SourceToc toc,
+    String? error,
+  });
+
+  Future<void> recordRefreshFailure(String bookId, String error);
 }
 
 class DriftOnlineLibraryQueries implements OnlineLibraryQueries {
@@ -236,6 +305,199 @@ class DriftOnlineLibraryQueries implements OnlineLibraryQueries {
       for (final row in rows)
         row.rootPath: OnlineBookStatus(bookId: row.id, onShelf: row.onShelf),
     };
+  }
+
+  @override
+  Future<OnlineBookRecord?> getOnlineBook(String bookId) async {
+    final row = await (_database.select(_database.books)
+          ..where((tbl) => tbl.id.equals(bookId)))
+        .getSingleOrNull();
+    if (row == null || row.sourceId == null) return null;
+    return OnlineBookRecord(
+      id: row.id,
+      sourceId: row.sourceId!,
+      bookUrl: row.rootPath,
+      title: row.title,
+      libraryRootId: row.libraryRootId,
+      author: row.author,
+      coverUrl: row.coverUrl,
+      intro: row.description,
+      kind: row.kind,
+      wordCount: row.wordCount,
+      status: row.sourceStatus,
+      lastChapter: row.lastChapter,
+      totalChapters: row.totalChapters,
+      onShelf: row.onShelf,
+      lastRefreshAt: row.lastRefreshAt,
+      lastRefreshOk: row.lastRefreshOk,
+      lastRefreshError: row.lastRefreshError,
+    );
+  }
+
+  @override
+  Future<void> updateBookInfo(String bookId, SourceBookInfo info) async {
+    final now = _clock().toUtc();
+    await (_database.update(_database.books)..where((tbl) => tbl.id.equals(bookId)))
+        .write(
+      BooksCompanion(
+        title: Value<String>(info.title),
+        author: Value<String?>(info.author),
+        narrator: Value<String?>(info.narrator),
+        coverUrl: Value<String?>(info.coverUrl),
+        description: Value<String?>(info.intro),
+        kind: Value<String?>(info.kind),
+        wordCount: Value<String?>(info.wordCount),
+        sourceStatus: Value<String?>(info.status),
+        lastChapter: Value<String?>(info.lastChapter),
+        updatedAt: Value<DateTime>(now),
+      ),
+    );
+  }
+
+  @override
+  Future<void> recordRefreshFailure(String bookId, String error) async {
+    final now = _clock().toUtc();
+    await (_database.update(_database.books)..where((tbl) => tbl.id.equals(bookId)))
+        .write(
+      BooksCompanion(
+        lastRefreshAt: Value<DateTime?>(now),
+        lastRefreshOk: const Value<bool?>(false),
+        lastRefreshError: Value<String?>(error),
+        updatedAt: Value<DateTime>(now),
+      ),
+    );
+  }
+
+  @override
+  Future<TocRefreshResult> refreshToc({
+    required String bookId,
+    required BookSource source,
+    required SourceToc toc,
+    String? error,
+  }) async {
+    final now = _clock().toUtc();
+    return _database.transaction(() async {
+      final volume = await (_database.select(_database.volumes)
+            ..where((tbl) => tbl.bookId.equals(bookId))
+            ..limit(1))
+          .getSingleOrNull();
+      final String volumeId;
+      if (volume == null) {
+        volumeId = _idGenerator.next();
+        await _database.into(_database.volumes).insert(
+          VolumesCompanion.insert(
+            id: volumeId,
+            bookId: bookId,
+            title: '正文',
+            volumeIndex: 0,
+            path: '',
+            updatedAt: now,
+          ),
+        );
+      } else {
+        volumeId = volume.id;
+      }
+
+      final existingChapters = await (_database.select(_database.chapters)
+            ..where((tbl) => tbl.bookId.equals(bookId)))
+          .get();
+
+      final existingByPath = <String, Chapter>{
+        for (final ch in existingChapters) ch.filePath: ch,
+      };
+
+      int newCount = 0;
+      int updatedCount = 0;
+      final seenFilePaths = <String>{};
+
+      for (final SourceChapter sc in toc.chapters) {
+        final filePath = 'online/${_hash(sc.url)}';
+        seenFilePaths.add(filePath);
+        final existing = existingByPath[filePath];
+
+        if (existing == null) {
+          newCount++;
+          await _database.into(_database.chapters).insert(
+            ChaptersCompanion.insert(
+              id: _idGenerator.next(),
+              bookId: bookId,
+              volumeId: volumeId,
+              libraryRootId: source.libraryRootId,
+              title: sc.title,
+              chapterIndex: sc.index,
+              filePath: filePath,
+              sourceUri: Value<String?>(sc.rawUrl),
+              retired: const Value<bool>(false),
+              missing: const Value<bool>(false),
+              isVip: Value<bool>(sc.isVip),
+              updatedAt: now,
+            ),
+          );
+        } else {
+          updatedCount++;
+          await (_database.update(_database.chapters)
+                ..where((tbl) => tbl.id.equals(existing.id)))
+              .write(
+            ChaptersCompanion(
+              title: Value<String>(sc.title),
+              chapterIndex: Value<int>(sc.index),
+              sourceUri: Value<String?>(sc.rawUrl),
+              retired: const Value<bool>(false),
+              missing: const Value<bool>(false),
+              isVip: Value<bool>(sc.isVip),
+              updatedAt: Value<DateTime>(now),
+            ),
+          );
+        }
+      }
+
+      // 如果全部抓取成功（complete == true），把在远端已消失的旧章节标记为 retired 和 missing
+      // 如果完整抓取失败（complete == false），绝对不修改消失章节，完好保留原目录！
+      if (toc.complete) {
+        for (final ch in existingChapters) {
+          if (!seenFilePaths.contains(ch.filePath) && !ch.retired) {
+            await (_database.update(_database.chapters)
+                  ..where((tbl) => tbl.id.equals(ch.id)))
+                .write(
+              ChaptersCompanion(
+                retired: const Value<bool>(true),
+                missing: const Value<bool>(true),
+                updatedAt: Value<DateTime>(now),
+              ),
+            );
+          }
+        }
+      }
+
+      final activeCount = await (_database.selectOnly(_database.chapters)
+            ..addColumns(<Expression<Object>>[countAll()])
+            ..where(_database.chapters.bookId.equals(bookId) &
+                _database.chapters.retired.equals(false)))
+          .map((row) => row.read(countAll()) ?? 0)
+          .getSingle();
+
+      final effectiveError = toc.complete
+          ? null
+          : (error ?? (toc.warnings.isNotEmpty ? toc.warnings.join('; ') : '目录部分更新'));
+
+      await (_database.update(_database.books)..where((tbl) => tbl.id.equals(bookId)))
+          .write(
+        BooksCompanion(
+          totalChapters: Value<int>(activeCount),
+          lastRefreshAt: Value<DateTime?>(now),
+          lastRefreshOk: Value<bool?>(toc.complete),
+          lastRefreshError: Value<String?>(effectiveError),
+          updatedAt: Value<DateTime>(now),
+        ),
+      );
+
+      return TocRefreshResult(
+        isComplete: toc.complete,
+        newChaptersCount: newCount,
+        updatedChaptersCount: updatedCount,
+        error: effectiveError,
+      );
+    });
   }
 
   Future<void> _replaceTags(String bookId, List<String> tags) async {

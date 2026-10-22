@@ -145,6 +145,9 @@ class _FakeOnlineBookService implements OnlineBookService {
     listenCalls++;
     return 'book-1';
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _PreviewDiscovery implements SourceDiscovery {

@@ -129,6 +129,9 @@ class _FakeOnlineQueries implements OnlineLibraryQueries {
 
   @override
   Future<String> upsertOnlineBook(OnlineBookUpsert upsert) async => 'book-1';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 BookSource _source() {

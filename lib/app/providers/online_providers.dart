@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/online_book_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
+import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/contracts/audio/audio_cache_repository.dart';
 import 'package:tometone/contracts/network/network_monitor.dart';
 import 'package:tometone/domain/common/ulid_id_generator.dart';
@@ -34,5 +35,6 @@ final Provider<OnlineBookService> onlineBookServiceProvider =
       return OnlineBookService(
         queries: ref.watch(onlineLibraryQueriesProvider),
         discovery: ref.watch(sourceDiscoveryProvider),
+        sourceQueries: ref.watch(bookSourceQueriesProvider),
       );
     });
