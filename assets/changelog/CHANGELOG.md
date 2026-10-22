@@ -6,6 +6,27 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ## [未发布]
 
+## [0.3.0-beta.2] - 2026-10-23
+
+> 版本号三处一致：`pubspec.yaml` / `AppInfo.version` / 本节标题（由 `test/app_info_test.dart` 守门）。
+
+### 新增与优化
+
+- **应用内一键下载与自动安装更新**（`lib/app/update/apk_downloader.dart`、`lib/contracts/update/`、`lib/platform/device/`）：
+  - 新增流式分块 APK 下载器，实时精准反馈下载进度与百分比，支持下载途中随时取消；
+  - 集成 Android 原生 `FileProvider` 与 `REQUEST_INSTALL_PACKAGES` 机制，下载完成后直接一键拉起系统安装包解析安装，告别手动寻找 APK 文件的繁琐步骤；
+  - 优化更新详情页（`UpdatePage`）底部常驻栏，支持智能切换「下载并安装 / 取消下载 / 立即安装 / 外部浏览器下载」多种操作状态与优雅降级。
+- **发现页秒级状态恢复与防白屏缓存**（`lib/ui/pages/discovery/discovery_cache.dart`）：
+  - 引入发现页轻量级内存与生命周期缓存，在书籍详情、换源或设置页间来回切换时即时恢复分类列表与搜索结果，杜绝重复网络刷新与白屏闪烁。
+- **播放器与设置页面体验打磨**：
+  - 优化专业听书播放台工具条布局与热区，增强底栏操作流畅度；
+  - 完善设置各二级子页面结构样式，提升阅读与偏好管理一致性。
+
+### 测试
+
+- 新增 APK 下载状态机单测、Provider 状态流测试与 FileProvider 路径集成测试；
+- 全量 1031 项单元与组件测试全部通过，`flutter analyze` 零告警。
+
 ## [0.3.0-beta.1] - 2026-10-22
 
 > 版本号三处一致：`pubspec.yaml` / `AppInfo.version` / 本节标题（由 `test/app_info_test.dart` 守门）。
