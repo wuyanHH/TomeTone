@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// 发现页的一个分类入口。
 class ExploreCategory {
   const ExploreCategory({required this.name, required this.urlTemplate});
@@ -6,7 +8,7 @@ class ExploreCategory {
   final String urlTemplate;
 }
 
-/// 解析 Legado `exploreUrl`：每行或 `&&` 分隔的 `名称::URL 模板`。
+/// 解析 Legado `exploreUrl`：支持 JSON 数组，或每行 / `&&` 分隔的 `名称::URL 模板`。
 List<ExploreCategory> parseExploreCategories({
   required String? exploreUrl,
   required bool enabledExplore,
@@ -17,6 +19,27 @@ List<ExploreCategory> parseExploreCategories({
   final raw = exploreUrl?.trim();
   if (raw == null || raw.isEmpty) {
     return const <ExploreCategory>[];
+  }
+
+  if (raw.startsWith('[') && raw.endsWith(']')) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        final categories = <ExploreCategory>[];
+        for (final item in decoded) {
+          if (item is Map) {
+            final name = _string(item['title'] ?? item['name'] ?? item['category'])?.trim();
+            final url = _string(item['url'])?.trim();
+            if (name != null && name.isNotEmpty && url != null && url.isNotEmpty) {
+              categories.add(ExploreCategory(name: name, urlTemplate: url));
+            }
+          }
+        }
+        return List<ExploreCategory>.unmodifiable(categories);
+      }
+    } on FormatException {
+      // 不是合法 JSON 时降级走文本解析
+    }
   }
 
   final categories = <ExploreCategory>[];
@@ -38,3 +61,5 @@ List<ExploreCategory> parseExploreCategories({
   }
   return List<ExploreCategory>.unmodifiable(categories);
 }
+
+String? _string(Object? value) => value is String ? value : null;

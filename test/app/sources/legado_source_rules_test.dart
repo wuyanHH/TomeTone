@@ -87,6 +87,28 @@ void main() {
       expect(rules.tocFields, isEmpty);
       expect(rules.contentFields, isEmpty);
     });
+
+    test('ruleExplore 缺失或缺少 bookList 时自动从 ruleSearch 继承', () {
+      final rules = LegadoSourceRules.parse(
+        _source(<String, Object?>{
+          'exploreUrl': 'https://e.test/hot',
+          'searchUrl': 'https://e.test/search',
+          'ruleSearch': <String, Object?>{
+            'bookList': r'$.books[*]',
+            'name': r'$.title',
+            'bookUrl': r'$.url',
+          },
+          'ruleExplore': <String, Object?>{
+            'author': r'$.author',
+          },
+        }),
+      );
+
+      expect(rules.exploreFields['bookList'], r'$.books[*]');
+      expect(rules.exploreFields['name'], r'$.title');
+      expect(rules.exploreFields['bookUrl'], r'$.url');
+      expect(rules.exploreFields['author'], r'$.author');
+    });
   });
 
   group('SourceRateLimit.parse', () {

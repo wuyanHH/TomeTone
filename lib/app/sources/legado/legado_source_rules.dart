@@ -37,11 +37,18 @@ class LegadoSourceRules {
         ? decoded['concurrentRate']
         : source.concurrentRate;
 
+    final searchFields = _fields(decoded['ruleSearch']);
+    final rawExplore = _fields(decoded['ruleExplore']);
+    final exploreFields = Map<String, String>.unmodifiable(<String, String>{
+      ...searchFields,
+      ...rawExplore,
+    });
+
     return LegadoSourceRules(
       exploreUrl: _string(decoded['exploreUrl']) ?? source.exploreUrl,
       searchUrl: _string(decoded['searchUrl']) ?? source.searchUrl,
-      exploreFields: _fields(decoded['ruleExplore']),
-      searchFields: _fields(decoded['ruleSearch']),
+      exploreFields: exploreFields,
+      searchFields: searchFields,
       bookInfoFields: _fields(decoded['ruleBookInfo']),
       tocFields: _fields(decoded['ruleToc']),
       contentFields: _fields(decoded['ruleContent']),

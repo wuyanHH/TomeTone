@@ -109,6 +109,14 @@ void main() {
       expect(result.issues.single.code, SourceImportErrorCode.malformedRule);
     });
 
+    test('有 exploreUrl 但无 ruleExplore 时，可从合法的 ruleSearch 继承并成功导入', () {
+      final json = _fixtureJson()
+        ..remove('ruleExplore');
+      final result = _parser.parse(_encode(json));
+      expect(result.candidates, hasLength(1));
+      expect(result.candidates.single.draft.exploreUrl, isNotNull);
+    });
+
     test('非 http(s) 书源 URL 拒绝', () {
       final json = _fixtureJson()
         ..['bookSourceUrl'] = 'file:///tmp/source.json';

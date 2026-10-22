@@ -271,13 +271,20 @@ class LegadoSourceImportParser implements SourceImportParser {
 
     if (exploreUrl != null) {
       final explore = map['ruleExplore'];
-      if (explore is! Map ||
-          !_hasRule(explore, 'bookList') ||
-          !_hasRule(explore, 'name') ||
-          !_hasRule(explore, 'bookUrl')) {
+      final search = map['ruleSearch'];
+      final hasExploreRules = explore is Map &&
+          _hasRule(explore, 'bookList') &&
+          _hasRule(explore, 'name') &&
+          _hasRule(explore, 'bookUrl');
+      final canInheritFromSearch = search is Map &&
+          _hasRule(search, 'bookList') &&
+          _hasRule(search, 'name') &&
+          _hasRule(search, 'bookUrl');
+
+      if (!hasExploreRules && !canInheritFromSearch) {
         return _issue(
           index,
-          '有 exploreUrl 时 ruleExplore 必须包含 bookList / name / bookUrl',
+          '有 exploreUrl 时 ruleExplore（或继承 ruleSearch）必须包含 bookList / name / bookUrl',
           SourceImportErrorCode.malformedRule,
         );
       }

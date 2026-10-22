@@ -171,6 +171,86 @@ void main() {
       expect(http.requests.single.url.queryParameters['page'], '2');
       expect(page.items.single.title, '第二页书目');
     });
+
+    test(r'支持省略 $. 的常规键名及 @json: 标记并正确解析列表与字段', () async {
+      final http = _FakeHttpClient(
+        (request) async => _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'data': <String, Object?>{
+              'list': <Object?>[
+                <String, Object?>{
+                  'book_name': '斗罗大陆',
+                  'target_url': '/book/101',
+                  'author_name': '唐家三少',
+                },
+                <String, Object?>{
+                  'book_name': '斗破苍穹',
+                  'target_url': '/book/102',
+                  'author_name': '天蚕土豆',
+                },
+              ],
+            },
+          }),
+        ),
+      );
+      final source = _source(
+        mutate: (raw) {
+          raw['ruleExplore'] = <String, Object?>{
+            'bookList': '@json:data.list[*]',
+            'name': 'book_name',
+            'bookUrl': 'target_url',
+            'author': 'author_name',
+          };
+        },
+      );
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: _FakeJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final page = await engine.explore(source, _categories(source).first, 1);
+
+      expect(page.items, hasLength(2));
+      expect(page.items[0].title, '斗罗大陆');
+      expect(page.items[0].bookUrl, 'https://www.tingyou.fm/book/101');
+      expect(page.items[0].author, '唐家三少');
+      expect(page.items[1].title, '斗破苍穹');
+    });
+
+    test('ruleExplore 缺失时自动从 ruleSearch 继承并成功识别列表', () async {
+      final http = _FakeHttpClient(
+        (request) async => _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'items': <Object?>[
+              <String, Object?>{'title': '继承书目', 'url': '/book/99'},
+            ],
+          }),
+        ),
+      );
+      final source = _source(
+        mutate: (raw) {
+          raw.remove('ruleExplore');
+          raw['ruleSearch'] = <String, Object?>{
+            'bookList': 'items',
+            'name': 'title',
+            'bookUrl': 'url',
+          };
+        },
+      );
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: _FakeJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final page = await engine.explore(source, _categories(source).first, 1);
+
+      expect(page.items, hasLength(1));
+      expect(page.items.single.title, '继承书目');
+    });
   });
 
   group('LegadoSourceEngine.search', () {
@@ -360,6 +440,43 @@ void main() {
       expect(toc.chapters, hasLength(1));
       expect(toc.complete, isFalse);
       expect(http.requests, hasLength(1));
+    });
+
+    test(r'支持省略 $. 与带 @json: 的 chapterList 规则正确提取章节列表', () async {
+      final source = _source(
+        mutate: (raw) {
+          raw['ruleToc'] = <String, Object?>{
+            'chapterList': '@json:chapter_data.items',
+            'chapterName': 'c_title',
+            'chapterUrl': 'c_link',
+          };
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'chapter_data': <String, Object?>{
+              'items': <Object?>[
+                <String, Object?>{'c_title': '序章', 'c_link': '/play/0'},
+                <String, Object?>{'c_title': '正章', 'c_link': '/play/1'},
+              ],
+            },
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: _FakeJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final toc = await engine.toc(source, info());
+
+      expect(toc.chapters, hasLength(2));
+      expect(toc.chapters[0].title, '序章');
+      expect(toc.chapters[0].url, 'https://www.tingyou.fm/play/0');
+      expect(toc.chapters[1].title, '正章');
     });
 
     test('第二页失败保留第一页章节并标记不完整', () async {

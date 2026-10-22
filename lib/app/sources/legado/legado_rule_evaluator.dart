@@ -19,7 +19,7 @@ class LegadoRuleEvaluator {
   final JsRuntime _jsRuntime;
 
   Future<Object?> evaluate(String rule, RuleEvaluationContext context) async {
-    final trimmed = rule.trim();
+    var trimmed = rule.trim();
     if (trimmed.isEmpty) {
       return null;
     }
@@ -33,6 +33,13 @@ class LegadoRuleEvaluator {
           ? trimmed.substring(4, end).trim()
           : trimmed.substring(4).trim();
       return _evaluateJs(script, trimmed, context);
+    }
+
+    if (trimmed.startsWith('@json:')) {
+      trimmed = trimmed.substring(6).trim();
+      if (trimmed.isEmpty) {
+        return null;
+      }
     }
 
     if (_isUnsupported(trimmed)) {
@@ -78,15 +85,35 @@ class LegadoRuleEvaluator {
     String rule,
     RuleEvaluationContext context,
   ) async {
-    final trimmed = rule.trim();
+    var trimmed = rule.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    if (trimmed.startsWith('@json:')) {
+      trimmed = trimmed.substring(6).trim();
+    }
     if (trimmed.isEmpty) {
       return '';
     }
     if (trimmed.contains('{{')) {
       return _renderTemplate(trimmed, context);
     }
-    if (trimmed.startsWith(r'$.') || trimmed.startsWith(r'$[')) {
+    if (trimmed == r'$' ||
+        trimmed.startsWith(r'$.') ||
+        trimmed.startsWith(r'$[')) {
       return jsonPathValue(trimmed, context.result);
+    }
+    final root = context.result;
+    if (root is Map || root is List) {
+      final candidatePath = trimmed.startsWith('[') ? '\$$trimmed' : '\$.$trimmed';
+      try {
+        final value = jsonPathValue(candidatePath, root);
+        if (_isNonEmpty(value)) {
+          return value;
+        }
+      } on RuleEvaluationException {
+        // 不是合法 JSONPath 表达式时安全回退，走文本字面量
+      }
     }
     return trimmed;
   }
@@ -105,15 +132,32 @@ class LegadoRuleEvaluator {
     String expression,
     RuleEvaluationContext context,
   ) async {
-    final trimmed = expression.trim();
+    var trimmed = expression.trim();
+    if (trimmed.startsWith('@json:')) {
+      trimmed = trimmed.substring(6).trim();
+    }
     if (trimmed == 'page') {
       return context.page;
     }
     if (trimmed == 'key') {
       return context.key;
     }
-    if (trimmed.startsWith(r'$.') || trimmed.startsWith(r'$[')) {
+    if (trimmed == r'$' ||
+        trimmed.startsWith(r'$.') ||
+        trimmed.startsWith(r'$[')) {
       return jsonPathValue(trimmed, context.result);
+    }
+    final root = context.result;
+    if (root is Map || root is List) {
+      final candidatePath = trimmed.startsWith('[') ? '\$$trimmed' : '\$.$trimmed';
+      try {
+        final value = jsonPathValue(candidatePath, root);
+        if (_isNonEmpty(value)) {
+          return value;
+        }
+      } on RuleEvaluationException {
+        // 尝试走 JS
+      }
     }
     try {
       return await _jsRuntime.evaluate(
@@ -155,7 +199,6 @@ class LegadoRuleEvaluator {
   bool _isUnsupported(String rule) {
     return rule.startsWith('@css:') ||
         rule.startsWith('@xpath:') ||
-        rule.startsWith('@json:') ||
         rule.contains('&&') ||
         rule.contains('%%') ||
         rule.contains('#####');
@@ -167,6 +210,12 @@ class LegadoRuleEvaluator {
     }
     if (value is String) {
       return value.trim().isNotEmpty;
+    }
+    if (value is Iterable) {
+      return value.isNotEmpty;
+    }
+    if (value is Map) {
+      return value.isNotEmpty;
     }
     return true;
   }

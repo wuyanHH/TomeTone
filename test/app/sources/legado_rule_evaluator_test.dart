@@ -138,7 +138,6 @@ void main() {
       for (final rule in <String>[
         '@css:.title',
         '@xpath://title',
-        r'@json:$.title',
         r'$.title && $.name',
         'a%%b',
         'a#####b',
@@ -155,6 +154,76 @@ void main() {
           reason: rule,
         );
       }
+    });
+
+    test('@json 前缀支持剥离并正常执行 JSONPath', () async {
+      final evaluator = LegadoRuleEvaluator(jsRuntime: _FakeJsRuntime());
+      final context = _context(
+        result: <String, Object?>{
+          'data': <String, Object?>{
+            'list': <Object?>[
+              <String, Object?>{'title': '书目1'},
+              <String, Object?>{'title': '书目2'},
+            ],
+          },
+        },
+      );
+
+      final res1 = await evaluator.evaluate(r'@json:$.data.list[*]', context);
+      expect(res1, isA<List<Object?>>());
+      expect((res1 as List<Object?>).length, 2);
+
+      final res2 = await evaluator.evaluate(r'@json:data.list', context);
+      expect(res2, isA<List<Object?>>());
+      expect((res2 as List<Object?>).length, 2);
+    });
+
+    test(r'支持 $ 直接提取根 JSON 数组或根对象', () async {
+      final evaluator = LegadoRuleEvaluator(jsRuntime: _FakeJsRuntime());
+      const listContext = RuleEvaluationContext(
+        result: <Object?>[
+          <String, Object?>{'title': 'A'},
+          <String, Object?>{'title': 'B'},
+        ],
+        baseUrl: 'https://e.test',
+      );
+
+      final res = await evaluator.evaluate(r'$', listContext);
+      expect(res, isA<List<Object?>>());
+      expect((res as List<Object?>).length, 2);
+    });
+
+    test(r'省略 $. 前缀的相对键路径规则能正确从 Map/List 中提取', () async {
+      final evaluator = LegadoRuleEvaluator(jsRuntime: _FakeJsRuntime());
+      final context = _context(
+        result: <String, Object?>{
+          'title': '长安十二时辰',
+          'bookUrl': '/book/1',
+          'nested': <String, Object?>{'author': '马伯庸'},
+        },
+      );
+
+      expect(await evaluator.evaluate('title', context), '长安十二时辰');
+      expect(await evaluator.evaluate('bookUrl', context), '/book/1');
+      expect(await evaluator.evaluate('nested.author', context), '马伯庸');
+      // 不存在的键且无法作为 JSONPath 匹配时，回退为文本字面量
+      expect(await evaluator.evaluate('完结', context), '完结');
+    });
+
+    test('|| 回退在首项为空列表 [] 时继续尝试后续备选', () async {
+      final evaluator = LegadoRuleEvaluator(jsRuntime: _FakeJsRuntime());
+      final context = _context(
+        result: <String, Object?>{
+          'items': <Object?>[],
+          'data': <Object?>[
+            <String, Object?>{'title': '备用书目'},
+          ],
+        },
+      );
+
+      final res = await evaluator.evaluate(r'$.items || $.data', context);
+      expect(res, isA<List<Object?>>());
+      expect((res as List<Object?>).length, 1);
     });
 
     test('空规则返回 null，普通文本原样返回', () async {
