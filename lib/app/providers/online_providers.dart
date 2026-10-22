@@ -36,5 +36,6 @@ final Provider<OnlineBookService> onlineBookServiceProvider =
         queries: ref.watch(onlineLibraryQueriesProvider),
         discovery: ref.watch(sourceDiscoveryProvider),
         sourceQueries: ref.watch(bookSourceQueriesProvider),
+        cacheRepository: ref.watch(audioCacheRepositoryProvider),
       );
     });

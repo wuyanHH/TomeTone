@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 import 'package:tometone/app/sources/source_discovery.dart';
+import 'package:tometone/contracts/audio/audio_cache_repository.dart';
 import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/book_source_queries.dart';
@@ -21,13 +22,16 @@ class OnlineBookService {
     required OnlineLibraryQueries queries,
     required SourceDiscovery discovery,
     BookSourceQueries? sourceQueries,
+    AudioCacheRepository? cacheRepository,
   }) : _queries = queries,
        _discovery = discovery,
-       _sourceQueries = sourceQueries;
+       _sourceQueries = sourceQueries,
+       _cacheRepository = cacheRepository;
 
   final OnlineLibraryQueries _queries;
   final SourceDiscovery _discovery;
   final BookSourceQueries? _sourceQueries;
+  final AudioCacheRepository? _cacheRepository;
 
   Future<void> refreshBookInfo(String bookId, {BookSource? source}) async {
     final book = await _queries.getOnlineBook(bookId);
@@ -80,6 +84,89 @@ class OnlineBookService {
         error: errStr,
       );
     }
+  }
+
+  Future<SwitchSourceResult> switchSource({
+    required String bookId,
+    required String targetSourceId,
+    required String targetBookUrl,
+    String? targetChapterId,
+    BookSource? targetSource,
+    SourceToc? targetToc,
+  }) async {
+    final book = await _queries.getOnlineBook(bookId);
+    if (book == null) {
+      throw StateError('在线书目不存在: $bookId');
+    }
+
+    final resolvedTargetSource =
+        targetSource ?? await _sourceQueries?.sourceById(targetSourceId);
+    if (resolvedTargetSource == null) {
+      throw StateError('目标书源不存在: $targetSourceId');
+    }
+
+    SourceToc? resolvedToc = targetToc;
+    if (resolvedToc == null) {
+      SourceBookInfo? info;
+      try {
+        info = await _discovery.bookInfo(resolvedTargetSource, targetBookUrl);
+      } catch (_) {}
+      info ??= SourceBookInfo(
+        bookUrl: targetBookUrl,
+        tocUrl: targetBookUrl,
+        title: book.title,
+      );
+      resolvedToc = await _discovery.toc(resolvedTargetSource, info);
+    }
+
+    // 章节对齐算法
+    SourceChapter? mappedChapter;
+    if (targetChapterId != null) {
+      mappedChapter = resolvedToc.chapters.cast<SourceChapter?>().firstWhere(
+            (c) => c!.rawUrl == targetChapterId || c.url == targetChapterId,
+            orElse: () => null,
+          );
+    } else {
+      final progress = await _queries.getPlaybackProgress(bookId);
+      if (progress != null) {
+        final oldChapter = await _queries.getChapterById(progress.chapterId);
+        if (oldChapter != null) {
+          final oldClean = _cleanChapterTitle(oldChapter.title);
+          if (oldClean.isNotEmpty) {
+            mappedChapter = resolvedToc.chapters.cast<SourceChapter?>().firstWhere(
+                  (c) => _cleanChapterTitle(c!.title) == oldClean,
+                  orElse: () => null,
+                );
+          }
+          mappedChapter ??= resolvedToc.chapters.cast<SourceChapter?>().firstWhere(
+                (c) => c!.index == oldChapter.chapterIndex,
+                orElse: () => null,
+              );
+        }
+      }
+    }
+
+    final result = await _queries.applySwitchSource(
+      bookId: bookId,
+      targetSource: resolvedTargetSource,
+      targetBookUrl: targetBookUrl,
+      targetToc: resolvedToc,
+      mappedChapter: mappedChapter,
+    );
+
+    // 清理旧音频缓存
+    try {
+      await _cacheRepository?.clearBookCache(bookId);
+    } catch (_) {}
+
+    return result;
+  }
+
+  static String _cleanChapterTitle(String title) {
+    return title
+        .replaceAll(RegExp(r'第\s*\d+\s*章|[^\w\u4e00-\u9fa5]'), '')
+        .trim()
+        .toLowerCase();
   }
 
   Future<String> addToShelf({

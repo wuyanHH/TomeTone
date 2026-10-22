@@ -10,6 +10,7 @@ import '../../sources/discovery/source_models.dart';
 import '../database/tometone_database.dart';
 import '../metadata/book_metadata.dart';
 import 'library_queries.dart';
+import 'library_views.dart';
 
 /// 在线书在书库中的加入状态。
 class OnlineBookStatus {
@@ -75,6 +76,19 @@ class OnlineBookRecord {
   final String? lastRefreshError;
 }
 
+/// 换源结果。
+class SwitchSourceResult {
+  const SwitchSourceResult({
+    required this.isProgressMapped,
+    required this.currentChapterId,
+    required this.totalChapters,
+  });
+
+  final bool isProgressMapped;
+  final String currentChapterId;
+  final int totalChapters;
+}
+
 /// 一次在线书入库所需的预览数据。
 class OnlineBookUpsert {
   const OnlineBookUpsert({
@@ -125,6 +139,18 @@ abstract interface class OnlineLibraryQueries {
   });
 
   Future<void> recordRefreshFailure(String bookId, String error);
+
+  Future<ChapterView?> getChapterById(String chapterId);
+
+  Future<ProgressSnapshot?> getPlaybackProgress(String bookId);
+
+  Future<SwitchSourceResult> applySwitchSource({
+    required String bookId,
+    required BookSource targetSource,
+    required String targetBookUrl,
+    required SourceToc targetToc,
+    required SourceChapter? mappedChapter,
+  });
 }
 
 class DriftOnlineLibraryQueries implements OnlineLibraryQueries {
@@ -496,6 +522,177 @@ class DriftOnlineLibraryQueries implements OnlineLibraryQueries {
         newChaptersCount: newCount,
         updatedChaptersCount: updatedCount,
         error: effectiveError,
+      );
+    });
+  }
+
+  @override
+  Future<ProgressSnapshot?> getPlaybackProgress(String bookId) async {
+    final row = await (_database.select(_database.playbackProgress)
+          ..where((tbl) => tbl.bookId.equals(bookId)))
+        .getSingleOrNull();
+    if (row == null) return null;
+    return ProgressSnapshot(
+      bookId: row.bookId,
+      chapterId: row.chapterId,
+      position: Duration(milliseconds: row.positionMs),
+      updatedAt: row.updatedAt,
+    );
+  }
+
+  @override
+  Future<ChapterView?> getChapterById(String chapterId) async {
+    final row = await (_database.select(_database.chapters)
+          ..where((tbl) => tbl.id.equals(chapterId)))
+        .getSingleOrNull();
+    if (row == null) return null;
+    return ChapterView(
+      id: row.id,
+      volumeId: row.volumeId,
+      title: row.title,
+      chapterIndex: row.chapterIndex,
+      filePath: row.filePath,
+      missing: row.missing,
+      durationMs: row.durationMs,
+      sourceUri: row.sourceUri,
+      retired: row.retired,
+      isVip: row.isVip,
+    );
+  }
+
+  @override
+  Future<SwitchSourceResult> applySwitchSource({
+    required String bookId,
+    required BookSource targetSource,
+    required String targetBookUrl,
+    required SourceToc targetToc,
+    required SourceChapter? mappedChapter,
+  }) async {
+    final now = _clock().toUtc();
+    return _database.transaction(() async {
+      // 1. 将原书下所有现有章节打上 retired 标记
+      await (_database.update(_database.chapters)
+            ..where((tbl) => tbl.bookId.equals(bookId)))
+          .write(
+        ChaptersCompanion(
+          retired: const Value<bool>(true),
+          updatedAt: Value<DateTime>(now),
+        ),
+      );
+
+      // 2. 确保存在卷
+      final volume = await (_database.select(_database.volumes)
+            ..where((tbl) => tbl.bookId.equals(bookId))
+            ..limit(1))
+          .getSingleOrNull();
+      final String volumeId;
+      if (volume == null) {
+        volumeId = _idGenerator.next();
+        await _database.into(_database.volumes).insert(
+          VolumesCompanion.insert(
+            id: volumeId,
+            bookId: bookId,
+            title: '正文',
+            volumeIndex: 0,
+            path: '',
+            updatedAt: now,
+          ),
+        );
+      } else {
+        volumeId = volume.id;
+      }
+
+      // 3. 写入/重新激活新源的章节（upsert 语义，避免 A -> B -> A 唯一约束冲突）
+      final urlToChapterId = <String, String>{};
+      for (final sc in targetToc.chapters) {
+        final filePath = 'online/${_hash(sc.url)}';
+        final existing = await (_database.select(_database.chapters)
+              ..where((tbl) =>
+                  tbl.libraryRootId.equals(targetSource.libraryRootId) &
+                  tbl.filePath.equals(filePath)))
+            .getSingleOrNull();
+
+        final String chapterId;
+        if (existing != null) {
+          chapterId = existing.id;
+          await (_database.update(_database.chapters)
+                ..where((tbl) => tbl.id.equals(existing.id)))
+              .write(
+            ChaptersCompanion(
+              bookId: Value<String>(bookId),
+              volumeId: Value<String>(volumeId),
+              title: Value<String>(sc.title),
+              chapterIndex: Value<int>(sc.index),
+              sourceUri: Value<String?>(sc.rawUrl),
+              retired: const Value<bool>(false),
+              missing: const Value<bool>(false),
+              isVip: Value<bool>(sc.isVip),
+              updatedAt: Value<DateTime>(now),
+            ),
+          );
+        } else {
+          chapterId = _idGenerator.next();
+          await _database.into(_database.chapters).insert(
+            ChaptersCompanion.insert(
+              id: chapterId,
+              bookId: bookId,
+              volumeId: volumeId,
+              libraryRootId: targetSource.libraryRootId,
+              title: sc.title,
+              chapterIndex: sc.index,
+              filePath: filePath,
+              sourceUri: Value<String?>(sc.rawUrl),
+              retired: const Value<bool>(false),
+              missing: const Value<bool>(false),
+              isVip: Value<bool>(sc.isVip),
+              updatedAt: now,
+            ),
+          );
+        }
+        urlToChapterId[sc.url] = chapterId;
+      }
+
+      // 4. 更新 books 表的关联源与状态
+      await (_database.update(_database.books)..where((tbl) => tbl.id.equals(bookId)))
+          .write(
+        BooksCompanion(
+          libraryRootId: Value<String>(targetSource.libraryRootId),
+          sourceId: Value<String?>(targetSource.id),
+          rootPath: Value<String>(targetBookUrl),
+          sourceUri: Value<String?>(targetBookUrl),
+          totalChapters: Value<int>(targetToc.chapters.length),
+          lastRefreshAt: Value<DateTime?>(now),
+          lastRefreshOk: const Value<bool?>(true),
+          lastRefreshError: const Value<String?>(null),
+          updatedAt: Value<DateTime>(now),
+        ),
+      );
+
+      // 5. 进度映射
+      final bool isMapped =
+          mappedChapter != null && urlToChapterId.containsKey(mappedChapter.url);
+      final String currentChapterId;
+      if (isMapped) {
+        currentChapterId = urlToChapterId[mappedChapter.url]!;
+        await (_database.update(_database.playbackProgress)
+              ..where((tbl) => tbl.bookId.equals(bookId)))
+            .write(
+          PlaybackProgressCompanion(
+            chapterId: Value<String>(currentChapterId),
+            updatedAt: Value<DateTime>(now),
+          ),
+        );
+      } else {
+        // 未对齐：绝不修改 playback_progress，锁定原进度防覆盖
+        currentChapterId = targetToc.chapters.isNotEmpty
+            ? (urlToChapterId[targetToc.chapters.first.url] ?? '')
+            : '';
+      }
+
+      return SwitchSourceResult(
+        isProgressMapped: isMapped,
+        currentChapterId: currentChapterId,
+        totalChapters: targetToc.chapters.length,
       );
     });
   }
