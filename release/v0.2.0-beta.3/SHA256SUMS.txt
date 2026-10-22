@@ -1,0 +1,3 @@
+27a45c1f6c645375ccfb2ffb03db8c25775cb48c17edc800f97ac5da8e2f04b5  TomeTone-v0.2.0-beta.3-arm64-v8a.apk
+a22006f6eca317445e4c2c1ca4b27dbe9a5fb977a8f1d444bffaf0dab781f2f7  TomeTone-v0.2.0-beta.3-armeabi-v7a.apk
+640d9f7f71ab74539d2463599d151ac23afe93081116a813234dcd0046cd9fde  TomeTone-v0.2.0-beta.3-x86_64.apk
