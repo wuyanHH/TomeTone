@@ -197,6 +197,9 @@ class _FakeLibraryQueries implements LibraryQueries {
     PerBookPrefsSnapshot preferences, {
     DateTime? updatedAt,
   }) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// 在测试里临时关掉动效：滚动文本是无限循环动画，`pumpAndSettle` 等不到头。

@@ -57,6 +57,9 @@ abstract interface class LibraryQueries {
     PerBookPrefsSnapshot preferences, {
     DateTime? updatedAt,
   });
+
+  /// 从数据库中删除书目记录（级联删除章节、进度、卷与覆盖层）。
+  Future<void> deleteBookRecord(String bookId);
 }
 
 /// Drift 实现。
@@ -334,6 +337,11 @@ class DriftLibraryQueries implements LibraryQueries {
             updatedAt: updatedAt ?? DateTime.now().toUtc(),
           ),
         );
+  }
+
+  @override
+  Future<void> deleteBookRecord(String bookId) async {
+    await (_database.delete(_database.books)..where((tbl) => tbl.id.equals(bookId))).go();
   }
 
   // ---------------------------------------------------------------------------

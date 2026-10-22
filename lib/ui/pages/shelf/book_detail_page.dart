@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/sources/book_source.dart';
+import 'package:tometone/ui/pages/library/safe_delete_book_dialog.dart';
 import 'package:tometone/ui/pages/shelf/add_to_shelf_sheet.dart';
 import 'package:tometone/ui/pages/shelf/book_metadata_sheet.dart';
 import 'package:tometone/ui/pages/shelf/chapter_list_sheet.dart';
@@ -85,6 +87,8 @@ class BookDetailPage extends ConsumerWidget {
                         if (!online) {
                           unawaited(_reimport(context, ref, detail, rootUri));
                         }
+                      case 'delete':
+                        unawaited(_deleteBook(context, ref, detail.summary, online, rootUri));
                     }
                   },
                   itemBuilder: (BuildContext context) =>
@@ -106,6 +110,14 @@ class BookDetailPage extends ConsumerWidget {
                               contentPadding: EdgeInsets.zero,
                             ),
                           ),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_outline_rounded, color: Colors.red),
+                            title: Text('删除书目', style: TextStyle(color: Colors.red)),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
                       ],
                 ),
               ],
@@ -223,6 +235,50 @@ class BookDetailPage extends ConsumerWidget {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('移出书架失败，请稍后再试')));
       }
+    }
+  }
+
+  Future<void> _deleteBook(
+    BuildContext context,
+    WidgetRef ref,
+    BookSummary book,
+    bool online,
+    String? rootUri,
+  ) async {
+    final bool isSafRoot = rootUri != null && rootUri.startsWith('content://');
+    final result = await showSafeDeleteBookDialog(
+      context,
+      book: book,
+      isLocal: !online,
+      isSafRoot: isSafRoot,
+    );
+    if (result == null || !context.mounted) return;
+
+    if (result.action == SafeDeleteAction.removeFromShelf) {
+      await ref.read(onlineLibraryQueriesProvider).setBookShelf(book.id, onShelf: false);
+    } else {
+      await ref.read(libraryQueriesProvider).deleteBookRecord(book.id);
+      if (online) {
+        try {
+          await ref.read(audioCacheRepositoryProvider).clearBookCache(book.id);
+        } catch (_) {}
+      } else if (result.deleteLocalFiles && rootUri != null) {
+        try {
+          final uri = Uri.parse(rootUri);
+          if (uri.scheme == 'file' || uri.scheme.isEmpty) {
+            final dir = Directory(rootUri);
+            final bookDir = Directory('${dir.path}/${book.rootPath}');
+            if (bookDir.existsSync()) {
+              bookDir.deleteSync(recursive: true);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (context.mounted) {
+      ref.invalidate(booksProvider);
+      Navigator.of(context).pop();
     }
   }
 
