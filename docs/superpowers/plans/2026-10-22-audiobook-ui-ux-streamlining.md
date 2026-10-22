@@ -318,30 +318,30 @@ git commit -m "feat(player): ergonomic 5-key console, single progress text and f
   - 卷册目录支持折叠/展开与正倒序；
   - 移出书架支持二次确认且不删物理文件。
 
-- [ ] **Step 1: 编写统一目录详情页的双态与双按钮 CTA 行为测试**
+- [x] **Step 1: 编写统一目录详情页的双态与双按钮 CTA 行为测试**
 
 测试两种场景：
 1. 从发现页进入（未入库）：展示 `[+ 加入书架]` 与 `[▶ 立即试听]`，打开前后不写本地数据库；点击 `加入书架` 或点击试听后正确入库；
 2. 从书架进入（已入库）：展示 `[✓ 移出书架]` 与 `[▶ 继续播放 第 X 章]`，点击移出书架并确认后更新 `onShelf: false`。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/ui/book_detail_page_test.dart`
 预期：FAIL
 
-- [ ] **Step 3: 实现统一的 `BookDetailPage` 与卷册折叠目录**
+- [x] **Step 3: 实现统一的 `BookDetailPage` 与卷册折叠目录**
 
 - 扩展 `BookDetailPage` 构造函数，支持直接传入 `(source, item)` 未入库参数；未入库时采用只读网络查询渲染，入库后切换 Drift 响应式流；
 - 实现横向 CTA 栏：左边 `[加入/移出书架]` 按钮，右边撑满的 `[立即试听/继续播放]` 按钮；
 - 目录列表增加卷册分组折叠组件与正倒序切换逻辑；
 - 更新 `DiscoveryPage` 中原指向 `OnlineBookPreviewPage` 的跳转，全部统一路由到 `BookDetailPage`。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/ui/book_detail_page_test.dart test/ui/shelf_page_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/ui/pages/shelf/book_detail_page.dart lib/ui/pages/discovery/ test/ui/
@@ -356,22 +356,22 @@ git commit -m "feat(book-detail): unify catalog detail page with dual CTA and vo
 - All modified files across the workspace
 - CI boundary checks: `tool/ci/check_import_boundaries.dart`
 
-- [ ] **Step 1: 运行 Dart 静态分析**
+- [x] **Step 1: 运行 Dart 静态分析**
 
 运行：`dart analyze`
 预期：0 issues found!
 
-- [ ] **Step 2: 运行架构导入边界检查**
+- [x] **Step 2: 运行架构导入边界检查**
 
 运行：`dart run tool/ci/check_import_boundaries.dart`
 预期：All boundary rules pass!
 
-- [ ] **Step 3: 运行全量单元与组件测试**
+- [x] **Step 3: 运行全量单元与组件测试**
 
 运行：`flutter test`
 预期：All test suites pass!
 
-- [ ] **Step 4: 提交所有代码与发版记录**
+- [x] **Step 4: 提交所有代码与发版记录**
 
 ```bash
 git commit -am "chore: pass all quality gates for audiobook ui/ux streamlining"
