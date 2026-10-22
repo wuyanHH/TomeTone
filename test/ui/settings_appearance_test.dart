@@ -38,8 +38,10 @@ void main() {
       );
       expect(store.current.paletteId, 'amberScroll');
 
-      // 切换到设置页
+      // 切换到设置页并进入外观设置
       await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(SettingsPage.tileAppearanceKey));
       await tester.pumpAndSettle();
 
       // 点击竹海幽青色盘
@@ -85,8 +87,10 @@ void main() {
       expect(app.themeMode, ThemeMode.system);
       expect(store.current.brightness, BrightnessPreference.system);
 
-      // 切换到设置页
+      // 切换到设置页并进入外观设置
       await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(SettingsPage.tileAppearanceKey));
       await tester.pumpAndSettle();
 
       // 切换为浅色
@@ -146,8 +150,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 切换到设置页
+      // 切换到设置页并进入外观设置
       await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(SettingsPage.tileAppearanceKey));
       await tester.pumpAndSettle();
 
       // 1. 默认状态：跟随系统，OLED 开关为启用状态（onChanged != null），默认值为 false

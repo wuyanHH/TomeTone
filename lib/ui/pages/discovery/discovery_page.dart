@@ -12,7 +12,6 @@ import 'package:tometone/domain/sources/discovery/explore_category.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
 import 'package:tometone/ui/pages/discovery/discovery_result_tile.dart';
-import 'package:tometone/ui/pages/discovery/discovery_source_card.dart';
 import 'package:tometone/ui/pages/discovery/online_book_preview_page.dart';
 import 'package:tometone/ui/pages/discovery/source_switcher_sheet.dart';
 import 'package:tometone/ui/pages/sources/source_management_page.dart';

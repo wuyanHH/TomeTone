@@ -223,16 +223,16 @@ git commit -m "feat(discovery): move source switch and manage into app bar heade
   - `CacheSettingsPage`（存储与缓存二级页）；
   - `AboutSettingsPage`（关于与版本更新二级页）。
 
-- [ ] **Step 1: 编写设置页一级导航与二级页面跳转测试**
+- [x] **Step 1: 编写设置页一级导航与二级页面跳转测试**
 
 在 `test/ui/settings_page_test.dart` 中测试一级菜单 4 个入口项存在，点击后能分别导航至对应二级页面，并且原有测试 Key 依然正常工作。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/ui/settings_page_test.dart`
 预期：FAIL（二级页面尚未创建）
 
-- [ ] **Step 3: 创建 4 个二级设置页面并将 `SettingsPage` 改造为分组卡片入口**
+- [x] **Step 3: 创建 4 个二级设置页面并将 `SettingsPage` 改造为分组卡片入口**
 
 - 创建 `AppearanceSettingsPage`：迁移原有的色彩主题、明暗、OLED 开关；
 - 创建 `AudioPreferenceSettingsPage`：展示并修改 Task 1 的全局默认倍速、默认跳过片头/片尾秒数；
@@ -240,12 +240,12 @@ git commit -m "feat(discovery): move source switch and manage into app bar heade
 - 创建 `AboutSettingsPage`：迁移版本号、检查更新、更新历史与开源许可证入口；
 - `SettingsPage` 主页面只渲染美观的分组 `ListTile`，带副标与尾部导航箭头。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/ui/settings_page_test.dart test/ui/settings_appearance_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/ui/pages/settings/ test/ui/settings_page_test.dart

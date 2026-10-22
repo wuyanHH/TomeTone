@@ -471,7 +471,6 @@ class _ShelfHeader extends StatelessWidget {
     required this.onSearchToggle,
     required this.onLayoutToggle,
     required this.onPrefsChanged,
-    this.trailing,
   });
 
   /// 册数徽标文案（读取态 / 失败态 / `N 册` / `M / N 册`）。
@@ -494,9 +493,6 @@ class _ShelfHeader extends StatelessWidget {
 
   /// 偏好变更回调。
   final ValueChanged<AppPreferences> onPrefsChanged;
-
-  /// 右侧附加操作（如更多菜单）。
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -639,7 +635,6 @@ class _ShelfHeader extends StatelessWidget {
                 ),
               ],
             ),
-            if (trailing != null) trailing!,
           ],
         ),
       ),

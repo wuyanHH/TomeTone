@@ -9,6 +9,7 @@ import 'package:tometone/contracts/update/update_models.dart';
 import 'package:tometone/contracts/update/update_source.dart';
 import 'package:tometone/contracts/update/update_state.dart';
 import 'package:tometone/ui/pages/settings/settings_page.dart';
+import 'package:tometone/ui/pages/settings/subpages/about_settings_page.dart';
 import 'package:tometone/ui/pages/settings/update_page.dart';
 
 import 'ui_test_harness.dart';
@@ -37,7 +38,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: const MaterialApp(
-        home: Scaffold(body: SettingsPage()),
+        home: AboutSettingsPage(),
       ),
     );
   }
