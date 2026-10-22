@@ -6,11 +6,17 @@ import 'package:tometone/app/library/cover_art.dart';
 import 'package:tometone/app/policy/chapter_sequencer.dart';
 import 'package:tometone/app/policy/per_book_preferences.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
+import 'package:tometone/app/preferences/app_preferences.dart';
+import 'package:tometone/app/preferences/app_preferences_store.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
+import 'package:tometone/app/providers/update_providers.dart';
 import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
+import 'package:tometone/contracts/update/device_architecture.dart';
+import 'package:tometone/contracts/update/update_source.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
@@ -223,16 +229,71 @@ PlaybackRequest testRequest(
   );
 }
 
-/// 常用 overrides：书架 / 书库根 / 控制器 / 书详情 / 媒体源 resolver 工厂。
+/// 测试用设备硬件架构。
+class FakeDeviceArchitecture implements DeviceArchitecture {
+  /// 创建测试用设备硬件架构。
+  const FakeDeviceArchitecture({
+    this.abis = const <String>['arm64-v8a', 'armeabi-v7a'],
+  });
+
+  /// 支持的 ABI 列表。
+  final List<String> abis;
+
+  @override
+  Future<List<String>> supportedAbis() async => abis;
+}
+
+/// 测试用更新源。
+class FakeUpdateSource implements UpdateSource {
+  /// 创建测试用更新源。
+  FakeUpdateSource({
+    this.result = const UpdateFetchResult(),
+    this.error,
+  });
+
+  /// 模拟返回结果。
+  UpdateFetchResult result;
+
+  /// 模拟抛出的异常。
+  Exception? error;
+
+  /// 调用次数。
+  int calls = 0;
+
+  @override
+  Future<UpdateFetchResult> fetchReleases({String? etag}) async {
+    calls++;
+    if (error != null) {
+      throw error!;
+    }
+    return result;
+  }
+}
+
+/// 常用 overrides：书架 / 书库根 / 控制器 / 书详情 / 媒体源 resolver 工厂 / 偏好。
 List<Override> testOverrides({
   required PlaybackController controller,
   List<BookSummary> books = const <BookSummary>[],
   List<LibraryRootView> roots = const <LibraryRootView>[testRoot],
   BookDetail? detail,
   MediaSourceResolverFactory? resolverFactory,
+  AppPreferences preferences = AppPreferences.defaults,
+  AppPreferencesStore? preferencesStore,
+  DeviceArchitecture? deviceArchitecture,
+  UpdateSource? updateSource,
   List<Override> extra = const <Override>[],
 }) {
   return <Override>[
+    preferencesStoreProvider.overrideWithValue(
+      preferencesStore ?? InMemoryAppPreferencesStore(preferences),
+    ),
+    initialPreferencesProvider.overrideWithValue(preferences),
+    deviceArchitectureProvider.overrideWithValue(
+      deviceArchitecture ?? const FakeDeviceArchitecture(),
+    ),
+    updateSourceProvider.overrideWithValue(
+      updateSource ?? FakeUpdateSource(),
+    ),
     mediaSourceResolverFactoryProvider.overrideWithValue(
       resolverFactory ?? testResolverFactory(),
     ),

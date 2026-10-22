@@ -32,8 +32,9 @@ void main() {
     expect(gradle, contains('namespace = "${AppInfo.organization}.app"'));
   });
 
-  test('未配置更新源时不发起任何检查', () {
-    // M1 阶段 GitHub owner/repo 尚未确定，必须保持"未启用"而非静默请求空地址。
-    expect(AppInfo.hasUpdateSource, isFalse);
+  test('更新源已配置', () {
+    expect(AppInfo.hasUpdateSource, isTrue);
+    expect(AppInfo.githubOwner, 'wuyanHH');
+    expect(AppInfo.githubRepo, 'TomeTone');
   });
 }

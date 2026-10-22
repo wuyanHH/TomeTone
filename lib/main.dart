@@ -1,11 +1,16 @@
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:tometone/app/app_info.dart';
 import 'package:tometone/app/library/library_root_service.dart';
+import 'package:tometone/app/preferences/app_preferences_store.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/app/providers/online_providers.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
+import 'package:tometone/app/providers/update_providers.dart';
 import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/storage/book_metadata_file_store.dart';
 import 'package:tometone/contracts/storage/storage_provider.dart';
@@ -21,7 +26,9 @@ import 'package:tometone/modules/storage_local/local_storage_provider.dart';
 import 'package:tometone/modules/storage_saf/saf_book_metadata_file_store.dart';
 import 'package:tometone/modules/storage_saf/saf_media_source_resolver.dart';
 import 'package:tometone/modules/storage_saf/saf_storage_provider.dart';
+import 'package:tometone/modules/update_github/github_releases_source.dart';
 import 'package:tometone/platform/database_connection.dart';
+import 'package:tometone/platform/device/abi_bridge.dart';
 import 'package:tometone/platform/saf/saf_bridge.dart';
 import 'package:tometone/ui/app.dart';
 
@@ -30,8 +37,11 @@ import 'package:tometone/ui/app.dart';
 /// 依赖方向铁律（《架构需求文档》§5.2）：UI / 应用 / 领域层只依赖契约层
 /// （`lib/contracts/`），具体模块实现（`lib/modules/`）只能在这里注入。
 /// 本文件由 `tool/ci/check_import_boundaries.dart` 显式豁免。
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final prefsStore = SharedPreferencesAppPreferencesStore();
+  final initialPrefs = await prefsStore.load();
 
   // 数据库与引擎是进程级单例：随进程生命周期存在，退出即由系统回收。
   final database = TomeToneDatabase(openTomeToneDatabaseConnection());
@@ -47,6 +57,8 @@ void main() {
   runApp(
     ProviderScope(
       overrides: [
+        preferencesStoreProvider.overrideWithValue(prefsStore),
+        initialPreferencesProvider.overrideWithValue(initialPrefs),
         databaseProvider.overrideWithValue(database),
         playbackEngineProvider.overrideWithValue(engine),
         sourceHttpClientProvider.overrideWithValue(IoSourceHttpClient()),
@@ -58,6 +70,15 @@ void main() {
         directoryPickerProvider.overrideWithValue(safBridge),
         networkMonitorProvider.overrideWithValue(NetworkMonitorImpl()),
         audioCacheRepositoryProvider.overrideWithValue(audioCache),
+        deviceArchitectureProvider.overrideWithValue(const AbiBridge()),
+        updateSourceProvider.overrideWithValue(
+          GithubReleasesSource(
+            client: http.Client(),
+            owner: AppInfo.githubOwner,
+            repo: AppInfo.githubRepo,
+            userAgent: 'TomeTone/${AppInfo.version}',
+          ),
+        ),
         // 书库根服务默认装配（`lib/app/providers/` 内）拿不到平台桥，
         // 因此在装配入口 override，注入 authorization 让「移除 SAF 根」能放弃授权。
         libraryRootServiceProvider.overrideWithValue(

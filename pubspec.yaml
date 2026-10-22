@@ -25,6 +25,10 @@ dependencies:
   unorm_dart: ^0.3.3
   crypto: ^3.0.7
   connectivity_plus: ^6.1.1
+  shared_preferences: 2.5.2
+  http: 1.6.0
+  url_launcher: 6.3.1
+  flutter_markdown_plus: 1.0.12
 
 dev_dependencies:
   # 代码生成：`dart run build_runner build`
@@ -39,3 +43,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/changelog/

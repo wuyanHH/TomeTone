@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
+import 'package:tometone/app/providers/update_providers.dart';
+import 'package:tometone/app/update/semver.dart';
+import 'package:tometone/contracts/update/update_state.dart';
 import 'package:tometone/ui/app_tabs.dart';
 import 'package:tometone/ui/pages/discovery/discovery_page.dart';
 import 'package:tometone/ui/pages/library/library_page.dart';
 import 'package:tometone/ui/pages/settings/settings_page.dart';
+import 'package:tometone/ui/pages/settings/update_page.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/mini_player.dart';
@@ -23,16 +28,66 @@ import 'package:tometone/ui/widgets/mini_player.dart';
 ///
 /// 书架、发现、书库与设置已是真实页面；纪年仍是占位内容，后续替换
 /// [_pageFor] 即可。
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   /// 创建应用外壳。
   const AppShell({super.key, this.miniPlayer = const MiniPlayer()});
+
+  /// 设置 Tab 上的红点组件 Key。
+  static const Key settingsBadgeKey = Key('shell-settings-badge');
 
   /// 底部 MiniPlayer 槽位的内容。
   final Widget miniPlayer;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await ref.read(updateControllerProvider.notifier).maybeAutoCheck();
+      if (!mounted) return;
+      final updateState = ref.read(updateControllerProvider);
+      final prefs = ref.read(preferencesProvider);
+      if (updateState.status == UpdateStatus.available &&
+          updateState.release != null) {
+        final releaseTag = updateState.release!.tag;
+        final normalizedTag =
+            versionFromTag(releaseTag)?.toString() ?? releaseTag;
+        if (prefs.promptedVersion != normalizedTag) {
+          await ref
+              .read(updateControllerProvider.notifier)
+              .markPrompted(releaseTag);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('发现新版本 $releaseTag'),
+              action: SnackBarAction(
+                label: '查看',
+                onPressed: () {
+                  Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UpdatePage(),
+                    ),
+                  );
+                },
+              ),
+              duration: const Duration(seconds: 7),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final AppTab tab = ref.watch(appTabProvider);
+    final bool hasBadge = ref.watch(updateBadgeProvider);
     final bool wide =
         MediaQuery.sizeOf(context).width >= AppSizes.wideBreakpoint;
     final Duration swapDuration = AppMotion.resolve(
@@ -40,7 +95,7 @@ class AppShell extends ConsumerWidget {
       AppDurations.standard,
     );
     final Widget content = _TabSwitcher(tab: tab, duration: swapDuration);
-    final Widget miniPlayer = this.miniPlayer;
+    final Widget miniPlayer = widget.miniPlayer;
 
     void select(int index) {
       ref.read(appTabProvider.notifier).select(AppTab.values[index]);
@@ -51,7 +106,11 @@ class AppShell extends ConsumerWidget {
         body: SafeArea(
           child: Row(
             children: <Widget>[
-              _ShellRail(selectedIndex: tab.index, onSelected: select),
+              _ShellRail(
+                selectedIndex: tab.index,
+                onSelected: select,
+                hasBadge: hasBadge,
+              ),
               const VerticalDivider(width: 1),
               Expanded(
                 child: Column(
@@ -73,7 +132,11 @@ class AppShell extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           _MiniPlayerSlot(child: miniPlayer),
-          _ShellBar(selectedIndex: tab.index, onSelected: select),
+          _ShellBar(
+            selectedIndex: tab.index,
+            onSelected: select,
+            hasBadge: hasBadge,
+          ),
         ],
       ),
     );
@@ -168,10 +231,15 @@ const List<_ShellDestination> _destinations = <_ShellDestination>[
 
 /// 手机纵屏：底部 5 栏。
 class _ShellBar extends StatelessWidget {
-  const _ShellBar({required this.selectedIndex, required this.onSelected});
+  const _ShellBar({
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.hasBadge,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final bool hasBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -181,8 +249,21 @@ class _ShellBar extends StatelessWidget {
       destinations: <NavigationDestination>[
         for (final _ShellDestination destination in _destinations)
           NavigationDestination(
-            icon: Icon(destination.icon),
-            selectedIcon: Icon(destination.selectedIcon),
+            icon: destination.label == '设置'
+                ? Badge(
+                    key: AppShell.settingsBadgeKey,
+                    isLabelVisible: hasBadge,
+                    smallSize: 8,
+                    child: Icon(destination.icon),
+                  )
+                : Icon(destination.icon),
+            selectedIcon: destination.label == '设置'
+                ? Badge(
+                    isLabelVisible: hasBadge,
+                    smallSize: 8,
+                    child: Icon(destination.selectedIcon),
+                  )
+                : Icon(destination.selectedIcon),
             label: destination.label,
             tooltip: destination.hint,
           ),
@@ -193,10 +274,15 @@ class _ShellBar extends StatelessWidget {
 
 /// 平板 / 桌面：左侧 NavigationRail。
 class _ShellRail extends StatelessWidget {
-  const _ShellRail({required this.selectedIndex, required this.onSelected});
+  const _ShellRail({
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.hasBadge,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final bool hasBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -208,8 +294,21 @@ class _ShellRail extends StatelessWidget {
       destinations: <NavigationRailDestination>[
         for (final _ShellDestination destination in _destinations)
           NavigationRailDestination(
-            icon: Icon(destination.icon),
-            selectedIcon: Icon(destination.selectedIcon),
+            icon: destination.label == '设置'
+                ? Badge(
+                    key: AppShell.settingsBadgeKey,
+                    isLabelVisible: hasBadge,
+                    smallSize: 8,
+                    child: Icon(destination.icon),
+                  )
+                : Icon(destination.icon),
+            selectedIcon: destination.label == '设置'
+                ? Badge(
+                    isLabelVisible: hasBadge,
+                    smallSize: 8,
+                    child: Icon(destination.selectedIcon),
+                  )
+                : Icon(destination.selectedIcon),
             label: Text(destination.label),
           ),
       ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/app/preferences/app_preferences.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/ui/app.dart';
 import 'package:tometone/ui/theme/app_color_palette.dart';
@@ -48,8 +49,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: testOverrides(controller: controller),
-        child: const TomeToneApp(oledDark: true),
+        overrides: testOverrides(
+          controller: controller,
+          preferences: const AppPreferences(oledDark: true),
+        ),
+        child: const TomeToneApp(),
       ),
     );
 

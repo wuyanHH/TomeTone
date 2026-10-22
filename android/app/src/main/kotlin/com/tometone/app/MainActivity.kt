@@ -36,6 +36,13 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tometone/device")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getSupportedAbis" -> result.success(android.os.Build.SUPPORTED_ABIS.toList())
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

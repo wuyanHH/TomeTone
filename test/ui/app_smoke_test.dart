@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
+import 'package:tometone/app/preferences/app_preferences.dart';
+import 'package:tometone/app/preferences/app_preferences_store.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
+import 'package:tometone/app/providers/preferences_providers.dart';
+import 'package:tometone/app/providers/update_providers.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/database/tometone_database.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
@@ -15,6 +19,8 @@ import 'package:tometone/ui/pages/shelf/shelf_page.dart';
 import 'package:tometone/ui/theme/app_color_palette.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
+
+import 'ui_test_harness.dart';
 
 /// 固定视口尺寸，避免测试默认 800×600 落到平板布局。
 void _useViewport(WidgetTester tester, Size size) {
@@ -43,9 +49,15 @@ void main() {
     await database.close();
   });
 
-  /// 外壳现在会读取书架 / 发现页书源 / 书库根 / 播放控制器，测试必须注入假数据。
+  /// 外壳现在会读取书架 / 发现页书源 / 书库根 / 播放控制器 / 偏好 / 更新源，测试必须注入假数据。
   List<Override> overrides() {
     return <Override>[
+      preferencesStoreProvider.overrideWithValue(InMemoryAppPreferencesStore()),
+      initialPreferencesProvider.overrideWithValue(AppPreferences.defaults),
+      deviceArchitectureProvider.overrideWithValue(
+        const FakeDeviceArchitecture(),
+      ),
+      updateSourceProvider.overrideWithValue(FakeUpdateSource()),
       databaseProvider.overrideWithValue(database),
       booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
       libraryRootsProvider.overrideWith(

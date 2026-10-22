@@ -23,10 +23,10 @@ abstract final class AppInfo {
   static const AppChannel channel = AppChannel.beta;
 
   /// 更新源主渠道：GitHub Releases（`repos/{owner}/{repo}/releases`）。
-  static const String githubOwner = '';
+  static const String githubOwner = 'wuyanHH';
 
   /// 更新源主渠道仓库名。
-  static const String githubRepo = '';
+  static const String githubRepo = 'TomeTone';
 
   /// 回退静态清单地址（可指向可访问镜像）。
   static const String updateManifestUrl = '';

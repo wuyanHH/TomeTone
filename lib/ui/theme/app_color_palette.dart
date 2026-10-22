@@ -18,6 +18,14 @@ enum AppPaletteId {
   shandanRed,
 }
 
+/// 根据名称解析 [AppPaletteId]，未知名称回落到 [AppPaletteId.amberScroll]。
+AppPaletteId paletteIdFromName(String name) {
+  return AppPaletteId.values.firstWhere(
+    (id) => id.name == name,
+    orElse: () => AppPaletteId.amberScroll,
+  );
+}
+
 /// 一套色盘在某个明暗形态下的语义色集合。
 ///
 /// 字段与 Material 3 [ColorScheme] 的语义角色一一对应，页面只应消费这些
