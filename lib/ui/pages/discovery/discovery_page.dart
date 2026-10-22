@@ -21,6 +21,7 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 /// 发现页的稳定测试键。
 abstract final class DiscoveryPageKeys {
   static const Key headerTitleKey = Key('discovery-header-title');
+  static const Key headerSourcePillKey = Key('discovery-header-source-pill');
   static const Key emptyKey = Key('discovery-empty');
   static const Key importKey = Key('discovery-import');
   static const Key sourceCardKey = Key('discovery-source-card');
@@ -543,7 +544,6 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
 
     return Column(
@@ -552,35 +552,48 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
-            AppSpacing.xl,
-            AppSpacing.lg,
-            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.xs,
+            AppSpacing.xs,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Semantics(
-                header: true,
-                child: Text(
-                  '发现',
-                  key: DiscoveryPageKeys.headerTitleKey,
-                  style: text.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Row(
+                    children: <Widget>[
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          '发现',
+                          key: DiscoveryPageKeys.headerTitleKey,
+                          style: text.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (_source != null) ...<Widget>[
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: _SourceQuickPill(
+                            source: _source!,
+                            onSwitch: () => unawaited(_openSwitcher()),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
-              if (_source != null) ...<Widget>[
-                const SizedBox(height: AppSpacing.md),
-                DiscoverySourceCard(
-                  key: DiscoveryPageKeys.sourceCardKey,
-                  source: _source!,
-                  switchKey: DiscoveryPageKeys.switchKey,
-                  manageKey: DiscoveryPageKeys.manageKey,
-                  onSwitch: () => unawaited(_openSwitcher()),
-                  onManage: () => unawaited(_openManagement()),
-                ),
+                if (_source != null)
+                  IconButton(
+                    key: DiscoveryPageKeys.manageKey,
+                    tooltip: '书源管理',
+                    icon: const Icon(Icons.tune_rounded),
+                    onPressed: () => unawaited(_openManagement()),
+                  ),
               ],
-            ],
+            ),
           ),
         ),
         Expanded(child: _buildBody()),
@@ -1001,6 +1014,99 @@ class _ResultError extends StatelessWidget {
             label: const Text('重试'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 顶栏书源快捷切换胶囊。
+class _SourceQuickPill extends StatelessWidget {
+  const _SourceQuickPill({
+    required this.source,
+    required this.onSwitch,
+  });
+
+  final BookSource source;
+  final VoidCallback onSwitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    final bool hasFailure = source.lastTestOk == false && source.consecutiveFailures > 0;
+    final Color statusColor = hasFailure ? scheme.error : const Color(0xFF4CAF50);
+
+    return Semantics(
+      button: true,
+      label: '当前书源：${source.name}，点击切换',
+      child: Container(
+        key: DiscoveryPageKeys.headerSourcePillKey,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: DiscoveryPageKeys.switchKey,
+            onTap: onSwitch,
+            borderRadius: AppRadii.pill,
+            child: Ink(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                borderRadius: AppRadii.pill,
+                border: Border.all(
+                  color: hasFailure
+                      ? scheme.error.withValues(alpha: 0.5)
+                      : scheme.outlineVariant.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      source.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (hasFailure) ...<Widget>[
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        '连续失败 ${source.consecutiveFailures} 次',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.labelSmall?.copyWith(
+                          color: scheme.error,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.arrow_drop_down_rounded,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

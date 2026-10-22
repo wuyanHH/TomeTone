@@ -33,7 +33,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('当前书源卡显示分组、健康与最近同步', (tester) async {
+  testWidgets('当前书源在顶栏以胶囊展示并提供快捷切换与管理入口，正文不再渲染大卡片', (tester) async {
     final db = openSourceTestDatabase();
     final id = await seedSource(db);
     await DriftBookSourceQueries(db)
@@ -46,17 +46,14 @@ void main() {
       home: const Scaffold(body: DiscoveryPage()),
     );
 
-    expect(find.byKey(DiscoveryPageKeys.sourceCardKey), findsOneWidget);
+    expect(find.byKey(DiscoveryPageKeys.headerSourcePillKey), findsOneWidget);
+    expect(find.byKey(DiscoveryPageKeys.manageKey), findsOneWidget);
+    expect(find.byKey(DiscoveryPageKeys.sourceCardKey), findsNothing);
     expect(find.text('听友听书'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(DiscoveryPageKeys.sourceCardKey),
-        matching: find.text('听书'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('正常'), findsOneWidget);
-    expect(find.textContaining('最近同步'), findsOneWidget);
+
+    await tester.tap(find.byKey(DiscoveryPageKeys.headerSourcePillKey));
+    await tester.pumpAndSettle();
+    expect(find.text('切换书源'), findsOneWidget);
   });
 
   testWidgets('连续失败显示失败次数', (tester) async {

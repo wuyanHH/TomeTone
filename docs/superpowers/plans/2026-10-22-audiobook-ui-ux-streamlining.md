@@ -175,27 +175,27 @@ git commit -m "feat(shelf): add 2:3 book aspect ratio and more preferences menu"
   - `DiscoveryPageKeys.headerManageKey`: `Key('discovery-header-manage-sources')`
   - 移除原 `DiscoverySourceCard`，纵向空间全部分配给分类与榜单
 
-- [ ] **Step 1: 编写发现页顶栏快捷书源胶囊与管理按钮测试**
+- [x] **Step 1: 编写发现页顶栏快捷书源胶囊与管理按钮测试**
 
 断言发现页顶部包含书源胶囊切换按钮与管理图标；断言原大卡片 `DiscoveryPageKeys.sourceCardKey` 不再占用 body 区域。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/ui/discovery_page_test.dart`
 预期：FAIL
 
-- [ ] **Step 3: 改造 `DiscoveryPage` 顶栏与布局**
+- [x] **Step 3: 改造 `DiscoveryPage` 顶栏与布局**
 
 - 在顶栏 `AppBar` 右侧增加胶囊按钮（显示当前书源名 + 下拉箭头），点击调用已有的 `_openSwitcher()`；
 - 紧随其后增加管理书源 `IconButton(icon: Icons.tune_rounded)`，点击调用 `_openManagement()`；
 - 移除 `_buildBody()` 上方内嵌的 `DiscoverySourceCard`，让分类榜单直接贴近顶栏展开。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/ui/discovery_page_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/ui/pages/discovery/
