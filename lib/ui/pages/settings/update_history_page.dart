@@ -233,6 +233,15 @@ class _UpdateHistoryPageState extends State<UpdateHistoryPage> {
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.xs,
       ),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadii.lg,
+        side: BorderSide(
+          color: isCurrent
+              ? scheme.primary.withValues(alpha: 0.6)
+              : scheme.outlineVariant.withValues(alpha: 0.45),
+          width: isCurrent ? 1.5 : 1,
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         initiallyExpanded: isCurrent,

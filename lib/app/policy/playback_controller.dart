@@ -102,6 +102,7 @@ class PlaybackController {
   QueueChapter? _current;
   PerBookPreferences _preferences = PerBookPreferences.defaults;
   ({Duration start, Duration? end}) _range = (start: Duration.zero, end: null);
+  Duration? _duration;
 
   EnginePlaybackState _state = EnginePlaybackState.idle;
   Duration _position = Duration.zero;
@@ -122,6 +123,9 @@ class PlaybackController {
 
   /// 当前位置。
   Duration get position => _position;
+
+  /// 当前章节时长（引擎探测到的实际时长或章节元数据时长）。
+  Duration? get duration => _duration ?? _current?.duration;
 
   /// 当前章节的有效播放区间（已应用片头 / 片尾跳过）。
   ({Duration start, Duration? end}) get range => _range;
@@ -327,6 +331,7 @@ class PlaybackController {
     _request = null;
     _queue = null;
     _current = null;
+    _duration = null;
     _range = (start: Duration.zero, end: null);
     _state = EnginePlaybackState.idle;
     _position = Duration.zero;
@@ -341,6 +346,7 @@ class PlaybackController {
 
   Future<void> _loadChapter(QueueChapter chapter, {Duration? seekTo}) async {
     _current = chapter;
+    _duration = chapter.duration;
     _range = _preferences.playbackRange(chapter.duration);
 
     final AudioSourceRef? source = await chapter.resolve();
@@ -407,8 +413,11 @@ class PlaybackController {
       case EnginePositionChanged(:final position):
         _position = position;
         _onPosition(position);
-      case EngineDurationChanged():
-        break;
+      case EngineDurationChanged(:final duration):
+        if (duration != null && duration > Duration.zero) {
+          _duration = duration;
+          _range = _preferences.playbackRange(duration);
+        }
       case EngineCompleted():
         unawaited(_onChapterCompleted());
       case EngineFailed(:final error):

@@ -12,6 +12,7 @@ import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/contracts/playback/engine_event.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/ui/pages/library/switch_source_sheet.dart';
+import 'package:tometone/ui/pages/shelf/chapter_list_sheet.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 
@@ -63,11 +64,11 @@ Future<void> showPlayerPage(BuildContext context) {
 /// 全屏播放大台（《架构需求文档》§2.2）。
 ///
 /// 信息层级（自上而下）：
-/// 1. 返回 / 书名 / 章节目录 —— 导航与"我在哪本书"；
+/// 1. 返回 / 书名 / 换源与更多菜单 —— 导航与书籍属性；
 /// 2. 大封面 + 章标题 —— 当前正在听什么；
-/// 3. 双层时间轴 —— 章节可拖动，全书只读；
-/// 4. 倍速 / 睡眠 / 撤销回退 —— 低频设置；
-/// 5. 五键下沉控制台 —— 拇指区，固定不随内容滚动。
+/// 3. 双层时间轴 —— 真实反映当前播放进度的可拖动时间轴，右侧全书百分比；
+/// 4. 五键下沉控制台 —— 拇指区，固定不随内容滚动；
+/// 5. 底部听书高频工具 —— 倍速、睡眠、目录与撤销回退。
 ///
 /// 播放状态一律读 [PlaybackController]，页面不保存"是否在播放"的副本。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -130,8 +131,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         }
 
         final ColorScheme scheme = Theme.of(context).colorScheme;
-        // OLED 形态（surface 为纯黑）保持纯黑底：只让封面光晕提供层次，
-        // 不再铺渐变，避免把"纯黑省电"换成一层近黑。
         final bool oledBlack =
             scheme.brightness == Brightness.dark &&
             scheme.surface.computeLuminance() < 0.0001;
@@ -157,7 +156,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             child: SafeArea(
               child: Column(
                 children: <Widget>[
-                  _buildTopBar(context, book, chapter),
+                  _buildTopBar(context, book, chapter, controller),
                   Expanded(
                     child: LayoutBuilder(
                       builder:
@@ -253,45 +252,192 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     BuildContext context,
     BookDetail? book,
     QueueChapter? chapter,
+    PlaybackController controller,
   ) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
     final String title = book?.summary.title ?? chapter?.title ?? '播放大台';
+    final bool isOnline = book?.summary.isOnline ?? false;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 56),
-      child: Row(
-        children: <Widget>[
-          IconButton(
-            tooltip: '返回',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: text.titleMedium,
-                ),
-                Text(
-                  '正在播放',
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.primary,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        child: Row(
+          children: <Widget>[
+            IconButton(
+              tooltip: '返回',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_rounded),
             ),
-          ),
-          const SizedBox(width: 48),
-        ],
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '正在播放',
+                    style: text.labelSmall?.copyWith(
+                      color: scheme.primary,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isOnline)
+              IconButton(
+                key: const Key('player-switch-source'),
+                tooltip: '换源',
+                icon: const Icon(Icons.swap_horiz_rounded),
+                onPressed: () => unawaited(_openSwitchSource(book)),
+              ),
+            IconButton(
+              key: const Key('player-more'),
+              tooltip: '更多',
+              icon: const Icon(Icons.more_vert_rounded),
+              onPressed: () => _openMoreSheet(context, book, controller),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _openMoreSheet(
+    BuildContext context,
+    BookDetail? book,
+    PlaybackController controller,
+  ) async {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final String title = book?.summary.title ?? controller.current?.title ?? '听书';
+    final String? author = book?.summary.author;
+    final int chapterCount = book?.chapters.length ?? 0;
+    final bool isOnline = book?.summary.isOnline ?? false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              // 书籍简要信息
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: AppRadii.md,
+                    ),
+                    child: Icon(
+                      Icons.auto_stories_rounded,
+                      color: scheme.onPrimaryContainer,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '《$title》',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          <String>[
+                            if (author != null && author.isNotEmpty) author,
+                            if (chapterCount > 0) '共 $chapterCount 章',
+                          ].join(' · '),
+                          style: text.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Divider(height: 1),
+              const SizedBox(height: AppSpacing.xs),
+
+              if (isOnline)
+                ListTile(
+                  leading: const Icon(Icons.swap_horiz_rounded),
+                  title: const Text('换源收听'),
+                  subtitle: const Text('从其他书源检索并切换同名有声书'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(_openSwitchSource(book));
+                  },
+                ),
+
+              ListTile(
+                leading: const Icon(Icons.speed_rounded),
+                title: const Text('播放速度'),
+                subtitle: Text('当前 ${_formatSpeed(controller.preferences.speed)}× 倍速'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_openSpeedSheet(controller));
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.bedtime_outlined),
+                title: const Text('睡眠定时'),
+                subtitle: Text(
+                  controller.sleep.isActive
+                      ? _sleepLabel(controller.sleep)
+                      : '未开启',
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_openSleepSheet(controller));
+                },
+              ),
+
+              if (controller.canUndoRewind)
+                ListTile(
+                  leading: const Icon(Icons.undo_rounded),
+                  title: const Text('撤销微回退'),
+                  subtitle: const Text('恢复到本次继续收听前的位置'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(_undoRewind(controller));
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -360,7 +506,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ?volumeTitle,
       if (author != null && author.trim().isNotEmpty) author.trim(),
     ].join(' · ');
-    // 切章加载失败时给出可见出口，不静默卡住（见 PlaybackController 的切章加固）。
     final bool loadFailed = controller.lastError != null;
 
     return Column(
@@ -409,17 +554,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
     final ({Duration start, Duration? end}) range = controller.range;
-    final Duration? end = range.end ?? chapter?.duration;
-    final bool known = end != null && end > range.start;
-    final double minMs = range.start.inMilliseconds.toDouble();
-    final double maxMs = known ? end.inMilliseconds.toDouble() : minMs + 1;
-    final double positionMs =
-        (_dragPositionMs ?? controller.position.inMilliseconds.toDouble())
-            .clamp(minMs, maxMs)
-            .toDouble();
+    final Duration? end = range.end ?? controller.duration ?? chapter?.duration;
+    final bool known = end != null && end > Duration.zero;
+
+    final Duration currentPos = controller.position;
+    final double maxMs = known
+        ? end.inMilliseconds.toDouble()
+        : math.max(currentPos.inMilliseconds.toDouble(), 1.0);
+    final double positionMs = (_dragPositionMs ?? currentPos.inMilliseconds.toDouble())
+        .clamp(0.0, maxMs);
     final Duration shown = Duration(milliseconds: positionMs.round());
-    final Duration total = known ? end : shown;
-    final String totalLabel = known ? _formatClock(total) : '--:--';
+    final String totalLabel = known ? _formatClock(end) : '--:--';
 
     final List<ChapterView> chapters = book?.chapters ?? const <ChapterView>[];
     final int index = chapter == null
@@ -479,7 +624,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             child: Slider(
               key: PlayerPage.chapterSliderKey,
               value: positionMs,
-              min: minMs,
+              min: 0.0,
               max: maxMs,
               label: _formatClock(shown),
               onChanged: known
@@ -528,13 +673,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
+        AppSpacing.lg,
         AppSpacing.xs,
+        AppSpacing.lg,
         AppSpacing.md,
-        AppSpacing.sm,
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: <Widget>[
           _BottomToolItem(
             key: PlayerPage.speedKey,
@@ -560,14 +705,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             tooltip: '章节目录',
             onTap: () => unawaited(_openChapterSheet()),
           ),
-          _BottomToolItem(
-            key: const Key('player-switch-source'),
-            icon: Icons.swap_horiz_rounded,
-            label: '换源',
-            tooltip: '换源',
-            disabled: book == null || !book.summary.isOnline,
-            onTap: () => unawaited(_openSwitchSource(book)),
-          ),
           if (controller.canUndoRewind)
             _BottomToolItem(
               key: PlayerPage.undoRewindKey,
@@ -576,22 +713,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               tooltip: '撤销回退',
               active: true,
               onTap: () => unawaited(_undoRewind(controller)),
-            )
-          else
-            _BottomToolItem(
-              key: const Key('player-more'),
-              icon: Icons.more_horiz_rounded,
-              label: '更多',
-              tooltip: '更多',
-              onTap: () {
-                if (book != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('《${book.summary.title}》共 ${book.chapters.length} 章'),
-                    ),
-                  );
-                }
-              },
             ),
         ],
       ),
@@ -618,7 +739,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          // 320dp 级窄屏：侧键收 48、中央键收 64，仍满足 ≥48dp 触控门禁。
           final bool compact = constraints.maxWidth < 296;
           final double sideSize = compact ? 48 : 56;
           final double centerSize = compact ? 64 : 72;
@@ -704,7 +824,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
   }
 
-  /// 底部面板同样跟随系统「减弱动效」。
   AnimationStyle _sheetAnimation(BuildContext context) {
     return AnimationStyle(
       duration: AppMotion.resolve(context, AppDurations.standard),
@@ -939,84 +1058,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     if (book == null) {
       return;
     }
-    final String? currentId = controller.current?.chapterId;
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      sheetAnimationStyle: _sheetAnimation(context),
-      builder: (BuildContext sheetContext) {
-        final ColorScheme scheme = Theme.of(sheetContext).colorScheme;
-        final TextTheme text = Theme.of(sheetContext).textTheme;
-        return SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * 0.72,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xl,
-                  AppSpacing.sm,
-                  AppSpacing.xl,
-                  AppSpacing.md,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('章节目录', style: text.titleLarge),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      '共 ${book.chapters.length} 章',
-                      style: text.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: CustomScrollView(
-                  slivers: <Widget>[
-                    for (final VolumeView volume in book.volumes) ...<Widget>[
-                      SliverToBoxAdapter(
-                        child: _VolumeHeader(
-                          volume: volume,
-                          count: volume.chapters.length,
-                        ),
-                      ),
-                      SliverList.builder(
-                        itemCount: volume.chapters.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          final ChapterView chapter = volume.chapters[index];
-                          final bool current = chapter.id == currentId;
-                          return _ChapterTile(
-                            chapter: chapter,
-                            current: current,
-                            onTap: chapter.missing
-                                ? null
-                                : () {
-                                    Navigator.of(sheetContext).pop();
-                                    if (!current) {
-                                      unawaited(
-                                        controller.seekToChapter(chapter.id),
-                                      );
-                                    }
-                                  },
-                          );
-                        },
-                      ),
-                    ],
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: AppSpacing.xl),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
+    await showChapterListSheet(
+      context,
+      detail: book,
+      currentChapterId: controller.current?.chapterId,
+      onChapterSelected: (ChapterView chapter) {
+        unawaited(controller.seekToChapter(chapter.id));
       },
     );
   }
@@ -1042,7 +1090,6 @@ class _BottomToolItem extends StatelessWidget {
     required this.onTap,
     this.tooltip,
     this.active = false,
-    this.disabled = false,
     super.key,
   });
 
@@ -1051,12 +1098,12 @@ class _BottomToolItem extends StatelessWidget {
   final VoidCallback? onTap;
   final String? tooltip;
   final bool active;
-  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color color = disabled
+    final bool enabled = onTap != null;
+    final Color color = !enabled
         ? scheme.onSurface.withValues(alpha: 0.38)
         : active
             ? scheme.primary
@@ -1064,10 +1111,10 @@ class _BottomToolItem extends StatelessWidget {
 
     Widget child = Semantics(
       button: true,
-      enabled: !disabled,
+      enabled: enabled,
       label: tooltip ?? label,
       child: InkWell(
-        onTap: disabled ? null : onTap,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadii.smValue),
         child: ConstrainedBox(
           constraints: const BoxConstraints(
@@ -1134,99 +1181,6 @@ class _ConsoleButton extends StatelessWidget {
         iconSize: size / 2,
         icon: Icon(icon),
       ),
-    );
-  }
-}
-
-class _VolumeHeader extends StatelessWidget {
-  const _VolumeHeader({required this.volume, required this.count});
-
-  final VolumeView volume;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.xs,
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(width: 3, height: 14, color: scheme.primary),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              volume.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: text.titleSmall,
-            ),
-          ),
-          Text(
-            '$count 章',
-            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChapterTile extends StatelessWidget {
-  const _ChapterTile({
-    required this.chapter,
-    required this.current,
-    required this.onTap,
-  });
-
-  final ChapterView chapter;
-  final bool current;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    return ListTile(
-      enabled: !chapter.missing,
-      selected: current,
-      selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.32),
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      leading: Icon(
-        current
-            ? Icons.graphic_eq_rounded
-            : chapter.missing
-            ? Icons.link_off_rounded
-            : Icons.article_outlined,
-        size: 20,
-        color: current ? scheme.primary : null,
-      ),
-      title: Text(
-        chapter.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: text.bodyMedium?.copyWith(
-          fontWeight: current ? FontWeight.w600 : FontWeight.w400,
-        ),
-      ),
-      subtitle: chapter.missing
-          ? Text(
-              '文件缺失，暂不可播放',
-              style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-            )
-          : null,
-      trailing: current
-          ? Text(
-              '正在播放',
-              style: text.labelSmall?.copyWith(color: scheme.primary),
-            )
-          : null,
-      onTap: onTap,
     );
   }
 }

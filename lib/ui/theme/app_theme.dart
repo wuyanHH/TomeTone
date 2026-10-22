@@ -100,7 +100,13 @@ abstract final class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadii.lg),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadii.lg,
+          side: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.45),
+            width: 1,
+          ),
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surfaceContainerHigh,

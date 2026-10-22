@@ -5,6 +5,7 @@ import 'package:tometone/ui/pages/settings/subpages/about_settings_page.dart';
 import 'package:tometone/ui/pages/settings/subpages/appearance_settings_page.dart';
 import 'package:tometone/ui/pages/settings/subpages/audio_preference_settings_page.dart';
 import 'package:tometone/ui/pages/settings/subpages/cache_settings_page.dart';
+import 'package:tometone/ui/pages/settings/widgets/settings_shared_widgets.dart';
 import 'package:tometone/ui/theme/app_color_palette.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
@@ -60,6 +61,7 @@ class SettingsPage extends StatelessWidget {
     final TextTheme text = Theme.of(context).textTheme;
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
       child: Center(
         child: ConstrainedBox(
@@ -70,85 +72,89 @@ class SettingsPage extends StatelessWidget {
               const _SettingsHeader(),
               Padding(
                 padding: AppSpacing.pagePadding,
-                child: Card(
-                  child: Column(
-                    children: <Widget>[
-                      _SettingsNavTile(
-                        key: tileAppearanceKey,
-                        icon: Icons.palette_outlined,
-                        title: '外观',
-                        subtitle: '国风色盘、明暗外观与 OLED 纯黑',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AppearanceSettingsPage(),
-                          ),
+                child: SettingsSectionCard(
+                  children: <Widget>[
+                    _SettingsNavTile(
+                      key: tileAppearanceKey,
+                      icon: Icons.palette_outlined,
+                      iconColor: scheme.primary,
+                      title: '外观',
+                      subtitle: '国风色盘、明暗外观与 OLED 纯黑',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AppearanceSettingsPage(),
                         ),
                       ),
-                      const Divider(
-                        height: 1,
-                        indent: AppSpacing.lg,
-                        endIndent: AppSpacing.lg,
-                      ),
-                      _SettingsNavTile(
-                        key: tileAudioPreferenceKey,
-                        icon: Icons.tune_rounded,
-                        title: '听书偏好',
-                        subtitle: '默认播放倍速、片头片尾智能跳过',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AudioPreferenceSettingsPage(),
-                          ),
+                    ),
+                    const SettingsDivider(indent: 68),
+                    _SettingsNavTile(
+                      key: tileAudioPreferenceKey,
+                      icon: Icons.tune_rounded,
+                      iconColor: scheme.tertiary,
+                      title: '听书偏好',
+                      subtitle: '默认播放倍速、片头片尾智能跳过',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AudioPreferenceSettingsPage(),
                         ),
                       ),
-                      const Divider(
-                        height: 1,
-                        indent: AppSpacing.lg,
-                        endIndent: AppSpacing.lg,
-                      ),
-                      _SettingsNavTile(
-                        key: tileCacheKey,
-                        icon: Icons.storage_rounded,
-                        title: '存储与缓存',
-                        subtitle: '在线音频缓存用量与清理',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const CacheSettingsPage(),
-                          ),
+                    ),
+                    const SettingsDivider(indent: 68),
+                    _SettingsNavTile(
+                      key: tileCacheKey,
+                      icon: Icons.storage_rounded,
+                      iconColor: scheme.secondary,
+                      title: '存储与缓存',
+                      subtitle: '在线音频缓存用量与清理',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CacheSettingsPage(),
                         ),
                       ),
-                      const Divider(
-                        height: 1,
-                        indent: AppSpacing.lg,
-                        endIndent: AppSpacing.lg,
-                      ),
-                      _SettingsNavTile(
-                        key: tileAboutKey,
-                        icon: Icons.info_outline_rounded,
-                        title: '关于与更新',
-                        subtitle: '版本信息、更新检测与开源许可',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AboutSettingsPage(),
-                          ),
+                    ),
+                    const SettingsDivider(indent: 68),
+                    _SettingsNavTile(
+                      key: tileAboutKey,
+                      icon: Icons.info_outline_rounded,
+                      iconColor: scheme.primary,
+                      title: '关于与更新',
+                      subtitle: '版本信息、更新检测与开源许可',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AboutSettingsPage(),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.xxl),
               Padding(
                 padding: AppSpacing.pagePadding,
-                child: Text(
-                  '${AppInfo.appName} · ${AppInfo.appNameLatin}　本地优先，离线可用',
-                  textAlign: TextAlign.center,
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                child: Column(
+                  children: <Widget>[
+                    Container(
+                      width: 24,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: scheme.outlineVariant.withValues(alpha: 0.5),
+                        borderRadius: AppRadii.pill,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      '${AppInfo.appName} · ${AppInfo.appNameLatin}　本地优先，离线可用',
+                      textAlign: TextAlign.center,
+                      style: text.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -167,9 +173,11 @@ class _SettingsNavTile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     super.key,
+    this.iconColor,
   });
 
   final IconData icon;
+  final Color? iconColor;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -178,17 +186,32 @@ class _SettingsNavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
+    final Color accent = iconColor ?? scheme.primary;
 
     return ListTile(
-      leading: Icon(icon, color: scheme.primary),
-      title: Text(title, style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xs,
+      ),
+      leading: SettingsIconBadge(icon: icon, color: accent),
+      title: Text(
+        title,
+        style: text.bodyLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+      ),
       subtitle: Text(
         subtitle,
-        style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        style: text.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+          height: 1.35,
+        ),
       ),
       trailing: Icon(
         Icons.chevron_right_rounded,
-        color: scheme.onSurfaceVariant,
+        size: 20,
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
       ),
       onTap: onTap,
     );
@@ -202,28 +225,36 @@ class _SettingsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.md,
       ),
-      child: SizedBox(
-        height: 48,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Semantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Semantics(
             header: true,
             child: Text(
               '系统偏好',
-              style: text.titleLarge?.copyWith(
+              style: text.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
+                letterSpacing: -0.3,
               ),
             ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            '个性化你的有声书房与播放体验',
+            style: text.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

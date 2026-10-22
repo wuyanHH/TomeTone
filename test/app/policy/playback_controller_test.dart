@@ -316,6 +316,41 @@ void main() {
       expect(await controller.seekToChapter('missing'), isFalse);
       expect(controller.current?.chapterId, 'c1');
     });
+
+    test('引擎上报时长更新：同步更新 controller.duration 与有效播放区间 range', () async {
+      final queue = ChapterSequencer(<QueueChapter>[
+        QueueChapter(
+          chapterId: 'online1',
+          volumeId: 'v1',
+          title: '在线未定长章',
+          source: const LocalFileSource(uri: 'file:///library/online.mp3'),
+          duration: null,
+        ),
+      ]);
+      await controller.open(
+        PlaybackRequest(
+          bookId: 'b1',
+          queue: queue,
+          startChapterId: 'online1',
+          preferences: const PerBookPreferences(
+            skipIntro: Duration(seconds: 10),
+            skipOutro: Duration(seconds: 15),
+          ),
+        ),
+      );
+
+      expect(controller.duration, isNull);
+      expect(controller.range.end, isNull);
+
+      engine.emitDuration(const Duration(minutes: 8));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.duration, const Duration(minutes: 8));
+      expect(controller.range.start, const Duration(seconds: 10));
+      expect(
+        controller.range.end,
+        const Duration(minutes: 8) - const Duration(seconds: 15),
+      );
+    });
   });
 
   group('每书偏好', () {

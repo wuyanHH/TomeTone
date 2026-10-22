@@ -304,4 +304,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.position, greaterThan(initialPosition));
   });
+
+  testWidgets('右上角更多菜单：展示书籍信息、章节数量与操作项', (WidgetTester tester) async {
+    await pumpPlayer(tester);
+
+    final moreButton = find.byKey(const Key('player-more'));
+    expect(moreButton, findsOneWidget);
+    await tester.tap(moreButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('《山海夜航》'), findsOneWidget);
+    expect(find.textContaining('共 4 章'), findsOneWidget);
+    expect(find.text('播放速度'), findsOneWidget);
+    expect(find.text('睡眠定时'), findsOneWidget);
+  });
+
+  testWidgets('在线书籍在右上角展示换源入口', (WidgetTester tester) async {
+    final onlineSummary = testSummary(
+      title: '在线神书',
+      sourceType: 'online',
+      sourceId: 'src_1',
+    );
+    final onlineDetail = testDetail(
+      summary: onlineSummary,
+      volumes: testVolumes(),
+    );
+    final onlineContainer = ProviderContainer(
+      overrides: <Override>[
+        booksProvider.overrideWith(
+          (Ref ref) async => <BookSummary>[onlineSummary],
+        ),
+        libraryRootsProvider.overrideWith(
+          (Ref ref) async => const <LibraryRootView>[testRoot],
+        ),
+        playbackControllerProvider.overrideWithValue(controller),
+      ],
+    );
+    addTearDown(onlineContainer.dispose);
+    onlineContainer.read(currentBookProvider.notifier).set(onlineDetail);
+
+    usePhoneViewport(tester);
+    await tester.pumpWidget(testApp(onlineContainer, const PlayerPage()));
+    await tester.pump();
+
+    expect(find.byKey(const Key('player-switch-source')), findsOneWidget);
+  });
 }

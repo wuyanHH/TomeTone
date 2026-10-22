@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:tometone/app/app_info.dart';
 import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/preferences/app_preferences_store.dart';
+import 'package:tometone/app/providers/apk_download_providers.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
 import 'package:tometone/app/providers/online_providers.dart';
@@ -29,6 +30,7 @@ import 'package:tometone/modules/storage_saf/saf_storage_provider.dart';
 import 'package:tometone/modules/update_github/github_releases_source.dart';
 import 'package:tometone/platform/database_connection.dart';
 import 'package:tometone/platform/device/abi_bridge.dart';
+import 'package:tometone/platform/device/platform_package_installer.dart';
 import 'package:tometone/platform/saf/saf_bridge.dart';
 import 'package:tometone/ui/app.dart';
 
@@ -71,6 +73,9 @@ void main() async {
         networkMonitorProvider.overrideWithValue(NetworkMonitorImpl()),
         audioCacheRepositoryProvider.overrideWithValue(audioCache),
         deviceArchitectureProvider.overrideWithValue(const AbiBridge()),
+        packageInstallerProvider.overrideWithValue(
+          const PlatformPackageInstaller(),
+        ),
         updateSourceProvider.overrideWithValue(
           GithubReleasesSource(
             client: http.Client(),

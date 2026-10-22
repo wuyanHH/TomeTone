@@ -12,6 +12,7 @@ import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
@@ -109,8 +110,30 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     super.initState();
     _persistedBookId = widget.bookId;
     if (_persistedBookId == null && widget.source != null && widget.item != null) {
-      unawaited(_loadOnlinePreview());
+      unawaited(_initOnlineBook());
     }
+  }
+
+  Future<void> _initOnlineBook() async {
+    try {
+      final Map<String, OnlineBookStatus> statuses = await ref
+          .read(onlineLibraryQueriesProvider)
+          .bookStatuses(
+            sourceId: widget.source!.id,
+            bookUrls: <String>[widget.item!.bookUrl],
+          );
+      final OnlineBookStatus? status = statuses[widget.item!.bookUrl];
+      if (status != null && mounted) {
+        setState(() {
+          _persistedBookId = status.bookId;
+          _loading = false;
+        });
+        return;
+      }
+    } on Object {
+      // 容错回退至在线获取
+    }
+    await _loadOnlinePreview();
   }
 
   Future<void> _loadOnlinePreview() async {
@@ -909,7 +932,7 @@ class _BookDetailBodyState extends ConsumerState<_BookDetailBody> {
     final String author = (book?.author ?? preview?.author ?? '').trim();
     final String narrator = (book?.narrator ?? preview?.narrator ?? '').trim();
     final String description = (book?.description ?? preview?.intro ?? '').trim();
-    final String? seriesName = book?.seriesName ?? preview?.kind;
+    final String? seriesName = book?.seriesName;
     final int? seriesIndex = book?.seriesIndex;
     final List<String> tags = book?.tags ?? const <String>[];
     final bool isOnline = book?.isOnline ?? true;
@@ -941,27 +964,6 @@ class _BookDetailBodyState extends ConsumerState<_BookDetailBody> {
         AppSpacing.xxxl,
       ),
       children: <Widget>[
-        if (detail == null) ...<Widget>[
-          Container(
-            key: OnlineBookPreviewKeys.previewNoticeKey,
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(AppRadii.xsValue),
-            ),
-            child: Text(
-              '预览模式 · 不会写入书库',
-              style: text.bodySmall?.copyWith(
-                color: scheme.onPrimaryContainer,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
         if (widget.previewInfoFailure != null) ...<Widget>[
           _FailureBanner(
             message: widget.previewInfoFailure!.message,

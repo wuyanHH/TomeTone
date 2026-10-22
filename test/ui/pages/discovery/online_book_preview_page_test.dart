@@ -49,8 +49,9 @@ void main() {
       home: OnlineBookPreviewPage(source: source, item: _item()),
     );
 
-    expect(find.byKey(OnlineBookPreviewKeys.previewNoticeKey), findsOneWidget);
-    expect(find.text('预览模式 · 不会写入书库'), findsOneWidget);
+    expect(find.byKey(OnlineBookPreviewKeys.previewNoticeKey), findsNothing);
+    expect(find.text('预览模式 · 不会写入书库'), findsNothing);
+    expect(find.text('有声小说'), findsNothing);
     expect(find.text('完整书名'), findsOneWidget);
     expect(find.text('目录 · 2 章'), findsOneWidget);
     expect(find.text('第一章'), findsOneWidget);

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/online_providers.dart';
+import 'package:tometone/app/providers/source_engine_providers.dart';
+import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/app/sources/source_discovery.dart';
+import 'package:tometone/domain/common/ulid_id_generator.dart';
+import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/book_source_queries.dart';
 import 'package:tometone/domain/sources/discovery/explore_category.dart';
@@ -198,6 +205,104 @@ void main() {
     expect(find.textContaining('非常长的书源'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('离开发现页再重新进入，从内存缓存恢复，不重复触发全量加载', (tester) async {
+    final db = openSourceTestDatabase();
+    await seedSource(
+      db,
+      name: 'A源',
+      sourceUrl: 'https://a.example',
+      extra: <String, Object?>{
+        'exploreUrl': '玄幻::https://a.example/list?page={{page}}',
+      },
+    );
+
+    int exploreCalls = 0;
+    final discovery = _CountingDiscovery(
+      onExplore: () => exploreCalls++,
+      items: const <SourceBookSummary>[
+        SourceBookSummary(title: '斗破苍穹', bookUrl: 'https://a.example/b/1'),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        bookSourceQueriesProvider.overrideWithValue(DriftBookSourceQueries(db)),
+        sourceDiscoveryProvider.overrideWithValue(discovery),
+        onlineLibraryQueriesProvider.overrideWithValue(
+          DriftOnlineLibraryQueries(db, idGenerator: UlidIdGenerator()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    // 首次进入发现页
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(body: DiscoveryPage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('斗破苍穹'), findsOneWidget);
+    expect(exploreCalls, 1);
+
+    // 模拟离开页面（切换到其他页面）
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(body: Text('其他页面')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('其他页面'), findsOneWidget);
+
+    // 再次进入发现页
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(body: DiscoveryPage()),
+        ),
+      ),
+    );
+    // 首次 build 即可直接同步渲染出缓存书籍，无需出现 loading 菊花
+    expect(find.text('斗破苍穹'), findsOneWidget);
+    expect(find.byKey(DiscoveryPageKeys.loadingKey), findsNothing);
+    await tester.pumpAndSettle();
+
+    // explore 调用次数仍然为 1（未重复调用网络请求）
+    expect(exploreCalls, 1);
+  });
+}
+
+class _CountingDiscovery extends _EmptyDiscovery {
+  const _CountingDiscovery({
+    required this.onExplore,
+    this.items = const <SourceBookSummary>[],
+  });
+
+  final VoidCallback onExplore;
+  final List<SourceBookSummary> items;
+
+  @override
+  Future<SourcePage<SourceBookSummary>> explore(
+    BookSource source,
+    ExploreCategory category,
+    int page,
+  ) async {
+    onExplore();
+    return SourcePage<SourceBookSummary>(
+      items: items,
+      hasMore: false,
+      finalUrl: Uri.parse('https://a.example/list'),
+    );
+  }
 }
 
 class _EmptyDiscovery implements SourceDiscovery {

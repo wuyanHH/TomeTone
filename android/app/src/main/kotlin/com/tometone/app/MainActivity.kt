@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -40,6 +41,14 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getSupportedAbis" -> result.success(android.os.Build.SUPPORTED_ABIS.toList())
+                    "installApk" -> {
+                        val filePath = call.argument<String>("filePath")
+                        if (filePath.isNullOrEmpty()) {
+                            result.error("invalid_argument", "filePath 不能为空", null)
+                        } else {
+                            installApk(filePath, result)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -464,6 +473,29 @@ class MainActivity : FlutterActivity() {
             // 名称只用于展示，读不到就退回 URI 末段。
         }
         return uri.lastPathSegment ?: uri.toString()
+    }
+
+    private fun installApk(filePath: String, result: MethodChannel.Result) {
+        try {
+            val file = File(filePath)
+            if (!file.exists()) {
+                result.error("file_not_found", "APK 文件不存在", null)
+                return
+            }
+            val uri = FileProvider.getUriForFile(
+                this,
+                "${applicationContext.packageName}.fileProvider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (error: Exception) {
+            result.error("install_failed", error.message, null)
+        }
     }
 
     companion object {

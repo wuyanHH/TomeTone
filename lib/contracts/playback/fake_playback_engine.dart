@@ -228,6 +228,15 @@ class FakePlaybackEngine implements PlaybackEngine {
     _setState(EnginePlaybackState.paused);
   }
 
+  /// 模拟引擎探测到时长更新。
+  void emitDuration(Duration duration) {
+    if (_disposed) {
+      return;
+    }
+    _duration = duration;
+    _emit(EngineDurationChanged(duration));
+  }
+
   // ---------------------------------------------------------------------------
 
   Duration _clamp(Duration position) {

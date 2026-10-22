@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/app_info.dart';
 import 'package:tometone/app/preferences/app_preferences.dart';
+import 'package:tometone/app/providers/apk_download_providers.dart';
 import 'package:tometone/app/providers/preferences_providers.dart';
 import 'package:tometone/app/providers/update_providers.dart';
 import 'package:tometone/app/update/release_selection.dart';
 import 'package:tometone/app/update/semver.dart';
+import 'package:tometone/contracts/update/apk_download_state.dart';
 import 'package:tometone/contracts/update/update_models.dart';
 import 'package:tometone/contracts/update/update_source.dart';
 import 'package:tometone/contracts/update/update_state.dart';
@@ -20,7 +22,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// 版本更新详情页面（《架构需求文档》§2.7）。
 ///
 /// 展示版本详情、Markdown 更新说明、多架构 APK 资产列表、
-/// 推荐 ABI 标记、复制校验值及跳过此版本等功能。
+/// 推荐 ABI 标记、复制校验值、内置下载/安装及吸底常驻操作栏等功能。
 class UpdatePage extends ConsumerStatefulWidget {
   /// 创建版本更新详情页面。
   const UpdatePage({
@@ -30,6 +32,27 @@ class UpdatePage extends ConsumerStatefulWidget {
 
   /// 初始目标版本标签（若由通知/弹窗传入）。
   final String? initialReleaseTag;
+
+  /// 主操作按钮 key（下载/重新下载）。
+  static const Key primaryActionKey = Key('update-primary-action');
+
+  /// 立即安装按钮 key。
+  static const Key installKey = Key('update-install-action');
+
+  /// 取消下载按钮 key。
+  static const Key cancelDownloadKey = Key('update-cancel-download');
+
+  /// 浏览器下载按钮 key。
+  static const Key browserDownloadKey = Key('update-browser-download');
+
+  /// 更多选项按钮 key。
+  static const Key moreOptionsKey = Key('update-more-options');
+
+  /// 下载进度条 key。
+  static const Key downloadProgressKey = Key('update-download-progress');
+
+  /// 吸底常驻栏 key。
+  static const Key stickyBottomBarKey = Key('update-sticky-bottom-bar');
 
   /// 下载按钮 key 生成器。
   static Key downloadKey(String name) => Key('update-download-$name');
@@ -132,6 +155,18 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
     final prefs = ref.watch(preferencesProvider);
     final release = updateState.release;
 
+    final bool isSkipped = _isSkipped(prefs.skippedVersion, release?.tag ?? '');
+    final displayStatus = isSkipped ? UpdateStatus.skipped : updateState.status;
+
+    final apkAssets = release?.assets
+            .where((a) => a.name.toLowerCase().endsWith('.apk'))
+            .toList(growable: false) ??
+        const <ReleaseAsset>[];
+    final bool showBottomBar = release != null &&
+        apkAssets.isNotEmpty &&
+        (displayStatus == UpdateStatus.available ||
+            displayStatus == UpdateStatus.skipped);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('版本更新'),
@@ -152,10 +187,199 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
-          child: _buildBody(context, updateState, prefs, release),
+          child: _buildBody(
+            context,
+            updateState,
+            prefs,
+            release,
+            displayStatus,
+          ),
+        ),
+      ),
+      bottomNavigationBar: showBottomBar
+          ? _buildStickyBottomBar(context, release, isSkipped, _abisFuture)
+          : null,
+    );
+  }
+
+  Widget _buildStickyBottomBar(
+    BuildContext context,
+    ReleaseInfo release,
+    bool isSkipped,
+    Future<List<String>> abisFuture,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final downloadState = ref.watch(apkDownloadProvider);
+
+    final apkAssets = release.assets
+        .where((a) => a.name.toLowerCase().endsWith('.apk'))
+        .toList(growable: false);
+
+    return Material(
+      color: colorScheme.surface,
+      elevation: 4,
+      child: SafeArea(
+        top: false,
+        child: Center(
+          heightFactor: 1.0,
+          child: Container(
+            key: UpdatePage.stickyBottomBarKey,
+            constraints: const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.sm,
+            ),
+            child: FutureBuilder<List<String>>(
+              future: abisFuture,
+              builder: (
+                BuildContext context,
+                AsyncSnapshot<List<String>> snapshot,
+              ) {
+                final abis = snapshot.data ?? const <String>[];
+                final recommendedName = recommendedAbiAsset(abis, apkAssets);
+                final targetAsset = apkAssets.firstWhere(
+                  (a) => a.name == recommendedName,
+                  orElse: () => apkAssets.first,
+                );
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    if (downloadState.status ==
+                        ApkDownloadStatus.downloading) ...<Widget>[
+                      LinearProgressIndicator(
+                        key: UpdatePage.downloadProgressKey,
+                        value: downloadState.progress,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          Text(
+                            '${_formatSize(downloadState.receivedBytes)} / ${_formatSize(downloadState.totalBytes)}',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            '${(downloadState.progress * 100).toStringAsFixed(0)}%',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                    ] else if (downloadState.status ==
+                        ApkDownloadStatus.completed) ...<Widget>[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: Text(
+                          '下载完成（已校验 SHA-256），准备安装',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ] else if (downloadState.status ==
+                        ApkDownloadStatus.failed) ...<Widget>[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: Text(
+                          downloadState.error ?? '下载失败，请重试',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.error,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                    Row(
+                      children: <Widget>[
+                        if (isSkipped)
+                          OutlinedButton(
+                            key: UpdatePage.unskipKey,
+                            onPressed: () => ref
+                                .read(updateControllerProvider.notifier)
+                                .clearSkip(),
+                            child: const Text('取消跳过'),
+                          )
+                        else
+                          OutlinedButton(
+                            key: UpdatePage.skipKey,
+                            onPressed: () => ref
+                                .read(updateControllerProvider.notifier)
+                                .skipVersion(release.tag),
+                            child: const Text('跳过此版本'),
+                          ),
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          key: UpdatePage.releasePageKey,
+                          tooltip: 'Release 页面',
+                          icon: const Icon(Icons.open_in_new_rounded),
+                          onPressed: () =>
+                              _openExternal(_releasePageUrl(release)),
+                        ),
+                        const Spacer(),
+                        Flexible(
+                          child: _buildPrimaryActionButton(
+                            context,
+                            downloadState,
+                            targetAsset,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildPrimaryActionButton(
+    BuildContext context,
+    ApkDownloadState downloadState,
+    ReleaseAsset targetAsset,
+  ) {
+    return switch (downloadState.status) {
+      ApkDownloadStatus.idle || ApkDownloadStatus.cancelled => FilledButton.icon(
+          key: UpdatePage.primaryActionKey,
+          icon: const Icon(Icons.download_rounded),
+          label: Text('下载更新 (${_formatSize(targetAsset.sizeBytes)})'),
+          onPressed: () => ref
+              .read(apkDownloadProvider.notifier)
+              .startDownload(targetAsset),
+        ),
+      ApkDownloadStatus.downloading => OutlinedButton.icon(
+          key: UpdatePage.cancelDownloadKey,
+          icon: const Icon(Icons.close_rounded),
+          label: const Text('取消下载'),
+          onPressed: () => ref.read(apkDownloadProvider.notifier).cancel(),
+        ),
+      ApkDownloadStatus.completed => FilledButton.icon(
+          key: UpdatePage.installKey,
+          icon: const Icon(Icons.system_update_rounded),
+          label: const Text('立即安装'),
+          onPressed: () =>
+              ref.read(apkDownloadProvider.notifier).installCurrent(),
+        ),
+      ApkDownloadStatus.failed => FilledButton.icon(
+          key: UpdatePage.primaryActionKey,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('重新下载'),
+          onPressed: () => ref
+              .read(apkDownloadProvider.notifier)
+              .startDownload(targetAsset),
+        ),
+    };
   }
 
   Widget _buildBody(
@@ -163,6 +387,7 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
     UpdateState updateState,
     AppPreferences prefs,
     ReleaseInfo? release,
+    UpdateStatus displayStatus,
   ) {
     if (updateState.status == UpdateStatus.checking && release == null) {
       return _buildCheckingView(context);
@@ -171,9 +396,6 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
     if (updateState.status == UpdateStatus.failure && release == null) {
       return _buildFailureView(context, updateState.failure);
     }
-
-    final bool isSkipped = _isSkipped(prefs.skippedVersion, release?.tag ?? '');
-    final displayStatus = isSkipped ? UpdateStatus.skipped : updateState.status;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(
@@ -184,7 +406,8 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _buildVersionHeaderCard(context, displayStatus, release),
-          if (updateState.status == UpdateStatus.failure && release != null) ...<Widget>[
+          if (updateState.status == UpdateStatus.failure &&
+              release != null) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             _buildNoticeBanner(
               context,
@@ -201,7 +424,7 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
           ],
           if (release != null) ...<Widget>[
             const SizedBox(height: AppSpacing.lg),
-            _buildReleaseContent(context, release, prefs),
+            _buildReleaseContent(context, release),
           ] else ...<Widget>[
             const SizedBox(height: AppSpacing.lg),
             _buildNoReleaseCard(context),
@@ -458,11 +681,9 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
   Widget _buildReleaseContent(
     BuildContext context,
     ReleaseInfo release,
-    AppPreferences prefs,
   ) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
-    final bool isSkipped = _isSkipped(prefs.skippedVersion, release.tag);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -487,47 +708,15 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
         ),
         const SizedBox(height: AppSpacing.lg),
         _buildAssetsSection(context, release),
-        const SizedBox(height: AppSpacing.lg),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                if (isSkipped)
-                  FilledButton.tonal(
-                    key: UpdatePage.unskipKey,
-                    onPressed: () => ref
-                        .read(updateControllerProvider.notifier)
-                        .clearSkip(),
-                    child: const Text('取消跳过'),
-                  )
-                else
-                  OutlinedButton(
-                    key: UpdatePage.skipKey,
-                    onPressed: () => ref
-                        .read(updateControllerProvider.notifier)
-                        .skipVersion(release.tag),
-                    child: const Text('跳过此版本'),
-                  ),
-                const SizedBox(height: AppSpacing.md),
-                FilledButton(
-                  key: UpdatePage.releasePageKey,
-                  onPressed: () => _openExternal(_releasePageUrl(release)),
-                  child: const Text('打开 Release 页面'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  '请在系统设置中允许安装未知来源应用。当前版本为 Debug/Pre-release 签名。',
-                  textAlign: TextAlign.center,
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          '请在系统设置中允许安装未知来源应用。当前版本为 Debug/Pre-release 签名。',
+          textAlign: TextAlign.center,
+          style: text.labelSmall?.copyWith(
+            color: scheme.onSurfaceVariant,
           ),
         ),
+        const SizedBox(height: AppSpacing.md),
       ],
     );
   }
@@ -595,6 +784,13 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
   }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
+    final downloadState = ref.watch(apkDownloadProvider);
+
+    final bool isCurrentAsset = downloadState.assetName == asset.name;
+    final bool isCompleted =
+        isCurrentAsset && downloadState.status == ApkDownloadStatus.completed;
+    final bool isDownloading =
+        isCurrentAsset && downloadState.status == ApkDownloadStatus.downloading;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -642,11 +838,42 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
                 color: scheme.onSurfaceVariant,
               ),
             ),
-            FilledButton.tonalIcon(
-              key: UpdatePage.downloadKey(asset.name),
-              onPressed: () => _openExternal(asset.downloadUrl),
-              icon: const Icon(Icons.download_rounded, size: 16),
-              label: const Text('下载'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                IconButton(
+                  key: UpdatePage.browserDownloadKey,
+                  tooltip: '在浏览器中下载',
+                  icon: const Icon(Icons.public_rounded),
+                  onPressed: () => _openExternal(asset.downloadUrl),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                FilledButton.tonalIcon(
+                  key: UpdatePage.downloadKey(asset.name),
+                  onPressed: () {
+                    if (isCompleted) {
+                      ref.read(apkDownloadProvider.notifier).installCurrent();
+                    } else {
+                      ref
+                          .read(apkDownloadProvider.notifier)
+                          .startDownload(asset);
+                    }
+                  },
+                  icon: Icon(
+                    isCompleted
+                        ? Icons.system_update_rounded
+                        : (isDownloading
+                            ? Icons.downloading_rounded
+                            : Icons.download_rounded),
+                    size: 16,
+                  ),
+                  label: Text(
+                    isCompleted
+                        ? '安装'
+                        : (isDownloading ? '下载中' : '下载'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -11,9 +11,11 @@ import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/explore_category.dart';
 import 'package:tometone/domain/sources/discovery/source_failure.dart';
 import 'package:tometone/domain/sources/discovery/source_models.dart';
+import 'package:tometone/ui/pages/discovery/discovery_cache.dart';
 import 'package:tometone/ui/pages/discovery/discovery_result_tile.dart';
 import 'package:tometone/ui/pages/discovery/online_book_preview_page.dart';
 import 'package:tometone/ui/pages/discovery/source_switcher_sheet.dart';
+import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
 import 'package:tometone/ui/pages/sources/source_management_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
@@ -77,6 +79,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
   bool _loadingPage = false;
   bool _loadingMore = false;
   String? _failure;
+  late DiscoveryCacheNotifier _cacheNotifier;
   String? _pageFailure;
   String? _bannerMessage;
   String? _loadMoreFailure;
@@ -86,7 +89,41 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    unawaited(_loadSources());
+    _cacheNotifier = ref.read(discoveryCacheProvider.notifier);
+
+    final DiscoveryCacheState cached = ref.read(discoveryCacheProvider);
+    if (cached.isInitialized && cached.source != null) {
+      _sources = cached.sources;
+      _source = cached.source;
+      _categories = cached.categories;
+      _category = cached.category;
+      _items = cached.items;
+      _statuses = cached.statuses;
+      _searchMode = cached.searchMode;
+      _keyword = cached.keyword;
+      _searchController.text = cached.keyword;
+      _page = cached.page;
+      _hasMore = cached.hasMore;
+      _loadingSources = false;
+      _loadingPage = false;
+      _loadingMore = false;
+      _failure = null;
+      _pageFailure = null;
+      _bannerMessage = null;
+      _loadMoreFailure = null;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        if (_scrollController.hasClients && cached.scrollOffset > 0) {
+          _scrollController.jumpTo(cached.scrollOffset);
+        }
+        unawaited(_silentRefreshStatuses());
+      });
+    } else {
+      unawaited(_loadSources());
+    }
   }
 
   @override
@@ -98,10 +135,51 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     super.dispose();
   }
 
+  void _saveToCache() {
+    final double offset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    _cacheNotifier.update(
+      DiscoveryCacheState(
+        sources: _sources,
+        source: _source,
+        categories: _categories,
+        category: _category,
+        items: _items,
+        statuses: _statuses,
+        searchMode: _searchMode,
+        keyword: _keyword,
+        page: _page,
+        hasMore: _hasMore,
+        scrollOffset: offset,
+        isInitialized: true,
+      ),
+    );
+  }
+
+  Future<void> _silentRefreshStatuses() async {
+    final BookSource? source = _source;
+    if (source == null || _items.isEmpty || !mounted) {
+      return;
+    }
+    try {
+      final Map<String, OnlineBookStatus> statuses =
+          await _fetchStatuses(source.id, _items);
+      if (mounted) {
+        setState(() {
+          _statuses = statuses;
+        });
+        _saveToCache();
+      }
+    } on Object {
+      // 静默失败不打扰用户
+    }
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) {
       return;
     }
+    _cacheNotifier.updateOffset(_scrollController.offset);
     if (_scrollController.position.extentAfter > 200) {
       return;
     }
@@ -177,6 +255,8 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       }
       if (selected != null && categories.isNotEmpty) {
         unawaited(_loadFirstPage());
+      } else {
+        _saveToCache();
       }
     } on Object {
       if (!mounted || generation != _generation) {
@@ -243,6 +323,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
         _bannerMessage = null;
         _loadMoreFailure = null;
       });
+      _saveToCache();
     } on SourceFailure catch (failure) {
       _handleFirstPageFailure(generation, failure.message);
     } on Object {
@@ -317,6 +398,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
         _loadingMore = false;
         _loadMoreFailure = null;
       });
+      _saveToCache();
     } on SourceFailure catch (failure) {
       _handleLoadMoreFailure(generation, failure.message);
     } on Object {
@@ -478,10 +560,12 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     if (source == null) {
       return;
     }
+    final String? bookId = _statuses[item.bookUrl]?.bookId;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) =>
-            OnlineBookPreviewPage(source: source, item: item),
+        builder: (BuildContext context) => bookId != null
+            ? BookDetailPage(bookId: bookId)
+            : OnlineBookPreviewPage(source: source, item: item),
       ),
     );
     if (!mounted) {
@@ -536,6 +620,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
           _statuses = next;
         }
       });
+      _saveToCache();
     } on Object {
       // 状态刷新失败静默处理，避免干扰发现页浏览
     }

@@ -8,6 +8,7 @@ import 'package:tometone/app/policy/per_book_preferences.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/preferences/app_preferences.dart';
 import 'package:tometone/app/preferences/app_preferences_store.dart';
+import 'package:tometone/app/providers/apk_download_providers.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/playback_providers.dart';
 import 'package:tometone/app/providers/preferences_providers.dart';
@@ -16,6 +17,7 @@ import 'package:tometone/contracts/media/media_source_resolver.dart';
 import 'package:tometone/contracts/playback/audio_source_ref.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/contracts/update/device_architecture.dart';
+import 'package:tometone/contracts/update/package_installer.dart';
 import 'package:tometone/contracts/update/update_source.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
@@ -270,7 +272,29 @@ class FakeUpdateSource implements UpdateSource {
   }
 }
 
-/// 常用 overrides：书架 / 书库根 / 控制器 / 书详情 / 媒体源 resolver 工厂 / 偏好。
+/// 测试用假安装器。
+class FakePackageInstaller implements PackageInstaller {
+  /// 创建测试用假安装器。
+  FakePackageInstaller({this.succeeds = true});
+
+  /// 是否模拟安装成功。
+  final bool succeeds;
+
+  /// 最近一次尝试安装的文件路径。
+  String? installedPath;
+
+  /// 调用次数。
+  int installCalls = 0;
+
+  @override
+  Future<bool> installApk(String filePath) async {
+    installCalls++;
+    installedPath = filePath;
+    return succeeds;
+  }
+}
+
+/// 常用 overrides：书架 / 书库根 / 控制器 / 书详情 / 媒体源 resolver 工厂 / 偏好 / 安装器。
 List<Override> testOverrides({
   required PlaybackController controller,
   List<BookSummary> books = const <BookSummary>[],
@@ -281,9 +305,13 @@ List<Override> testOverrides({
   AppPreferencesStore? preferencesStore,
   DeviceArchitecture? deviceArchitecture,
   UpdateSource? updateSource,
+  PackageInstaller? packageInstaller,
   List<Override> extra = const <Override>[],
 }) {
   return <Override>[
+    packageInstallerProvider.overrideWithValue(
+      packageInstaller ?? FakePackageInstaller(),
+    ),
     preferencesStoreProvider.overrideWithValue(
       preferencesStore ?? InMemoryAppPreferencesStore(preferences),
     ),
