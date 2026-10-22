@@ -286,4 +286,22 @@ void main() {
     expect(find.textContaining('这一章打不开'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('播放台重构：不渲染 LinearProgressIndicator，时间行包含全书百分比，滑块拖拽触发 seek', (WidgetTester tester) async {
+    await pumpPlayer(tester);
+
+    // 1. 不再渲染第二根进度条 (全书线性进度条)
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+
+    // 2. 时间行显示全书百分比
+    expect(find.textContaining('全书'), findsOneWidget);
+
+    // 3. 滑块拖拽可触发 seek
+    final sliderFinder = find.byKey(PlayerPage.chapterSliderKey);
+    expect(sliderFinder, findsOneWidget);
+    final Duration initialPosition = controller.position;
+    await tester.drag(sliderFinder, const Offset(60, 0));
+    await tester.pumpAndSettle();
+    expect(controller.position, greaterThan(initialPosition));
+  });
 }

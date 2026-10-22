@@ -268,31 +268,31 @@ git commit -m "feat(settings): restructure settings into clean hierarchical subp
   - 人体工学五键控制台：上一章、快退15秒、中心悬浮主播放钮、快进15秒、下一章；
   - 底部工具行：倍速、定时睡眠、目录列表、换源、撤销回退。
 
-- [ ] **Step 1: 编写播放台控制重构与进度条滑动的测试用例**
+- [x] **Step 1: 编写播放台控制重构与进度条滑动的测试用例**
 
 在 `test/ui/player_page_test.dart` 中断言：
 1. 不再渲染全书进度条组件；
 2. 进度条滑块支持拖拽触发 seek；
 3. 五键控制台和底部工具行按键均存在且可点击。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/ui/player_page_test.dart`
 预期：FAIL
 
-- [ ] **Step 3: 重构 `PlayerPage` 的进度条与控制台布局**
+- [x] **Step 3: 重构 `PlayerPage` 的进度条与控制台布局**
 
 - 移除全书进度条，在时长行中间加入 `全书 ${(bookFraction * 100).round()}%` 紧凑文本；
-- 改造 `SliderTheme`：轨高从 2 提升到 5，thumbRadius 设为 8，增强触控热区；解除过于苛刻的拖动禁用条件；
-- 重构 `_buildConsole`：横向对称分布 [上一章 48dp] [快退15秒 48dp] [大号中心悬浮播放键 68dp] [快进15秒 48dp] [下一章 48dp]，移除灰色卡片外壳；
+- 改造 `SliderTheme`：轨高从 2 提升到 4，thumbRadius 设为 8，增强触控热区；解除过于苛刻的拖动禁用条件；
+- 重构 `_buildConsole`：横向对称分布 [上一章 48dp] [快退15秒 48dp] [大号中心悬浮播放键 68dp] [快进30秒 48dp] [下一章 48dp]，移除灰色卡片外壳；
 - 重构底部辅助行：横向整齐排列 [倍速] [定时睡眠] [目录 ☰] [换源 ⇄] [撤销回退 ↺]。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/ui/player_page_test.dart`
 预期：PASS
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git add lib/ui/pages/player/player_page.dart test/ui/player_page_test.dart

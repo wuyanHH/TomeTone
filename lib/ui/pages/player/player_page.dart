@@ -437,10 +437,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ? 0
         : (index + 1) / totalChapters;
 
+    final String chapterPart = totalChapters == 0
+        ? '章节识别中'
+        : '第 ${index < 0 ? '—' : index + 1} / $totalChapters 章';
+    final String rightLabel = totalChapters == 0
+        ? chapterPart
+        : '全书 ${(bookFraction * 100).round()}% · $chapterPart';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Text(
               '${_formatClock(shown)} / $totalLabel',
@@ -449,24 +457,27 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
               ),
             ),
-            const Spacer(),
-            Text(
-              totalChapters == 0
-                  ? '章节识别中'
-                  : '第 ${index < 0 ? '—' : index + 1} / $totalChapters 章',
-              style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                rightLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
             ),
           ],
         ),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            trackHeight: 2,
+            trackHeight: 4,
             activeTrackColor: scheme.primary,
             inactiveTrackColor: scheme.surfaceContainerHighest,
             thumbColor: scheme.primary,
             overlayColor: scheme.primary.withValues(alpha: 0.14),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, pressedElevation: 4),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
           ),
           child: Semantics(
             label: known ? '章节进度' : '章节时长识别中',
@@ -489,32 +500,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   : null,
             ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: <Widget>[
-            Text(
-              '全书',
-              style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: AppRadii.pill,
-                child: LinearProgressIndicator(
-                  value: bookFraction,
-                  minHeight: 3,
-                  color: scheme.secondary,
-                  backgroundColor: scheme.surfaceContainerHighest,
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              '${(bookFraction * 100).round()}%',
-              style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
         ),
       ],
     );
@@ -567,98 +552,87 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        0,
+        AppSpacing.xs,
         AppSpacing.lg,
         AppSpacing.md,
       ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: AppRadii.xl,
-          border: Border.all(color: scheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.sm,
-          ),
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              // 320dp 级窄屏：侧键收 48、中央键收 64，仍满足 ≥48dp 触控门禁。
-              final bool compact = constraints.maxWidth < 296;
-              final double sideSize = compact ? 48 : 56;
-              final double centerSize = compact ? 64 : 72;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  _ConsoleButton(
-                    key: PlayerPage.previousKey,
-                    icon: Icons.skip_previous_rounded,
-                    label: '上一章',
-                    size: sideSize,
-                    onPressed: enabled ? controller.skipToPrevious : null,
-                  ),
-                  _ConsoleButton(
-                    key: PlayerPage.rewindKey,
-                    icon: Icons.fast_rewind_rounded,
-                    label: '快退 15 秒',
-                    size: sideSize,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          // 320dp 级窄屏：侧键收 48、中央键收 64，仍满足 ≥48dp 触控门禁。
+          final bool compact = constraints.maxWidth < 296;
+          final double sideSize = compact ? 48 : 56;
+          final double centerSize = compact ? 64 : 72;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              _ConsoleButton(
+                key: PlayerPage.previousKey,
+                icon: Icons.skip_previous_rounded,
+                label: '上一章',
+                size: sideSize,
+                onPressed: enabled ? controller.skipToPrevious : null,
+              ),
+              _ConsoleButton(
+                key: PlayerPage.rewindKey,
+                icon: Icons.fast_rewind_rounded,
+                label: '快退 15 秒',
+                size: sideSize,
+                onPressed: enabled
+                    ? () => unawaited(
+                        controller.seek(
+                          controller.position - const Duration(seconds: 15),
+                        ),
+                      )
+                    : null,
+              ),
+              SizedBox.square(
+                key: PlayerPage.playPauseKey,
+                dimension: centerSize,
+                child: Tooltip(
+                  message: playing ? '暂停' : '播放',
+                  child: FilledButton(
                     onPressed: enabled
-                        ? () => unawaited(
-                            controller.seek(
-                              controller.position - const Duration(seconds: 15),
-                            ),
-                          )
+                        ? () => unawaited(controller.togglePlayPause())
                         : null,
-                  ),
-                  SizedBox.square(
-                    key: PlayerPage.playPauseKey,
-                    dimension: centerSize,
-                    child: Tooltip(
-                      message: playing ? '暂停' : '播放',
-                      child: FilledButton(
-                        onPressed: enabled
-                            ? () => unawaited(controller.togglePlayPause())
-                            : null,
-                        style: FilledButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.square(centerSize),
-                          shape: const CircleBorder(),
-                        ),
-                        child: Icon(
-                          playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          size: centerSize / 2,
-                        ),
-                      ),
+                    style: FilledButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      elevation: 2,
+                      shadowColor: scheme.primary.withValues(alpha: 0.35),
+                      minimumSize: Size.square(centerSize),
+                      shape: const CircleBorder(),
+                    ),
+                    child: Icon(
+                      playing
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      size: centerSize * 0.52,
                     ),
                   ),
-                  _ConsoleButton(
-                    key: PlayerPage.forwardKey,
-                    icon: Icons.fast_forward_rounded,
-                    label: '快进 30 秒',
-                    size: sideSize,
-                    onPressed: enabled
-                        ? () => unawaited(
-                            controller.seek(
-                              controller.position + const Duration(seconds: 30),
-                            ),
-                          )
-                        : null,
-                  ),
-                  _ConsoleButton(
-                    key: PlayerPage.nextKey,
-                    icon: Icons.skip_next_rounded,
-                    label: '下一章',
-                    size: sideSize,
-                    onPressed: enabled ? controller.skipToNext : null,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+                ),
+              ),
+              _ConsoleButton(
+                key: PlayerPage.forwardKey,
+                icon: Icons.fast_forward_rounded,
+                label: '快进 30 秒',
+                size: sideSize,
+                onPressed: enabled
+                    ? () => unawaited(
+                        controller.seek(
+                          controller.position + const Duration(seconds: 30),
+                        ),
+                      )
+                    : null,
+              ),
+              _ConsoleButton(
+                key: PlayerPage.nextKey,
+                icon: Icons.skip_next_rounded,
+                label: '下一章',
+                size: sideSize,
+                onPressed: enabled ? controller.skipToNext : null,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
