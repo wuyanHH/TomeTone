@@ -45,6 +45,9 @@ void main() {
 
     await tester.tap(find.byKey(BookDetailKeys.removeShelfKey));
     await tester.pumpAndSettle();
+    expect(find.text('移出书架'), findsWidgets);
+    await tester.tap(find.text('移出'));
+    await tester.pumpAndSettle();
     expect(queries.shelfCalls, isFalse);
   });
 

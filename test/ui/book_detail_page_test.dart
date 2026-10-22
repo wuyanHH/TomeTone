@@ -4,11 +4,66 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/policy/playback_controller.dart';
 import 'package:tometone/app/providers/app_providers.dart';
+import 'package:tometone/app/providers/online_providers.dart';
+import 'package:tometone/app/providers/source_engine_providers.dart';
+import 'package:tometone/app/sources/source_discovery.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/domain/library/queries/online_library_queries.dart';
+import 'package:tometone/domain/sources/book_source.dart';
+import 'package:tometone/domain/sources/discovery/source_models.dart';
 import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
 
 import 'ui_test_harness.dart';
+
+class _FakeOnlineQueries implements OnlineLibraryQueries {
+  String? lastBookId;
+  bool? lastOnShelf;
+
+  @override
+  Future<void> setBookShelf(
+    String bookId, {
+    required bool onShelf,
+    List<String> tags = const <String>[],
+  }) async {
+    lastBookId = bookId;
+    lastOnShelf = onShelf;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeDiscovery implements SourceDiscovery {
+  @override
+  Future<SourceBookInfo> bookInfo(BookSource source, String url) async {
+    return const SourceBookInfo(
+      title: '在线完整书名',
+      bookUrl: 'https://e.test/book/1',
+      tocUrl: 'https://e.test/book/1/toc',
+      intro: '在线简介',
+    );
+  }
+
+  @override
+  Future<SourceToc> toc(BookSource source, SourceBookInfo info) async {
+    return const SourceToc(
+      complete: true,
+      chapters: <SourceChapter>[
+        SourceChapter(
+          index: 0,
+          title: '第 1 章',
+          rawUrl: 'https://e.test/c/1',
+          url: 'https://e.test/c/1',
+          isVip: false,
+        ),
+      ],
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   late FakePlaybackEngine engine;
@@ -243,5 +298,156 @@ void main() {
 
     expect(find.byType(BookDetailPage), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('在线书籍详情双态 CTA：左侧移出书架，右侧继续收听，移出带二次确认', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final queries = _FakeOnlineQueries();
+    final BookSummary summary = testSummary(
+      title: '在线神魔志',
+      sourceType: 'online',
+      sourceId: 'src-1',
+      onShelf: true,
+      progressChapterIndex: 1,
+      progressPositionMs: 5000,
+    );
+
+    await pumpDetail(
+      tester,
+      summary: summary,
+      extra: <Override>[
+        onlineLibraryQueriesProvider.overrideWithValue(queries),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final removeFinder = find.byKey(BookDetailKeys.removeShelfKey);
+    final listenFinder = find.byKey(BookDetailKeys.listenKey);
+
+    expect(removeFinder, findsOneWidget);
+    expect(listenFinder, findsOneWidget);
+    expect(find.text('移出书架'), findsOneWidget);
+    expect(find.text('从第 2 章继续收听'), findsOneWidget);
+
+    // 验证左侧为移出书架，右侧为收听按钮
+    final removeRect = tester.getRect(removeFinder);
+    final listenRect = tester.getRect(listenFinder);
+    expect(removeRect.left, lessThan(listenRect.left));
+
+    // 点击移出书架触发二次确认弹窗
+    await tester.tap(removeFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.text('移出书架'), findsWidgets);
+    expect(find.textContaining('确定要将《在线神魔志》移出书架吗？'), findsOneWidget);
+
+    // 取消：不调用服务
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(queries.lastBookId, isNull);
+
+    // 再次点击并确认
+    await tester.tap(removeFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('移出'));
+    await tester.pumpAndSettle();
+
+    expect(queries.lastBookId, summary.id);
+    expect(queries.lastOnShelf, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('未持久化在线书统一预览：BookDetailPage.online 双按钮 CTA 与零写入', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final now = DateTime.utc(2026);
+    final BookSource source = BookSource(
+      id: 'src-1',
+      libraryRootId: 'root-1',
+      name: '测试书源',
+      sourceUrl: 'https://e.test',
+      sourceType: 1,
+      rawJson: '{}',
+      header: const <String, String>{},
+      enabled: true,
+      enabledExplore: true,
+      customOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    );
+    const SourceBookSummary item = SourceBookSummary(
+      title: '在线未入库书',
+      bookUrl: 'https://e.test/book/1',
+    );
+
+    final container = ProviderContainer(
+      overrides: <Override>[
+        sourceDiscoveryProvider.overrideWithValue(_FakeDiscovery()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: BookDetailPage.online(source: source, item: item),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('在线完整书名'), findsOneWidget);
+    expect(find.text('在线简介'), findsOneWidget);
+    expect(find.byKey(BookDetailKeys.addShelfKey), findsOneWidget);
+    expect(find.byKey(BookDetailKeys.listenKey), findsOneWidget);
+    expect(find.text('加入书架'), findsOneWidget);
+    expect(find.text('立即收听'), findsOneWidget);
+
+    // 左侧为加入书架，右侧为立即收听
+    final addRect = tester.getRect(find.byKey(BookDetailKeys.addShelfKey));
+    final listenRect = tester.getRect(find.byKey(BookDetailKeys.listenKey));
+    expect(addRect.left, lessThan(listenRect.left));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('章节目录弹层：卷册支持折叠/展开与正倒序切换', (WidgetTester tester) async {
+    usePhoneViewport(tester);
+    final BookSummary summary = testSummary(
+      title: '山海夜航',
+      progressChapterId: 'c1',
+      progressChapterIndex: 0,
+    );
+
+    await pumpDetail(tester, summary: summary);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('章节目录').first);
+    await tester.pumpAndSettle();
+
+    // 验证初始正序与两卷均存在
+    expect(find.text('第一卷 · 入山'), findsOneWidget);
+    expect(find.text('第一章 · 山门'), findsOneWidget);
+    expect(find.text('第二卷 · 渡海'), findsOneWidget);
+    expect(find.text('第三章 · 潮声'), findsOneWidget);
+
+    // 折叠第一卷
+    await tester.tap(find.text('第一卷 · 入山'));
+    await tester.pumpAndSettle();
+    expect(find.text('第一章 · 山门'), findsNothing);
+    expect(find.text('第二卷 · 渡海'), findsOneWidget);
+    expect(find.text('第三章 · 潮声'), findsOneWidget);
+
+    // 再次点击展开第一卷
+    await tester.tap(find.text('第一卷 · 入山'));
+    await tester.pumpAndSettle();
+    expect(find.text('第一章 · 山门'), findsOneWidget);
+
+    // 切换为倒序
+    final sortButton = find.byTooltip('切换为倒序');
+    expect(sortButton, findsOneWidget);
+    await tester.tap(sortButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('切换为正序'), findsOneWidget);
   });
 }

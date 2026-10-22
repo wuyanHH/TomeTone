@@ -5,7 +5,7 @@ import 'package:tometone/ui/theme/theme_tokens.dart';
 /// 章节目录弹层（详情页「章节目录 / 卷册」共用）。
 ///
 /// 按卷分组，当前章高亮；缺失章置灰且不可点。点正常章先关闭弹层，再把
-/// [ChapterView] 交给调用方起播。
+/// [ChapterView] 交给调用方起播。支持卷册折叠与正倒序切换。
 Future<void> showChapterListSheet(
   BuildContext context, {
   required BookDetail detail,
@@ -26,7 +26,7 @@ Future<void> showChapterListSheet(
   );
 }
 
-class _ChapterListSheet extends StatelessWidget {
+class _ChapterListSheet extends StatefulWidget {
   const _ChapterListSheet({
     required this.detail,
     required this.currentChapterId,
@@ -38,10 +38,18 @@ class _ChapterListSheet extends StatelessWidget {
   final ValueChanged<ChapterView> onChapterSelected;
 
   @override
+  State<_ChapterListSheet> createState() => _ChapterListSheetState();
+}
+
+class _ChapterListSheetState extends State<_ChapterListSheet> {
+  bool _ascending = true;
+  final Set<String> _collapsedVolumeIds = <String>{};
+
+  @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final List<_SheetEntry> entries = _buildEntries(detail);
+    final List<_SheetEntry> entries = _buildEntries(widget.detail);
 
     return DraggableScrollableSheet(
       expand: false,
@@ -76,12 +84,21 @@ class _ChapterListSheet extends StatelessWidget {
                         Text('章节目录', style: text.titleMedium),
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
-                          '第 ${detail.chapters.length} 章 · ${detail.volumes.length} 卷',
+                          '第 ${widget.detail.chapters.length} 章 · ${widget.detail.volumes.length} 卷',
                           style: text.labelSmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _ascending ? '切换为倒序' : '切换为正序',
+                    onPressed: () => setState(() => _ascending = !_ascending),
+                    icon: Icon(
+                      _ascending
+                          ? Icons.arrow_downward_rounded
+                          : Icons.arrow_upward_rounded,
                     ),
                   ),
                   IconButton(
@@ -105,18 +122,32 @@ class _ChapterListSheet extends StatelessWidget {
                   }
                   final VolumeView? volume = entry.volume;
                   if (volume != null) {
-                    return _VolumeHeader(volume: volume);
+                    final bool isCollapsed =
+                        _collapsedVolumeIds.contains(volume.id);
+                    return _VolumeHeader(
+                      volume: volume,
+                      isCollapsed: isCollapsed,
+                      onToggle: () {
+                        setState(() {
+                          if (isCollapsed) {
+                            _collapsedVolumeIds.remove(volume.id);
+                          } else {
+                            _collapsedVolumeIds.add(volume.id);
+                          }
+                        });
+                      },
+                    );
                   }
                   final ChapterView chapter = entry.chapter!;
                   final bool playable =
                       !chapter.missing && !chapter.retired && !chapter.isVip;
                   return _ChapterTile(
                     chapter: chapter,
-                    current: chapter.id == currentChapterId,
+                    current: chapter.id == widget.currentChapterId,
                     onTap: playable
                         ? () {
                             Navigator.of(context).pop();
-                            onChapterSelected(chapter);
+                            widget.onChapterSelected(chapter);
                           }
                         : null,
                   );
@@ -129,23 +160,34 @@ class _ChapterListSheet extends StatelessWidget {
     );
   }
 
-  static List<_SheetEntry> _buildEntries(BookDetail detail) {
+  List<_SheetEntry> _buildEntries(BookDetail detail) {
     final List<_SheetEntry> entries = <_SheetEntry>[];
-    for (final VolumeView volume in detail.volumes) {
-      final List<ChapterView> active = volume.chapters
+    final List<VolumeView> volumes = _ascending
+        ? detail.volumes
+        : detail.volumes.reversed.toList();
+
+    for (final VolumeView volume in volumes) {
+      List<ChapterView> active = volume.chapters
           .where((chapter) => !chapter.retired)
           .toList(growable: false);
+      if (!_ascending) {
+        active = active.reversed.toList();
+      }
       if (active.isNotEmpty) {
         entries.add(_SheetEntry.volume(volume));
-        for (final ChapterView chapter in active) {
-          entries.add(_SheetEntry.chapter(chapter));
+        if (!_collapsedVolumeIds.contains(volume.id)) {
+          for (final ChapterView chapter in active) {
+            entries.add(_SheetEntry.chapter(chapter));
+          }
         }
       }
     }
     final List<ChapterView> retired = detail.retiredChapters;
     if (retired.isNotEmpty) {
       entries.add(_SheetEntry.retired(retired.length));
-      for (final ChapterView chapter in retired) {
+      final List<ChapterView> retiredList =
+          _ascending ? retired : retired.reversed.toList();
+      for (final ChapterView chapter in retiredList) {
         entries.add(_SheetEntry.chapter(chapter));
       }
     }
@@ -193,36 +235,51 @@ class _SheetEntry {
 }
 
 class _VolumeHeader extends StatelessWidget {
-  const _VolumeHeader({required this.volume});
+  const _VolumeHeader({
+    required this.volume,
+    required this.isCollapsed,
+    required this.onToggle,
+  });
 
   final VolumeView volume;
+  final bool isCollapsed;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.xs,
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              volume.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: text.labelLarge?.copyWith(color: scheme.primary),
+    return InkWell(
+      onTap: onToggle,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.xs,
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                volume.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.labelLarge?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-          Text(
-            '${volume.chapters.length} 章',
-            style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
+            Icon(
+              isCollapsed
+                  ? Icons.expand_more_rounded
+                  : Icons.expand_less_rounded,
+              color: scheme.primary,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -243,72 +300,55 @@ class _ChapterTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
-    final String duration = _formatDuration(chapter.durationMs);
+    final bool missing = chapter.missing;
+    final bool vip = chapter.isVip;
+
+    final Widget titleWidget = Text(
+      chapter.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: text.bodyMedium?.copyWith(
+        color: current
+            ? scheme.primary
+            : missing
+                ? scheme.onSurfaceVariant.withValues(alpha: 0.45)
+                : scheme.onSurface,
+        fontWeight: current ? FontWeight.bold : FontWeight.normal,
+      ),
+    );
+
+    final Widget? trailing = missing
+        ? Text(
+            '缺失',
+            style: text.labelSmall?.copyWith(
+              color: scheme.error.withValues(alpha: 0.8),
+            ),
+          )
+        : vip
+            ? Icon(
+                Icons.lock_outline_rounded,
+                size: 16,
+                color: scheme.onSurfaceVariant,
+              )
+            : null;
+
     return ListTile(
-      enabled: onTap != null,
+      dense: true,
       selected: current,
       selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.35),
-      leading: Icon(
-        current ? Icons.graphic_eq_rounded : Icons.play_circle_outline_rounded,
-        color: onTap == null
-            ? scheme.onSurfaceVariant.withValues(alpha: 0.4)
-            : current
-            ? scheme.primary
-            : scheme.onSurfaceVariant,
-      ),
-      title: Text(
-        chapter.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: text.bodyMedium?.copyWith(
-          color: onTap == null ? scheme.onSurfaceVariant : null,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      leading: SizedBox(
+        width: 32,
+        child: Text(
+          '${chapter.chapterIndex + 1}',
+          style: text.labelSmall?.copyWith(
+            color: current ? scheme.primary : scheme.onSurfaceVariant,
+          ),
         ),
       ),
-      subtitle: Text(
-        chapter.missing
-            ? '文件缺失'
-            : <String>[
-                '第 ${chapter.chapterIndex + 1} 章',
-                if (chapter.isVip) '需要登录/购买',
-                if (chapter.retired) '已下架',
-                if (duration.isNotEmpty) duration,
-              ].join(' · '),
-        style: text.labelSmall?.copyWith(
-          color: chapter.missing || chapter.isVip
-              ? scheme.tertiary
-              : scheme.onSurfaceVariant,
-        ),
-      ),
-      trailing: chapter.isVip
-          ? Icon(
-              Icons.lock_outline_rounded,
-              color: scheme.onSurfaceVariant,
-              size: 20,
-            )
-          : chapter.retired
-          ? Icon(
-              Icons.link_off_rounded,
-              color: scheme.onSurfaceVariant,
-              size: 20,
-            )
-          : current
-          ? Icon(Icons.check_circle_rounded, color: scheme.primary, size: 20)
-          : null,
+      title: titleWidget,
+      trailing: trailing,
       onTap: onTap,
     );
-  }
-
-  static String _formatDuration(int? ms) {
-    if (ms == null || ms <= 0) {
-      return '';
-    }
-    final Duration duration = Duration(milliseconds: ms);
-    final int minutes = duration.inMinutes;
-    if (minutes < 60) {
-      return '$minutes 分钟';
-    }
-    final int hours = minutes ~/ 60;
-    final int rest = minutes % 60;
-    return rest == 0 ? '$hours 小时' : '$hours 小时 $rest 分';
   }
 }
