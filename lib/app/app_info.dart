@@ -17,7 +17,7 @@ abstract final class AppInfo {
   static const String applicationId = 'com.tometone.app';
 
   /// 当前版本（不含 build metadata）。
-  static const String version = '0.3.0-beta.3';
+  static const String version = '0.3.0-beta.4';
 
   /// 当前发布通道。
   static const AppChannel channel = AppChannel.beta;

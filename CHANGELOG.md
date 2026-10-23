@@ -6,6 +6,26 @@ TomeTone（听卷）所有重要变更记录于此。格式遵循 [Keep a Change
 
 ## [未发布]
 
+## [0.3.0-beta.4] - 2026-10-23
+
+> 版本号三处一致：`pubspec.yaml` / `AppInfo.version` / 本节标题（由 `test/app_info_test.dart` 守门）。
+
+### 新增与修复
+
+- **Legado 听书源规则引擎全链路重构**（`lib/app/sources/legado/`）：
+  - 增强 `RestrictedJsRuntime`：支持多语句 JS 脚本（`var`/`let` 声明、赋值、分号换行）、循环、数组与对象操作、`JSON.parse/stringify`、`Math.*` 与 `RegExp`；
+  - 注入完整宿主桥接环境：`source.get/put`、`java.get/put`、`java.ajax`（网络桥接）与 `java.log`；
+  - 分类解析器 `ExploreCategoryParser`：全面支持 `@js:` / `<js>` 动态分类脚本求值与宽松非严格 JSON 容错解析；
+  - 规则求值器 `LegadoRuleEvaluator`：支持 `@put:{...}` 跨阶段变量暂存与 `ruleBookInfo.init` 前置数据解包；
+  - 目录解析引擎 `LegadoSourceEngine.toc`：支持 `nextTocUrl` 数组批量翻页抓取与上下文变量透明透传（如 `{{java.get("entityType")}}`）；
+  - 全链路回归验证：「听友听书」与「懒人听书（优+++）」基准听书源全流程端到端测试完全通过。
+- **书架搜索筛选栏空态常驻保活**（`lib/ui/pages/shelf/shelf_page.dart`）：
+  - 修复 `SearchFilterBar` 在书架为空（0 册）时被隐藏的问题，去除 `if (hasBooks)` 限制，确保新装与初次进入时搜索筛选栏常驻可见。
+
+### 测试
+
+- 全量 1071 项自动化单测与组件测试完全通过，代码分析 0 error 0 warning。
+
 ## [0.3.0-beta.3] - 2026-10-23
 
 > 版本号三处一致：`pubspec.yaml` / `AppInfo.version` / 本节标题（由 `test/app_info_test.dart` 守门）。
