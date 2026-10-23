@@ -3,7 +3,7 @@ description: "TomeTone（听卷）—— 本地优先的长篇有声书藏馆与
 publish_to: 'none'
 # 版本号规范：SemVer；测试期使用 `0.x.y-beta.N` 预发布后缀（见《架构需求文档》2.7）。
 # 版本号变更必须同步更新 CHANGELOG.md。
-version: 0.3.0-beta.2+30002
+version: 0.3.0-beta.3+30003
 
 environment:
   sdk: ^3.13.5
