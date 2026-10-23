@@ -891,7 +891,7 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
               );
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               child: Row(
                 children: <Widget>[
                   Icon(

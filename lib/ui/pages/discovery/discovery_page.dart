@@ -732,11 +732,49 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
             controller: _searchController,
             textInputAction: TextInputAction.search,
             onSubmitted: _submitSearch,
-            decoration: const InputDecoration(
+            onChanged: (String _) => setState(() {}),
+            decoration: InputDecoration(
               hintText: '搜索书名 / 作者',
-              prefixIcon: Icon(Icons.search_rounded),
+              hintStyle: text.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _searchController.text.isNotEmpty || _searchMode
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      tooltip: '清空输入',
+                      onPressed: () {
+                        _searchController.clear();
+                        if (_searchMode) {
+                          _clearSearch();
+                        } else {
+                          setState(() {});
+                        }
+                      },
+                    )
+                  : null,
               isDense: true,
-              border: OutlineInputBorder(),
+              filled: true,
+              fillColor: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+              border: OutlineInputBorder(
+                borderRadius: AppRadii.lg,
+                borderSide: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadii.lg,
+                borderSide: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadii.lg,
+                borderSide: BorderSide(
+                  color: scheme.primary,
+                  width: 1.5,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1143,7 +1181,10 @@ class _SourceQuickPill extends StatelessWidget {
                   width: 1,
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -1155,7 +1196,7 @@ class _SourceQuickPill extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.xs),
                   Flexible(
                     child: Text(
                       source.name,
@@ -1167,7 +1208,7 @@ class _SourceQuickPill extends StatelessWidget {
                     ),
                   ),
                   if (hasFailure) ...<Widget>[
-                    const SizedBox(width: 4),
+                    const SizedBox(width: AppSpacing.xs),
                     Flexible(
                       child: Text(
                         '连续失败 ${source.consecutiveFailures} 次',
@@ -1180,7 +1221,7 @@ class _SourceQuickPill extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(width: 2),
+                  const SizedBox(width: AppSpacing.xxs),
                   Icon(
                     Icons.arrow_drop_down_rounded,
                     size: 18,

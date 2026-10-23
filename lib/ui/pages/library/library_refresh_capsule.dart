@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../app/library/batch_refresh_controller.dart';
-import '../../../domain/library/batch_refresh_state.dart';
+import 'package:tometone/app/library/batch_refresh_controller.dart';
+import 'package:tometone/domain/library/batch_refresh_state.dart';
+import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 书库顶部微胶囊呼吸刷新进度指示器。
 class LibraryRefreshCapsule extends ConsumerStatefulWidget {
@@ -29,11 +30,17 @@ class _LibraryRefreshCapsuleState extends ConsumerState<LibraryRefreshCapsule> {
     if (state.isRunning) {
       // 正在刷新状态
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: colorScheme.primaryContainer.withAlpha(220),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadii.lg,
           border: Border.all(
             color: colorScheme.primary.withAlpha(80),
             width: 1,
@@ -49,14 +56,14 @@ class _LibraryRefreshCapsuleState extends ConsumerState<LibraryRefreshCapsule> {
         child: Row(
           children: [
             SizedBox(
-              width: 16,
-              height: 16,
+              width: AppSpacing.lg,
+              height: AppSpacing.lg,
               child: CircularProgressIndicator(
                 strokeWidth: 2.2,
                 color: colorScheme.onPrimaryContainer,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 '正在检查 ${state.completed}/${state.total} 本在线书更新...',
@@ -68,18 +75,17 @@ class _LibraryRefreshCapsuleState extends ConsumerState<LibraryRefreshCapsule> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: AppSpacing.xs),
             InkWell(
               onTap: () {
                 ref.read(batchRefreshControllerProvider.notifier).cancel();
               },
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(2.0),
+              borderRadius: AppRadii.md,
+              child: const Padding(
+                padding: EdgeInsets.all(AppSpacing.xxs),
                 child: Icon(
                   Icons.close_rounded,
                   size: 16,
-                  color: colorScheme.onPrimaryContainer.withAlpha(180),
                 ),
               ),
             ),
@@ -91,11 +97,17 @@ class _LibraryRefreshCapsuleState extends ConsumerState<LibraryRefreshCapsule> {
     // 完成汇报胶囊
     final message = state.message!;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer.withAlpha(220),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.lg,
         border: Border.all(
           color: colorScheme.secondary.withAlpha(80),
           width: 1,
@@ -115,7 +127,7 @@ class _LibraryRefreshCapsuleState extends ConsumerState<LibraryRefreshCapsule> {
             size: 16,
             color: colorScheme.onSecondaryContainer,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               '✓ $message',
@@ -127,20 +139,19 @@ class _LibraryRefreshCapsuleState extends ConsumerState<LibraryRefreshCapsule> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: AppSpacing.xs),
           InkWell(
             onTap: () {
               setState(() {
                 _dismissedMessage = message;
               });
             },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(2.0),
+            borderRadius: AppRadii.md,
+            child: const Padding(
+              padding: EdgeInsets.all(AppSpacing.xxs),
               child: Icon(
                 Icons.close_rounded,
                 size: 16,
-                color: colorScheme.onSecondaryContainer.withAlpha(180),
               ),
             ),
           ),

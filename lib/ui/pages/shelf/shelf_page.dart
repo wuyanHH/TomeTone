@@ -1121,7 +1121,10 @@ class _ShelfHeader extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.xs),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: AppSpacing.xxs,
+            ),
             decoration: BoxDecoration(
               color: isSelected
                   ? scheme.primary.withValues(alpha: 0.15)

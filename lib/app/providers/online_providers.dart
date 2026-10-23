@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tometone/app/library/online_book_service.dart';
+import 'package:tometone/app/playback/audio_preload_manager.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
@@ -37,5 +38,16 @@ final Provider<OnlineBookService> onlineBookServiceProvider =
         discovery: ref.watch(sourceDiscoveryProvider),
         sourceQueries: ref.watch(bookSourceQueriesProvider),
         cacheRepository: ref.watch(audioCacheRepositoryProvider),
+      );
+    });
+
+/// 智能预下载调度器 Provider（负责后台静默预载后续章节音频）。
+final Provider<AudioPreloadManager> audioPreloadManagerProvider =
+    Provider<AudioPreloadManager>((Ref ref) {
+      return AudioPreloadManager(
+        networkMonitor: ref.watch(networkMonitorProvider),
+        cacheRepository: ref.watch(audioCacheRepositoryProvider),
+        discovery: ref.watch(sourceDiscoveryProvider),
+        httpClient: ref.watch(sourceHttpClientProvider),
       );
     });

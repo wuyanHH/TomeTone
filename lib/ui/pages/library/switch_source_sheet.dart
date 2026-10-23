@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../app/library/online_book_service.dart';
-import '../../../app/providers/online_providers.dart';
-import '../../../domain/sources/book_source.dart';
-import 'preview_audio_player.dart';
+import 'package:tometone/app/library/online_book_service.dart';
+import 'package:tometone/app/providers/online_providers.dart';
+import 'package:tometone/domain/sources/book_source.dart';
+import 'package:tometone/ui/pages/library/preview_audio_player.dart';
+import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 换源候选源数据模型。
 class SwitchSourceCandidate {
@@ -151,19 +152,24 @@ class _SwitchSourceSheetState extends ConsumerState<SwitchSourceSheet> {
             // 顶端拖拽手柄
             Center(
               child: Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                margin: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.xs),
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
                   color: colorScheme.onSurfaceVariant.withAlpha(80),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: AppRadii.xs,
                 ),
               ),
             ),
 
             // 头部标题与关闭按钮
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.sm,
+                AppSpacing.sm,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -176,7 +182,7 @@ class _SwitchSourceSheetState extends ConsumerState<SwitchSourceSheet> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: AppSpacing.xxs),
                         Text(
                           '当前书目: ${widget.currentBookTitle}',
                           maxLines: 1,
@@ -203,7 +209,7 @@ class _SwitchSourceSheetState extends ConsumerState<SwitchSourceSheet> {
               child: candidates.isEmpty
                   ? Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(24.0),
+                        padding: const EdgeInsets.all(AppSpacing.xl),
                         child: Text(
                           '未搜索到可用替换听书源',
                           style: theme.textTheme.bodyMedium?.copyWith(
@@ -213,9 +219,12 @@ class _SwitchSourceSheetState extends ConsumerState<SwitchSourceSheet> {
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
                       itemCount: candidates.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (context, index) {
                         final candidate = candidates[index];
                         final isSelected = _selectedCandidate?.source.id == candidate.source.id;
@@ -238,15 +247,20 @@ class _SwitchSourceSheetState extends ConsumerState<SwitchSourceSheet> {
 
             // 底部确认动作栏
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: FilledButton(
                 onPressed: _selectedCandidate == null || _isSwitching
                     ? null
                     : _handleConfirmSwitch,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadii.md,
                   ),
                 ),
                 child: _isSwitching
@@ -299,7 +313,7 @@ class _CandidateCard extends StatelessWidget {
     return Material(
       color: backgroundColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.md,
         side: BorderSide(
           color: borderColor,
           width: isSelected ? 2 : 1,
@@ -307,9 +321,9 @@ class _CandidateCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.md,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -321,7 +335,7 @@ class _CandidateCard extends StatelessWidget {
                 color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
                 size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
 
               // 候选书源信息
               Expanded(
@@ -341,12 +355,15 @@ class _CandidateCard extends StatelessWidget {
                           ),
                         ),
                         if (isCurrent) ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: AppSpacing.xs),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                              vertical: AppSpacing.xxs,
+                            ),
                             decoration: BoxDecoration(
                               color: colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: AppRadii.xs,
                             ),
                             child: Text(
                               '当前源',
@@ -358,7 +375,7 @@ class _CandidateCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xs),
 
                     // 最新章节
                     if (candidate.latestChapter != null)
@@ -370,12 +387,12 @@ class _CandidateCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
 
                     // 徽标栏：延迟与匹配度
                     Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
                       children: [
                         if (candidate.latency != null)
                           _Badge(
@@ -398,7 +415,7 @@ class _CandidateCard extends StatelessWidget {
 
               // 试听片头按钮
               if (candidate.sampleAudioUrl != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 ListenableBuilder(
                   listenable: player,
                   builder: (context, _) {
@@ -436,11 +453,14 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: color.withAlpha(25),
         border: Border.all(color: color.withAlpha(100), width: 0.8),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: AppRadii.xs,
       ),
       child: Text(
         text,

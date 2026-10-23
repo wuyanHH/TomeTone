@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 双层流式缓冲与播放进度条 (StreamCacheProgressBar)。
 ///
@@ -67,31 +68,31 @@ class StreamCacheProgressBar extends StatelessWidget {
                   children: [
                     // 1. 底轨
                     Container(
-                      height: 4,
+                      height: AppSpacing.xs,
                       width: trackWidth,
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: AppRadii.xs,
                       ),
                     ),
 
                     // 2. 缓冲副轨
                     Container(
-                      height: 4,
+                      height: AppSpacing.xs,
                       width: trackWidth * bufferRatio,
                       decoration: BoxDecoration(
                         color: colorScheme.primary.withAlpha(90),
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: AppRadii.xs,
                       ),
                     ),
 
                     // 3. 主播放进度轨
                     Container(
-                      height: 4,
+                      height: AppSpacing.xs,
                       width: trackWidth * playRatio,
                       decoration: BoxDecoration(
                         color: colorScheme.primary,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: AppRadii.xs,
                       ),
                     ),
 

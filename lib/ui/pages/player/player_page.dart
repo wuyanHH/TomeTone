@@ -611,13 +611,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            trackHeight: 4,
+            trackHeight: AppSpacing.xs,
             activeTrackColor: scheme.primary,
             inactiveTrackColor: scheme.surfaceContainerHighest,
             thumbColor: scheme.primary,
             overlayColor: scheme.primary.withValues(alpha: 0.14),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, pressedElevation: 4),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+            thumbShape: const RoundSliderThumbShape(
+              enabledThumbRadius: AppSpacing.sm,
+              pressedElevation: 4,
+            ),
+            overlayShape: const RoundSliderOverlayShape(
+              overlayRadius: AppRadii.lgValue,
+            ),
           ),
           child: Semantics(
             label: known ? '章节进度' : '章节时长识别中',
@@ -1131,7 +1136,7 @@ class _BottomToolItem extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Icon(icon, size: 22, color: color),
-                const SizedBox(height: 3),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   label,
                   maxLines: 1,

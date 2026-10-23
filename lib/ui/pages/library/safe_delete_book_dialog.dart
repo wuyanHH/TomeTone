@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../domain/library/queries/library_views.dart';
+import 'package:tometone/domain/library/queries/library_views.dart';
+import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 安全删除动作分类。
 enum SafeDeleteAction {
@@ -133,10 +134,10 @@ class _SafeDeleteDialogState extends State<_SafeDeleteDialog> {
               '请选择对《${widget.book.title}》的删除方式：',
               style: theme.textTheme.bodyMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Material(
               color: colorScheme.surfaceContainerHighest.withAlpha(80),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadii.sm,
               child: ListTile(
                 title: const Text('仅移出书架', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text('保留收听进度与历史记录，可在发现页或搜索重新入库'),
@@ -151,10 +152,10 @@ class _SafeDeleteDialogState extends State<_SafeDeleteDialog> {
                 },
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Material(
               color: colorScheme.surfaceContainerHighest.withAlpha(80),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadii.sm,
               child: ListTile(
                 title: Text(
                   '彻底删除',
@@ -197,21 +198,21 @@ class _SafeDeleteDialogState extends State<_SafeDeleteDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('确认从书库中移除《${widget.book.title}》？'),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             Text(
               '从书库移除记录',
               style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               '书目将从书库列表中移除，收听进度将被清理。',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             const Divider(height: 1),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
 
             // 物理删除复选框
             CheckboxListTile(
@@ -240,18 +241,18 @@ class _SafeDeleteDialogState extends State<_SafeDeleteDialog> {
             ),
 
             if (isRestricted) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: Colors.amber.withAlpha(30),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: AppRadii.xs,
                   border: Border.all(color: Colors.amber.shade700, width: 0.8),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.shield_outlined, size: 16, color: Colors.amber.shade800),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: Text(
                         '安全护栏：根目录与 SAF 保护已生效，禁止物理删除。',
