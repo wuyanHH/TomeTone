@@ -8,25 +8,46 @@ import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/app_tabs.dart';
-import 'package:tometone/ui/pages/library/library_book_row.dart';
-import 'package:tometone/ui/pages/library/library_filter.dart';
 import 'package:tometone/ui/pages/library/library_refresh_capsule.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
-import 'package:tometone/ui/pages/shelf/book_detail_page.dart';
-import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
+import 'package:tometone/ui/pages/library/local_roots_section.dart';
 import 'package:tometone/ui/pages/sources/source_import_sheet.dart';
 import 'package:tometone/ui/pages/sources/source_management_page.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
 
 /// 书库页稳定测试定位键。
 abstract final class LibraryKeys {
+  /// 历史搜索框定位键（书库已不再渲染书籍搜索框，保留供测试断言已移除）。
   static const Key searchFieldKey = Key('library-search-field');
+
+  /// 来源管理入口（复用 [LibraryRootsKeys.sourcesButtonKey]）。
   static const Key sourcesButtonKey = LibraryRootsKeys.sourcesButtonKey;
+
+  /// 检查在线更新刷新按钮。
   static const Key refreshButtonKey = Key('library-refresh-button');
+
+  /// 无来源友好指引空态。
   static const Key emptyKey = Key('library-empty');
+
+  /// 导入书源入口。
   static const Key importSourceKey = Key('library-import-source');
+
+  /// 添加本地目录入口。
   static const Key addLocalRootKey = Key('library-add-local-root');
+
+  /// 跳转发现页找书入口。
   static const Key goToDiscoveryKey = Key('library-go-to-discovery');
+
+  /// 管理书源按钮。
+  static const Key manageSourcesKey = Key('library-manage-sources');
+
+  /// 在线书源管理卡片。
+  static const Key onlineSourcesCardKey = Key('library-online-sources-card');
+
+  /// 资产统计汇总。
+  static const Key statisticsKey = Key('library-statistics');
+
+  /// 历史过滤 Chip 定位键（书库已不再渲染书籍列表过滤 Chip，保留供测试断言已移除）。
   static const Key sourceFilterAll = Key('library-filter-all');
   static const Key sourceFilterLocal = Key('library-filter-local');
   static const Key sourceFilterOnline = Key('library-filter-online');
@@ -35,28 +56,14 @@ abstract final class LibraryKeys {
   static Key bookRowKey(String id) => ValueKey<String>('library-book-$id');
 }
 
-/// 书库统一书目列表页：展示本机目录与在线书源的全部藏书。
-class LibraryPage extends ConsumerStatefulWidget {
+/// 书库来源与资产管理面板：专注于本机目录与在线书源的资产管理与同步。
+class LibraryPage extends ConsumerWidget {
   const LibraryPage({super.key, this.suggestedRootPath});
 
   final String? suggestedRootPath;
 
   @override
-  ConsumerState<LibraryPage> createState() => _LibraryPageState();
-}
-
-class _LibraryPageState extends ConsumerState<LibraryPage> {
-  LibraryFilterState _filter = const LibraryFilterState();
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<BookSummary>> booksAsync = ref.watch(booksProvider);
     final List<BookSummary> books = booksAsync.value ?? const <BookSummary>[];
 
@@ -71,16 +78,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         rootsAsync.value ?? const <LibraryRootView>[];
     final List<BookSource> sources =
         sourcesAsync.value ?? const <BookSource>[];
-    final bool hasSources =
-        roots.isNotEmpty || sources.any((BookSource s) => s.enabled);
+    final bool hasSources = roots.isNotEmpty || sources.isNotEmpty;
 
-    final List<BookSummary> filtered = _filter.apply(books);
     final int localCount = books.where((BookSummary b) => !b.isOnline).length;
     final int onlineCount = books.where((BookSummary b) => b.isOnline).length;
-
-    final Set<String> availableTags = <String>{
-      for (final BookSummary b in books) ...b.tags,
-    };
 
     return Scaffold(
       appBar: AppBar(
@@ -90,6 +91,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             const Text('我的书库'),
             Text(
               '共 ${books.length} 册 · 本地 $localCount · 在线 $onlineCount',
+              key: LibraryKeys.statisticsKey,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -101,7 +103,9 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             key: LibraryKeys.refreshButtonKey,
             tooltip: '检查在线更新',
             onPressed: () async {
-              await ref.read(batchRefreshControllerProvider.notifier).startRefresh();
+              await ref
+                  .read(batchRefreshControllerProvider.notifier)
+                  .startRefresh();
               ref.invalidate(booksProvider);
             },
             icon: const Icon(Icons.sync_rounded),
@@ -120,236 +124,190 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           ),
         ],
       ),
-      body: Column(
-        children: <Widget>[
-          const LibraryRefreshCapsule(),
-          Expanded(
-            child: booksAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object error, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Text('加载书库失败'),
-                    const SizedBox(height: AppSpacing.sm),
-                    FilledButton(
-                      onPressed: () => ref.invalidate(booksProvider),
-                      child: const Text('重试'),
-                    ),
-                  ],
-                ),
-              ),
-              data: (_) {
-                if (books.isEmpty) {
-                  return _buildEmptyState(context, hasSources);
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.sm,
-                    AppSpacing.lg,
-                    AppSpacing.xxl,
-                  ),
-                  children: <Widget>[
-                    _buildFilterBar(context, availableTags),
-                    const SizedBox(height: AppSpacing.md),
-                    if (filtered.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xxl),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Text(
-                                '没有找到匹配的书目',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              TextButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _filter = const LibraryFilterState();
-                                    _searchController.clear();
-                                  });
-                                },
-                                child: const Text('清除筛选'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      for (final BookSummary book in filtered) ...<Widget>[
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: LibraryBookRow(
-                            key: LibraryKeys.bookRowKey(book.id),
-                            book: book,
-                            onTap: () {
-                              Navigator.of(context).push<void>(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => BookDetailPage(bookId: book.id),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      body: _buildBody(context, ref, hasSources, sources, rootsAsync, sourcesAsync),
     );
   }
 
-  Widget _buildFilterBar(BuildContext context, Set<String> availableTags) {
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    bool hasSources,
+    List<BookSource> sources,
+    AsyncValue<List<LibraryRootView>> rootsAsync,
+    AsyncValue<List<BookSource>> sourcesAsync,
+  ) {
+    if (rootsAsync.isLoading && sourcesAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!hasSources) {
+      return _buildEmptyState(context, ref);
+    }
+
+    return ListView(
+      children: <Widget>[
+        const LibraryRefreshCapsule(),
+        LocalRootsSection(suggestedRootPath: suggestedRootPath),
+        _buildOnlineSourcesSection(context, ref, sources),
+        const SizedBox(height: AppSpacing.xxl),
+      ],
+    );
+  }
+
+  Widget _buildOnlineSourcesSection(
+    BuildContext context,
+    WidgetRef ref,
+    List<BookSource> sources,
+  ) {
+    final int enabledCount =
+        sources.where((BookSource s) => s.enabled).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        TextField(
-          key: LibraryKeys.searchFieldKey,
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: '搜索书名、作者、简介或标签…',
-            prefixIcon: const Icon(Icons.search, size: 20),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _filter = _filter.copyWith(query: '');
-                      });
-                    },
-                  )
-                : null,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: AppRadii.md,
-              borderSide: BorderSide(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.xl,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  '在线书源',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton.icon(
+                key: LibraryKeys.manageSourcesKey,
+                onPressed: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SourceManagementPage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('管理书源'),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: AppSpacing.pagePadding,
+          child: Card(
+            key: LibraryKeys.onlineSourcesCardKey,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadii.lg,
+              side: BorderSide(
                 color: Theme.of(context).colorScheme.outlineVariant,
               ),
             ),
-          ),
-          onChanged: (String value) {
-            setState(() {
-              _filter = _filter.copyWith(query: value);
-            });
-          },
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: <Widget>[
-              FilterChip(
-                key: LibraryKeys.sourceFilterAll,
-                label: const Text('全部'),
-                selected: _filter.source == LibrarySourceFilter.all,
-                onSelected: (_) {
-                  setState(() {
-                    _filter = _filter.copyWith(source: LibrarySourceFilter.all);
-                  });
-                },
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              FilterChip(
-                key: LibraryKeys.sourceFilterLocal,
-                label: const Text('本地'),
-                selected: _filter.source == LibrarySourceFilter.local,
-                onSelected: (_) {
-                  setState(() {
-                    _filter = _filter.copyWith(
-                      source: LibrarySourceFilter.local,
-                    );
-                  });
-                },
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              FilterChip(
-                key: LibraryKeys.sourceFilterOnline,
-                label: const Text('在线'),
-                selected: _filter.source == LibrarySourceFilter.online,
-                onSelected: (_) {
-                  setState(() {
-                    _filter = _filter.copyWith(
-                      source: LibrarySourceFilter.online,
-                    );
-                  });
-                },
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              DropdownButton<ShelfStatusFilter>(
-                key: LibraryKeys.statusDropdownKey,
-                value: _filter.status,
-                underline: const SizedBox.shrink(),
-                items: const <DropdownMenuItem<ShelfStatusFilter>>[
-                  DropdownMenuItem(
-                    value: ShelfStatusFilter.all,
-                    child: Text('全部状态'),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: AppRadii.md,
+                        ),
+                        child: Icon(
+                          Icons.language_rounded,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              '网络书源',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.xxs),
+                            Text(
+                              sources.isEmpty
+                                  ? '未添加任何在线书源'
+                                  : '共 ${sources.length} 个书源 · $enabledCount 个已启用',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  DropdownMenuItem(
-                    value: ShelfStatusFilter.listening,
-                    child: Text('在听'),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    '管理并订阅公开网络书源，提供搜索检索、在线试听与章节批量更新。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                  DropdownMenuItem(
-                    value: ShelfStatusFilter.unlistened,
-                    child: Text('未听'),
-                  ),
-                  DropdownMenuItem(
-                    value: ShelfStatusFilter.finished,
-                    child: Text('已完'),
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        key: LibraryKeys.importSourceKey,
+                        onPressed: () {
+                          unawaited(
+                            showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              useSafeArea: true,
+                              builder: (_) => const SourceImportSheet(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('导入书源'),
+                      ),
+                      FilledButton.tonalIcon(
+                        key: LibraryKeys.goToDiscoveryKey,
+                        onPressed: () {
+                          ref
+                              .read(appTabProvider.notifier)
+                              .select(AppTab.discovery);
+                        },
+                        icon: const Icon(Icons.explore_outlined, size: 18),
+                        label: const Text('去发现找书'),
+                      ),
+                    ],
                   ),
                 ],
-                onChanged: (ShelfStatusFilter? value) {
-                  if (value != null) {
-                    setState(() {
-                      _filter = _filter.copyWith(status: value);
-                    });
-                  }
-                },
               ),
-              if (availableTags.isNotEmpty) ...<Widget>[
-                const SizedBox(width: AppSpacing.sm),
-                DropdownButton<String?>(
-                  key: LibraryKeys.tagDropdownKey,
-                  value: _filter.tag,
-                  underline: const SizedBox.shrink(),
-                  hint: const Text('全部分类'),
-                  items: <DropdownMenuItem<String?>>[
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('全部分类'),
-                    ),
-                    for (final String tag in availableTags)
-                      DropdownMenuItem<String?>(
-                        value: tag,
-                        child: Text(tag),
-                      ),
-                  ],
-                  onChanged: (String? value) {
-                    setState(() {
-                      _filter = _filter.copyWith(tag: value);
-                    });
-                  },
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool hasSources) {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
 
@@ -365,63 +323,59 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             Text('还没有书', style: text.titleLarge),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              hasSources
-                  ? '已连接书源。去「发现」找书并收听或加入书库。'
-                  : '书库包含本机扫描与在线缓存的全部书目。导入网络书源或添加本机听书目录后开始建立书库。',
+              '书库包含本机扫描与在线缓存的全部书目。导入网络书源或添加本机听书目录后开始建立书库。',
               textAlign: TextAlign.center,
               style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: AppSpacing.lg),
-            if (hasSources)
-              FilledButton.icon(
-                key: LibraryKeys.goToDiscoveryKey,
-                onPressed: () {
-                  ref.read(appTabProvider.notifier).select(AppTab.discovery);
-                },
-                icon: const Icon(Icons.explore_outlined),
-                label: const Text('去发现找书'),
-              )
-            else
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.sm,
-                alignment: WrapAlignment.center,
-                children: <Widget>[
-                  FilledButton.icon(
-                    key: LibraryKeys.importSourceKey,
-                    onPressed: () {
-                      unawaited(
-                        showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          useSafeArea: true,
-                          builder: (_) => const SourceImportSheet(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('导入书源'),
-                  ),
-                  OutlinedButton.icon(
-                    key: LibraryKeys.addLocalRootKey,
-                    onPressed: () {
-                      final String suggested = widget.suggestedRootPath ??
-                          defaultRootPathSuggestion();
-                      unawaited(
-                        showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          useSafeArea: true,
-                          builder: (_) =>
-                              LibraryAddRootSheet(suggestedPath: suggested),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.folder_open_outlined),
-                    label: const Text('添加本机目录'),
-                  ),
-                ],
-              ),
+            Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.sm,
+              alignment: WrapAlignment.center,
+              children: <Widget>[
+                FilledButton.icon(
+                  key: LibraryKeys.importSourceKey,
+                  onPressed: () {
+                    unawaited(
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) => const SourceImportSheet(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('导入书源'),
+                ),
+                OutlinedButton.icon(
+                  key: LibraryKeys.addLocalRootKey,
+                  onPressed: () {
+                    final String suggested =
+                        suggestedRootPath ?? defaultRootPathSuggestion();
+                    unawaited(
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) =>
+                            LibraryAddRootSheet(suggestedPath: suggested),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.folder_open_outlined),
+                  label: const Text('添加本机目录'),
+                ),
+                TextButton.icon(
+                  key: LibraryKeys.goToDiscoveryKey,
+                  onPressed: () {
+                    ref.read(appTabProvider.notifier).select(AppTab.discovery);
+                  },
+                  icon: const Icon(Icons.explore_outlined),
+                  label: const Text('去发现找书'),
+                ),
+              ],
+            ),
           ],
         ),
       ),

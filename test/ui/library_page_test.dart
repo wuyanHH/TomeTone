@@ -9,13 +9,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tometone/app/library/library_root_service.dart';
 import 'package:tometone/app/providers/app_providers.dart';
 import 'package:tometone/app/providers/library_root_providers.dart';
+import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/contracts/storage/directory_picker.dart';
 import 'package:tometone/contracts/storage/fake_storage_provider.dart';
 import 'package:tometone/domain/library/metadata/book_metadata.dart';
 import 'package:tometone/domain/library/queries/library_queries.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/library/scan/scan_report.dart';
+import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/pages/library/library_browser_page.dart';
+import 'package:tometone/ui/pages/library/library_page.dart';
 import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/pages/library/local_roots_section.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
@@ -1479,6 +1482,54 @@ void main() {
         hasLibraryRootWithUri(<LibraryRootView>[_root(uri: testRootUri)], '  '),
         isFalse,
       );
+    });
+
+    testWidgets('LibraryPage 纯净来源管理面板整合：包含顶部统计、本地目录和在线书源卡片', (WidgetTester tester) async {
+      usePhoneViewport(tester);
+      final container = ProviderContainer(
+        overrides: <Override>[
+          libraryRootsProvider.overrideWith((Ref ref) async => <LibraryRootView>[testRoot]),
+          booksProvider.overrideWith((Ref ref) async => const <BookSummary>[]),
+          libraryRootServiceProvider.overrideWithValue(service),
+          libraryQueriesProvider.overrideWithValue(_FakeLibraryQueries()),
+          directoryPickerProvider.overrideWithValue(_FakeDirectoryPicker()),
+          bookSourcesProvider.overrideWith((Ref ref) async => <BookSource>[
+            BookSource(
+              id: 'source-1',
+              libraryRootId: 'root-1',
+              name: '我的书源',
+              sourceUrl: 'https://source.example.com',
+              sourceType: 1,
+              rawJson: '{}',
+              header: const <String, String>{},
+              enabled: true,
+              enabledExplore: true,
+              customOrder: 0,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          ]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        testApp(container, const Scaffold(body: LibraryPage())),
+      );
+      await tester.pumpAndSettle();
+
+      // 顶部统计
+      expect(find.text('我的书库'), findsOneWidget);
+      expect(find.text('共 0 册 · 本地 0 · 在线 0'), findsOneWidget);
+
+      // 本地目录段
+      expect(find.text('本机目录'), findsOneWidget);
+      expect(find.text('本机书库'), findsOneWidget);
+
+      // 在线书源卡片
+      expect(find.byKey(LibraryKeys.onlineSourcesCardKey), findsOneWidget);
+      expect(find.textContaining('共 1 个书源 · 1 个已启用'), findsOneWidget);
+      expect(find.byKey(LibraryKeys.manageSourcesKey), findsOneWidget);
     });
   });
 }

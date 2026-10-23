@@ -2,15 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/app/library/batch_refresh_controller.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/contracts/playback/fake_playback_engine.dart';
+import 'package:tometone/domain/library/batch_refresh_state.dart';
 import 'package:tometone/domain/library/cover/cover_source.dart';
 import 'package:tometone/domain/library/queries/library_views.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/ui/pages/library/library_page.dart';
+import 'package:tometone/ui/pages/library/library_roots.dart';
 import 'package:tometone/ui/theme/app_theme.dart';
 
 import 'ui_test_harness.dart';
+
+class _FakeBatchRefreshController extends BatchRefreshController {
+  _FakeBatchRefreshController(this._initial);
+
+  final BatchRefreshState _initial;
+
+  @override
+  BatchRefreshState build() => _initial;
+}
 
 BookSummary _makeBook({
   required String id,
@@ -54,8 +66,43 @@ BookSummary _makeBook({
   );
 }
 
+BookSource _makeSource({
+  required String id,
+  required String name,
+  bool enabled = true,
+}) {
+  return BookSource(
+    id: id,
+    libraryRootId: 'root-1',
+    name: name,
+    sourceUrl: 'https://example.com/$id',
+    sourceType: 1,
+    rawJson: '{}',
+    header: const <String, String>{},
+    enabled: enabled,
+    enabledExplore: true,
+    customOrder: 0,
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+  );
+}
+
+LibraryRootView _makeRoot({
+  String id = 'root-1',
+  String displayName = '本地音频库',
+  String uri = '/storage/audio',
+}) {
+  return LibraryRootView(
+    id: id,
+    type: 'local',
+    uri: uri,
+    displayName: displayName,
+    lastScanAt: DateTime(2026, 10, 20),
+  );
+}
+
 void main() {
-  testWidgets('本地与在线书混排显示，包括 onShelf=false 的在线书', (tester) async {
+  testWidgets('书库页展示来源管理面板，不再渲染单本书籍卡片及搜索框', (tester) async {
     usePhoneViewport(tester);
 
     final books = <BookSummary>[
@@ -77,36 +124,44 @@ void main() {
       ),
     ];
 
+    final roots = <LibraryRootView>[_makeRoot()];
+    final sources = <BookSource>[_makeSource(id: 'src-1', name: '听友听书')];
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
           ...testOverrides(
             controller: testController(FakePlaybackEngine()),
             books: books,
+            roots: roots,
           ),
+          bookSourcesProvider.overrideWith((ref) => sources),
         ],
         child: const MaterialApp(home: Scaffold(body: LibraryPage())),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('三国演义'), findsOneWidget);
-    expect(find.text('斗破苍穹'), findsOneWidget);
-    expect(find.text('听友听书'), findsOneWidget);
-    expect(find.textContaining('共 2 册'), findsOneWidget);
+    // 不再渲染具体书籍卡片与搜索框
+    expect(find.text('三国演义'), findsNothing);
+    expect(find.text('斗破苍穹'), findsNothing);
+    expect(find.byKey(LibraryKeys.searchFieldKey), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byKey(LibraryKeys.sourceFilterAll), findsNothing);
+
+    // 顶部展示“我的书库 · 共 N 册 · 本地 X · 在线 Y”
+    expect(find.text('我的书库'), findsOneWidget);
+    expect(find.text('共 2 册 · 本地 1 · 在线 1'), findsOneWidget);
   });
 
-  testWidgets('来源 chips 筛选全部/本地/在线', (tester) async {
+  testWidgets('展示本地扫描目录卡片（包含路径、重新扫描、添加目录）', (tester) async {
     usePhoneViewport(tester);
 
-    final books = <BookSummary>[
-      _makeBook(id: 'local-1', title: '本地评书', sourceType: 'local'),
-      _makeBook(
-        id: 'online-1',
-        title: '网络小说',
-        sourceType: 'online',
-        sourceId: 'src-1',
-        sourceName: '听友听书',
+    final roots = <LibraryRootView>[
+      _makeRoot(
+        id: 'root-audio',
+        displayName: '相声评书集',
+        uri: '/storage/audio',
       ),
     ];
 
@@ -115,55 +170,34 @@ void main() {
         overrides: <Override>[
           ...testOverrides(
             controller: testController(FakePlaybackEngine()),
-            books: books,
+            roots: roots,
           ),
+          bookSourcesProvider.overrideWith((ref) => const <BookSource>[]),
         ],
-        child: const MaterialApp(home: Scaffold(body: LibraryPage())),
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: Scaffold(body: LibraryPage()),
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    // 默认全部
-    expect(find.text('本地评书'), findsOneWidget);
-    expect(find.text('网络小说'), findsOneWidget);
-
-    // 过滤本地
-    await tester.tap(find.byKey(LibraryKeys.sourceFilterLocal));
-    await tester.pumpAndSettle();
-    expect(find.text('本地评书'), findsOneWidget);
-    expect(find.text('网络小说'), findsNothing);
-
-    // 过滤在线
-    await tester.tap(find.byKey(LibraryKeys.sourceFilterOnline));
-    await tester.pumpAndSettle();
-    expect(find.text('本地评书'), findsNothing);
-    expect(find.text('网络小说'), findsOneWidget);
-
-    // 回到全部
-    await tester.tap(find.byKey(LibraryKeys.sourceFilterAll));
-    await tester.pumpAndSettle();
-    expect(find.text('本地评书'), findsOneWidget);
-    expect(find.text('网络小说'), findsOneWidget);
+    expect(find.text('本机目录'), findsOneWidget);
+    expect(find.text('相声评书集'), findsOneWidget);
+    expect(find.textContaining('storage/audio'), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.scanKey('root-audio')), findsOneWidget);
+    expect(find.text('扫描'), findsOneWidget);
+    expect(find.byKey(LibraryRootsKeys.addButtonKey), findsOneWidget);
   });
 
-  testWidgets('搜索框匹配书名/作者/演播/简介/标签', (tester) async {
+  testWidgets('展示在线书源卡片（包含书源数量、管理书源、导入新源）', (tester) async {
     usePhoneViewport(tester);
 
-    final books = <BookSummary>[
-      _makeBook(
-        id: 'b1',
-        title: '红楼梦',
-        author: '曹雪芹',
-        narrator: '张三',
-        tags: const <String>['名著', '古典'],
-      ),
-      _makeBook(
-        id: 'b2',
-        title: '三体',
-        author: '刘慈欣',
-        description: '科幻巨作',
-        tags: const <String>['科幻'],
-      ),
+    final sources = <BookSource>[
+      _makeSource(id: 's1', name: '酷听网', enabled: true),
+      _makeSource(id: 's2', name: '备用源', enabled: false),
     ];
 
     await tester.pumpWidget(
@@ -171,72 +205,52 @@ void main() {
         overrides: <Override>[
           ...testOverrides(
             controller: testController(FakePlaybackEngine()),
-            books: books,
+            roots: const <LibraryRootView>[],
           ),
+          bookSourcesProvider.overrideWith((ref) => sources),
         ],
         child: const MaterialApp(home: Scaffold(body: LibraryPage())),
       ),
     );
     await tester.pumpAndSettle();
 
-    // 输入搜索
-    await tester.enterText(find.byKey(LibraryKeys.searchFieldKey), '科幻');
-    await tester.pumpAndSettle();
-
-    expect(find.text('三体'), findsOneWidget);
-    expect(find.text('红楼梦'), findsNothing);
+    expect(find.byKey(LibraryKeys.onlineSourcesCardKey), findsOneWidget);
+    expect(find.textContaining('共 2 个书源 · 1 个已启用'), findsOneWidget);
+    expect(find.byKey(LibraryKeys.manageSourcesKey), findsOneWidget);
+    expect(find.byKey(LibraryKeys.importSourceKey), findsOneWidget);
   });
 
-  testWidgets('异常与待刷新状态展示：已停用、已删除、目录待刷新', (tester) async {
+  testWidgets('批量刷新胶囊在刷新状态下正常展示', (tester) async {
     usePhoneViewport(tester);
-
-    final books = <BookSummary>[
-      _makeBook(
-        id: 'b1',
-        title: '停戏剧',
-        sourceType: 'online',
-        sourceId: 'src-1',
-        sourceName: '停用源',
-        sourceEnabled: false,
-      ),
-      _makeBook(
-        id: 'b2',
-        title: '删戏剧',
-        sourceType: 'online',
-        sourceId: 'src-2',
-        sourceName: '已删源',
-        sourceDeleted: true,
-      ),
-      _makeBook(
-        id: 'b3',
-        title: '无章书',
-        sourceType: 'online',
-        sourceId: 'src-3',
-        sourceName: '新加源',
-        sourceEnabled: true,
-        totalChapters: 0,
-      ),
-    ];
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
           ...testOverrides(
             controller: testController(FakePlaybackEngine()),
-            books: books,
+            roots: <LibraryRootView>[_makeRoot()],
+          ),
+          bookSourcesProvider.overrideWith((ref) => const <BookSource>[]),
+          batchRefreshControllerProvider.overrideWith(
+            () => _FakeBatchRefreshController(
+              const BatchRefreshState(
+                isRunning: true,
+                total: 5,
+                completed: 2,
+                currentBookTitle: '三体',
+              ),
+            ),
           ),
         ],
         child: const MaterialApp(home: Scaffold(body: LibraryPage())),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(find.text('来源已停用'), findsOneWidget);
-    expect(find.text('来源已删除'), findsOneWidget);
-    expect(find.text('目录待刷新'), findsOneWidget);
+    expect(find.textContaining('正在检查 2/5 本在线书更新...'), findsOneWidget);
   });
 
-  testWidgets('无书且无来源时展示导入书源与添加本机目录', (tester) async {
+  testWidgets('无本地根和在线书源时展示友好指引空态', (tester) async {
     usePhoneViewport(tester);
 
     await tester.pumpWidget(
@@ -254,66 +268,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(LibraryKeys.emptyKey), findsOneWidget);
     expect(find.text('还没有书'), findsOneWidget);
     expect(find.byKey(LibraryKeys.importSourceKey), findsOneWidget);
     expect(find.byKey(LibraryKeys.addLocalRootKey), findsOneWidget);
-  });
-
-  testWidgets('有来源无书时展示去发现找书', (tester) async {
-    usePhoneViewport(tester);
-
-    final source = BookSource(
-      id: 'src-1',
-      libraryRootId: 'root-1',
-      name: '听友听书',
-      sourceUrl: 'https://tingyou.fm',
-      sourceType: 1,
-      rawJson: '{}',
-      header: const <String, String>{},
-      enabled: true,
-      enabledExplore: true,
-      customOrder: 0,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          ...testOverrides(
-            controller: testController(FakePlaybackEngine()),
-            books: const <BookSummary>[],
-            roots: const <LibraryRootView>[],
-          ),
-          bookSourcesProvider.overrideWith((ref) => <BookSource>[source]),
-        ],
-        child: const MaterialApp(home: Scaffold(body: LibraryPage())),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('还没有书'), findsOneWidget);
     expect(find.byKey(LibraryKeys.goToDiscoveryKey), findsOneWidget);
   });
 
   testWidgets('320dp + 2.0 大字号 + 深色无 overflow', (tester) async {
     final books = <BookSummary>[
-      _makeBook(
-        id: 'b1',
-        title: '很长很长的书籍名称测试排版与换行不会产生溢出',
-        sourceType: 'online',
-        sourceId: 'src-1',
-        sourceName: '有声小说听书源',
-        sourceEnabled: true,
-        author: '很长的作者名字',
-        narrator: '很长的演播者名字',
-        description: '这是一段很长的简介内容，用于测试小屏幕高字号下的布局表现。',
-        tags: const <String>['悬疑', '灵异', '长篇故事'],
-      ),
+      _makeBook(id: 'b1', title: '短书', sourceType: 'local'),
+      _makeBook(id: 'b2', title: '长书名测试长书名测试', sourceType: 'online'),
     ];
+    final roots = <LibraryRootView>[_makeRoot()];
+    final sources = <BookSource>[_makeSource(id: 's1', name: '源1')];
 
-    tester.view.physicalSize = const Size(320, 600);
-    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
@@ -325,26 +296,24 @@ void main() {
           ...testOverrides(
             controller: testController(FakePlaybackEngine()),
             books: books,
+            roots: roots,
           ),
+          bookSourcesProvider.overrideWith((ref) => sources),
         ],
         child: MaterialApp(
-          theme: AppTheme.build(),
-          darkTheme: AppTheme.build(brightness: Brightness.dark),
-          themeMode: ThemeMode.dark,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: const TextScaler.linear(2.0),
+          theme: AppTheme.build(brightness: Brightness.dark),
+          home: const MediaQuery(
+            data: MediaQueryData(
+              textScaler: TextScaler.linear(2.0),
               disableAnimations: true,
             ),
-            child: child!,
+            child: Scaffold(body: LibraryPage()),
           ),
-          home: const Scaffold(body: LibraryPage()),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('很长很长'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
