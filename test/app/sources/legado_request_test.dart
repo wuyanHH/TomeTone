@@ -123,5 +123,19 @@ void main() {
       expect(request.headers, <String, String>{'X-Valid': 'v'});
       expect(request.charset, isNull);
     });
+
+    test('builds request when body option is raw JSON map with placeholder interpolation', () {
+      const raw =
+          'https://api.example.com/search,{"method":"POST","headers":{"Content-Type":"application/json"},"body":{"keyword":"{{key}}","page":"{{page}}"}}';
+      final req = const LegadoRequestBuilder().build(
+        raw: raw,
+        baseUrl: Uri.parse('https://api.example.com'),
+        sourceHeaders: const {},
+        key: '遮天',
+        page: 2,
+      );
+      expect(req.method, 'POST');
+      expect(jsonDecode(req.body!), {'keyword': '遮天', 'page': 2});
+    });
   });
 }

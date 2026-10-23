@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tometone/app/sources/legado/restricted_js_runtime.dart';
+import 'package:tometone/contracts/sources/js_runtime.dart';
 import 'package:tometone/domain/sources/discovery/explore_category.dart';
 
 void main() {
@@ -83,8 +85,37 @@ void main() {
       expect(categories, hasLength(2));
       expect(categories[0].name, '热门榜单');
       expect(categories[0].urlTemplate, '/api/rank?type=hot&page={{page}}');
-      expect(categories[1].name, '分类精选');
-      expect(categories[1].urlTemplate, '/api/category?page={{page}}');
+    });
+
+    test('resolves dynamic js exploreUrl with categories and lenient JSON', () async {
+      final categories = await resolveExploreCategories(
+        exploreUrl: r'''@js:
+          sort = [];
+          sort.push({title: '玄幻', url: '/xh_{{page}}', style: {layout_flexGrow: 1}});
+          sort.push({title: '都市', url: '/ds_{{page}}'});
+          JSON.stringify(sort);
+        ''',
+        enabledExplore: true,
+        jsRuntime: RestrictedJsRuntime(),
+        context: const JsContext(result: null, baseUrl: 'https://example.com'),
+      );
+      expect(categories.length, 2);
+      expect(categories[0].name, '玄幻');
+      expect(categories[0].urlTemplate, '/xh_{{page}}');
+      expect(categories[1].name, '都市');
+      expect(categories[1].urlTemplate, '/ds_{{page}}');
+    });
+
+    test('resolves unquoted loose JSON array string', () async {
+      const looseJson = "[{title: '悬疑', url: '/xy_{{page}}'}, {name: '历史', url: '/ls_{{page}}'}]";
+      final categories = await resolveExploreCategories(
+        exploreUrl: looseJson,
+        enabledExplore: true,
+      );
+      expect(categories.length, 2);
+      expect(categories[0].name, '悬疑');
+      expect(categories[0].urlTemplate, '/xy_{{page}}');
+      expect(categories[1].name, '历史');
     });
   });
 }

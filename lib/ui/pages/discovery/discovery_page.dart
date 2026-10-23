@@ -6,6 +6,7 @@ import 'package:tometone/app/providers/online_providers.dart';
 import 'package:tometone/app/providers/source_engine_providers.dart';
 import 'package:tometone/app/providers/source_providers.dart';
 import 'package:tometone/app/sources/book_source_service.dart';
+import 'package:tometone/contracts/sources/js_runtime.dart';
 import 'package:tometone/domain/library/queries/online_library_queries.dart';
 import 'package:tometone/domain/sources/book_source.dart';
 import 'package:tometone/domain/sources/discovery/explore_category.dart';
@@ -222,12 +223,28 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
       }
       selected ??= enabled.isEmpty ? null : enabled.first;
 
-      final List<ExploreCategory> categories = selected == null
-          ? const <ExploreCategory>[]
-          : parseExploreCategories(
-              exploreUrl: selected.source.exploreUrl,
-              enabledExplore: selected.source.enabledExplore,
-            );
+      final String? exploreUrl = selected?.source.exploreUrl?.trim();
+      final List<ExploreCategory> categories;
+      if (selected == null) {
+        categories = const <ExploreCategory>[];
+      } else if (exploreUrl != null &&
+          (exploreUrl.startsWith('@js:') || exploreUrl.startsWith('<js>'))) {
+        categories = await resolveExploreCategories(
+          exploreUrl: exploreUrl,
+          enabledExplore: selected.source.enabledExplore,
+          jsRuntime: ref.read(jsRuntimeProvider),
+          context: JsContext(
+            result: null,
+            baseUrl: selected.source.sourceUrl,
+            http: ref.read(sourceHttpClientProvider),
+          ),
+        );
+      } else {
+        categories = parseExploreCategories(
+          exploreUrl: exploreUrl,
+          enabledExplore: selected.source.enabledExplore,
+        );
+      }
 
       if (!mounted || generation != _generation) {
         return;
@@ -486,11 +503,11 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     }
     final String? id = result.sourceId;
     if (id != null) {
-      _selectSource(id);
+      unawaited(_selectSource(id));
     }
   }
 
-  void _selectSource(String id) {
+  Future<void> _selectSource(String id) async {
     BookSourceListItem? selected;
     for (final BookSourceListItem item in _sources) {
       if (item.source.id == id) {
@@ -504,10 +521,26 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
 
     _generation++;
     _searchController.clear();
-    final List<ExploreCategory> categories = parseExploreCategories(
-      exploreUrl: selected.source.exploreUrl,
-      enabledExplore: selected.source.enabledExplore,
-    );
+    final String? exploreUrl = selected.source.exploreUrl?.trim();
+    final List<ExploreCategory> categories;
+    if (exploreUrl != null &&
+        (exploreUrl.startsWith('@js:') || exploreUrl.startsWith('<js>'))) {
+      categories = await resolveExploreCategories(
+        exploreUrl: exploreUrl,
+        enabledExplore: selected.source.enabledExplore,
+        jsRuntime: ref.read(jsRuntimeProvider),
+        context: JsContext(
+          result: null,
+          baseUrl: selected.source.sourceUrl,
+          http: ref.read(sourceHttpClientProvider),
+        ),
+      );
+    } else {
+      categories = parseExploreCategories(
+        exploreUrl: exploreUrl,
+        enabledExplore: selected.source.enabledExplore,
+      );
+    }
     ref.read(selectedSourceIdProvider.notifier).state = id;
     setState(() {
       _source = selected!.source;

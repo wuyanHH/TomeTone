@@ -703,6 +703,119 @@ void main() {
       expect(http.requests, hasLength(50));
       expect(toc.chapters.last.index, 49);
     });
+
+    test('bookInfo supports init unpacking and @put variables extraction', () async {
+      final source = _source(
+        mutate: (raw) {
+          raw['ruleBookInfo'] = <String, dynamic>{
+            'init': r'$.data.bookDetail',
+            'name': r'$.title@put:{sections: $.sections, entityType: $.entityType}',
+            'author': r'$.author',
+            'tocUrl': r'https://www.tingyou.fm/api/toc?id={{$.id}}',
+          };
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'code': 0,
+            'data': <String, Object?>{
+              'bookDetail': <String, Object?>{
+                'id': 999,
+                'title': '懒人听书测试',
+                'author': '原作者',
+                'sections': 88,
+                'entityType': 3,
+              },
+            },
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: RestrictedJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      final bookInfo = await engine.bookInfo(
+        source,
+        'https://www.tingyou.fm/api/detail',
+      );
+
+      expect(bookInfo.title, '懒人听书测试');
+      expect(bookInfo.author, '原作者');
+      expect(bookInfo.tocUrl, 'https://www.tingyou.fm/api/toc?id=999');
+      expect(bookInfo.variables['sections'], 88);
+      expect(bookInfo.variables['entityType'], 3);
+    });
+
+    test('toc supports URL array in nextTocUrl and context variables from bookInfo', () async {
+      final source = _source(
+        mutate: (raw) {
+          raw['ruleToc'] = <String, dynamic>{
+            'chapterList': r'$.chapters[*]',
+            'chapterName': r'$.name',
+            'chapterUrl': r'https://www.tingyou.fm/play?id={{$.id}}&type={{java.get("entityType")}}',
+            'nextTocUrl': r'@js: [baseUrl + "?page=2", baseUrl + "?page=3"]',
+          };
+        },
+      );
+      final http = _FakeHttpClient((request) async {
+        final urlStr = request.url.toString();
+        if (urlStr.contains('page=2')) {
+          return _response(
+            request.url,
+            jsonEncode(<String, Object?>{
+              'chapters': <Object?>[
+                <String, Object?>{'id': 201, 'name': '第二页第一章'},
+              ],
+            }),
+          );
+        }
+        if (urlStr.contains('page=3')) {
+          return _response(
+            request.url,
+            jsonEncode(<String, Object?>{
+              'chapters': <Object?>[
+                <String, Object?>{'id': 301, 'name': '第三页第一章'},
+              ],
+            }),
+          );
+        }
+        return _response(
+          request.url,
+          jsonEncode(<String, Object?>{
+            'chapters': <Object?>[
+              <String, Object?>{'id': 101, 'name': '第一页第一章'},
+            ],
+          }),
+        );
+      });
+      final engine = LegadoSourceEngine(
+        http: http,
+        jsRuntime: RestrictedJsRuntime(),
+        rateLimiter: _RecordingRateLimiter(),
+      );
+
+      const info = SourceBookInfo(
+        title: '批量翻页测试',
+        bookUrl: 'https://www.tingyou.fm/book/1',
+        tocUrl: 'https://www.tingyou.fm/api/toc',
+        variables: <String, Object?>{'entityType': 3},
+      );
+
+      final toc = await engine.toc(source, info);
+
+      expect(toc.chapters, hasLength(3));
+      expect(toc.chapters[0].title, '第一页第一章');
+      expect(toc.chapters[0].url, 'https://www.tingyou.fm/play?id=101&type=3');
+      expect(toc.chapters[1].title, '第二页第一章');
+      expect(toc.chapters[1].url, 'https://www.tingyou.fm/play?id=201&type=3');
+      expect(toc.chapters[2].title, '第三页第一章');
+      expect(toc.chapters[2].url, 'https://www.tingyou.fm/play?id=301&type=3');
+      expect(toc.complete, isTrue);
+    });
   });
 
   group('LegadoSourceEngine 错误映射', () {

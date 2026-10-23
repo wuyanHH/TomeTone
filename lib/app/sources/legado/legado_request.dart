@@ -71,20 +71,62 @@ class LegadoRequestBuilder {
     }
 
     final rawBody = parsed.options['body'];
-    final body = rawBody is String
-        ? rawBody
-        : (rawBody is Map || rawBody is List ? jsonEncode(rawBody) : null);
+    final String? body;
+    if (rawBody is Map || rawBody is List) {
+      final interpolated = _interpolateObject(
+        rawBody,
+        renderer,
+        key: key,
+        page: page,
+      );
+      body = jsonEncode(interpolated);
+    } else if (rawBody is String) {
+      body = renderer.render(rawBody, mode: TemplateOutputMode.jsonBody);
+    } else {
+      body = null;
+    }
     final charset = _string(parsed.options['charset']) ?? defaultCharset;
 
     return LegadoRequest(
       url: url,
       method: method == null || method.isEmpty ? 'GET' : method.toUpperCase(),
       headers: Map<String, String>.unmodifiable(headers),
-      body: body == null
-          ? null
-          : renderer.render(body, mode: TemplateOutputMode.jsonBody),
+      body: body,
       charset: charset,
     );
+  }
+
+  static Object? _interpolateObject(
+    Object? obj,
+    SyncTemplateRenderer renderer, {
+    String? key,
+    int? page,
+  }) {
+    if (obj is Map) {
+      final result = <String, Object?>{};
+      for (final entry in obj.entries) {
+        result[entry.key.toString()] = _interpolateObject(
+          entry.value,
+          renderer,
+          key: key,
+          page: page,
+        );
+      }
+      return result;
+    }
+    if (obj is List) {
+      return obj
+          .map((e) => _interpolateObject(e, renderer, key: key, page: page))
+          .toList();
+    }
+    if (obj is String) {
+      final trimmed = obj.trim();
+      if (trimmed == '{{page}}' && page != null) {
+        return page;
+      }
+      return renderer.render(obj, mode: TemplateOutputMode.text);
+    }
+    return obj;
   }
 
   _ParsedRequest _parse(String raw) {

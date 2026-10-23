@@ -28,6 +28,7 @@ RuleEvaluationContext _context({
   Map<String, Object?> result = const <String, Object?>{},
   int? page,
   String? key,
+  Map<String, Object?>? sourceVariables,
 }) {
   return RuleEvaluationContext(
     result: result,
@@ -35,6 +36,7 @@ RuleEvaluationContext _context({
     page: page,
     key: key,
     source: const <String, Object?>{'name': '测试源'},
+    sourceVariables: sourceVariables,
   );
 }
 
@@ -243,6 +245,22 @@ void main() {
         ),
         throwsA(isA<RuleEvaluationException>()),
       );
+    });
+    test('extracts field and executes @put variables', () async {
+      final variables = <String, Object?>{};
+      final evaluator = LegadoRuleEvaluator(
+        jsRuntime: _FakeJsRuntime(),
+      );
+      final result = await evaluator.evaluate(
+        r'$.name@put:{sections: $.sections, type: $.entityType}',
+        _context(
+          result: {'name': '斗罗大陆', 'sections': 100, 'entityType': 2},
+          sourceVariables: variables,
+        ),
+      );
+      expect(result, '斗罗大陆');
+      expect(variables['sections'], 100);
+      expect(variables['type'], 2);
     });
   });
 }

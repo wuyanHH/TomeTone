@@ -141,12 +141,28 @@ class LegadoSourceEngine implements SourceEngine {
         raw: bookUrl,
         baseUrl: _sourceUri(source),
       );
+      final fields = rules.bookInfoFields;
+      final variables = <String, Object?>{};
+      Object? bookRoot = fetched.json;
+      if (fields['init'] != null && fields['init']!.trim().isNotEmpty) {
+        final initContext = _context(
+          source: source,
+          result: bookRoot,
+          baseUrl: fetched.response.finalUrl.toString(),
+          sourceVariables: variables,
+        );
+        final unpacked = await _evaluateOptional(fields['init'], initContext);
+        if (unpacked != null) {
+          bookRoot = unpacked;
+        }
+      }
+
       final context = _context(
         source: source,
-        result: fetched.json,
+        result: bookRoot,
         baseUrl: fetched.response.finalUrl.toString(),
+        sourceVariables: variables,
       );
-      final fields = rules.bookInfoFields;
       final title =
           _text(await _evaluateOptional(fields['name'], context)) ??
           _urlFallback(fetched.response.finalUrl);
@@ -182,6 +198,7 @@ class LegadoSourceEngine implements SourceEngine {
           await _evaluateOptional(fields['lastChapter'], context),
         ),
         status: _text(await _evaluateOptional(fields['status'], context)),
+        variables: variables,
       );
     } on SourceFailure {
       rethrow;
@@ -193,6 +210,11 @@ class LegadoSourceEngine implements SourceEngine {
   @override
   Future<SourceToc> toc(BookSource source, SourceBookInfo info) async {
     final rules = _parseRules(source, SourceStage.toc);
+    final listRule = _requiredRule(
+      rules.tocFields,
+      'chapterList',
+      SourceStage.toc,
+    );
     final chapters = <SourceChapter>[];
     final warnings = <String>[];
     final visited = <String>{};
@@ -229,17 +251,13 @@ class LegadoSourceEngine implements SourceEngine {
       }
 
       try {
-        final listRule = _requiredRule(
-          rules.tocFields,
-          'chapterList',
-          SourceStage.toc,
-        );
         final rawList = await _evaluate(
           listRule,
           _context(
             source: source,
             result: fetched.json,
             baseUrl: fetched.response.finalUrl.toString(),
+            sourceVariables: info.variables,
           ),
         );
         final rawItems = _asItems(rawList);
@@ -250,6 +268,7 @@ class LegadoSourceEngine implements SourceEngine {
             source: source,
             result: item,
             baseUrl: fetched.response.finalUrl.toString(),
+            sourceVariables: info.variables,
           );
           String? rawUrl;
           try {
@@ -334,6 +353,7 @@ class LegadoSourceEngine implements SourceEngine {
             source: source,
             result: fetched.json,
             baseUrl: fetched.response.finalUrl.toString(),
+            sourceVariables: info.variables,
           ),
         );
       } on Object catch (error) {
@@ -344,6 +364,79 @@ class LegadoSourceEngine implements SourceEngine {
         warnings.add('目录第 ${pageIndex + 1} 页链接解析失败');
         break;
       }
+
+      if (nextEvaluated is List) {
+        for (final item in nextEvaluated) {
+          final urlStr = _text(item);
+          if (urlStr == null) continue;
+          final next = _normalizeOrNull(
+            _stripOptions(urlStr),
+            fetched.response.finalUrl,
+          );
+          if (next == null || visited.contains(next) || visited.length >= 50) {
+            continue;
+          }
+          visited.add(next);
+          try {
+            final pageFetched = await _fetch(
+              source: source,
+              stage: SourceStage.toc,
+              rules: rules,
+              raw: urlStr,
+              baseUrl: _sourceUri(source),
+            );
+            final rawList = await _evaluate(
+              listRule,
+              _context(
+                source: source,
+                result: pageFetched.json,
+                baseUrl: pageFetched.response.finalUrl.toString(),
+                sourceVariables: info.variables,
+              ),
+            );
+            final rawItems = _asItems(rawList);
+            for (var itemIndex = 0; itemIndex < rawItems.length; itemIndex++) {
+              final subItem = rawItems[itemIndex];
+              final subContext = _context(
+                source: source,
+                result: subItem,
+                baseUrl: pageFetched.response.finalUrl.toString(),
+                sourceVariables: info.variables,
+              );
+              String? rawUrl;
+              try {
+                rawUrl = _text(
+                  await _evaluateOptional(rules.tocFields['chapterUrl'], subContext),
+                );
+              } catch (_) {
+                continue;
+              }
+              if (rawUrl == null || rawUrl.isEmpty) continue;
+              final normalizedChapterUrl = _normalizeOrFallback(
+                pageFetched.response.finalUrl,
+                rawUrl,
+              );
+              final chapterTitle = _text(
+                await _evaluateOptional(rules.tocFields['chapterName'], subContext),
+              ) ?? '第 ${chapters.length + 1} 章';
+              chapters.add(
+                SourceChapter(
+                  index: chapters.length,
+                  title: chapterTitle,
+                  rawUrl: rawUrl,
+                  url: normalizedChapterUrl,
+                  isVip: false,
+                ),
+              );
+            }
+          } catch (error) {
+            warnings.add('批量分页加载失败: $urlStr');
+            complete = false;
+          }
+        }
+        break;
+      }
+
       final nextValue = _text(nextEvaluated);
       if (nextValue == null) {
         break;
@@ -498,9 +591,15 @@ class LegadoSourceEngine implements SourceEngine {
   Future<SourceTestReport> test(BookSource source) async {
     final stopwatch = Stopwatch()..start();
     try {
-      final categories = parseExploreCategories(
+      final categories = await resolveExploreCategories(
         exploreUrl: source.exploreUrl,
         enabledExplore: source.enabledExplore,
+        jsRuntime: _jsRuntime,
+        context: JsContext(
+          result: null,
+          baseUrl: source.sourceUrl,
+          http: _http,
+        ),
       );
       final SourcePage<SourceBookSummary> page;
       if (categories.isNotEmpty) {
@@ -743,6 +842,7 @@ class LegadoSourceEngine implements SourceEngine {
     required String baseUrl,
     int? page,
     String? key,
+    Map<String, Object?>? sourceVariables,
   }) {
     return RuleEvaluationContext(
       result: result,
@@ -753,6 +853,7 @@ class LegadoSourceEngine implements SourceEngine {
         'name': source.name,
         'sourceUrl': source.sourceUrl,
       },
+      sourceVariables: sourceVariables,
     );
   }
 

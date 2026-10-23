@@ -1,6 +1,6 @@
 # Legado 听书源规则引擎重构实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 重构 Legado 听书源规则引擎，全面支持多语句 JS、`java.*`/`source.*` 变量与网络桥接、动态分类识别、`init` 上下文解包、`@put` 变量暂存及 `nextTocUrl` 数组批量翻页，完整兼容「听友听书」与「懒人听书（优+++）」基准听书源。
 
@@ -39,7 +39,7 @@
 - Produces: `JsRuntime.evaluate(String script, JsContext context) -> Future<Object?>`
 - 支持语法：`var`/`let` 变量声明、赋值（`a = b`）、分号/换行多语句、数组操作（`push`、`map`、`slice`、`split`）、`JSON.parse`、`JSON.stringify`、`Math.ceil/floor`、`RegExp`、`java.ajax`、`source.get/put`、`java.get/put`。
 
-- [ ] **Step 1: 编写多语句执行与变量声明的失败单测**
+- [x] **Step 1: 编写多语句执行与变量声明的失败单测**
 
 ```dart
 // test/app/sources/restricted_js_runtime_test.dart
@@ -60,24 +60,24 @@ test('evaluates multi-line script with var statements', () async {
 });
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/app/sources/restricted_js_runtime_test.dart`
 预期：FAIL，提示不支持的 JS 语句或未定义变量 `var`。
 
-- [ ] **Step 3: 扩充 `RestrictedJsRuntime` 的 Lexer 与 Parser**
+- [x] **Step 3: 扩充 `RestrictedJsRuntime` 的 Lexer 与 Parser**
 
 1. 在 `_Lexer` 中支持换行符作为语句边界；
 2. 在 `_Parser` 中支持语句列表（Statement List），遇到 `var` / `let` / 标识符赋值时记录到局部作用域 `Map<String, Object?> scope`；
 3. 支持 `JSON.parse`、`JSON.stringify`、`Math.ceil`、`Math.floor` 内置对象；
 4. 注入 `java.ajax`（支持调用 `context.http`）、`source.get/put`、`java.get/put`、`java.log`。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/app/sources/restricted_js_runtime_test.dart`
 预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add lib/contracts/sources/js_runtime.dart lib/app/sources/legado/restricted_js_runtime.dart test/app/sources/restricted_js_runtime_test.dart
@@ -97,7 +97,7 @@ git commit -m "feat(sources): support multi-statement scripts and host bridges i
 - Produces: `Future<List<ExploreCategory>> resolveExploreCategories(...)`
 - 能力：处理静态 `分类::URL`、标准严格 JSON 数组、非严格 JSON 数组（带单引号或未加引号键名）、过滤 `style` 字段、执行 `@js:` / `<js>` 脚本。
 
-- [ ] **Step 1: 编写 `@js:` 分类与非严格 JSON 数组的失败单测**
+- [x] **Step 1: 编写 `@js:` 分类与非严格 JSON 数组的失败单测**
 
 ```dart
 // test/domain/sources/discovery/explore_category_test.dart
@@ -119,23 +119,23 @@ test('resolves dynamic js exploreUrl with categories', () async {
 });
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/domain/sources/discovery/explore_category_test.dart`
 预期：FAIL，`resolveExploreCategories` 未定义或返回空列表。
 
-- [ ] **Step 3: 实现 `resolveExploreCategories`**
+- [x] **Step 3: 实现 `resolveExploreCategories`**
 
 1. 检查 `exploreUrl` 是否包含 `@js:` 或 `<js>`，若包含则调用 `jsRuntime.evaluate` 计算最终结果；
 2. 对结果进行解析：若是 `List` 直接提取；若是字符串，先尝试 `jsonDecode`；若失败，执行松散 JSON 修复或正则抽取 `{title: ..., url: ...}`；
 3. 保留静态 `::` 文本行切分作为保底回退。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/domain/sources/discovery/explore_category_test.dart`
 预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add lib/domain/sources/discovery/explore_category.dart test/domain/sources/discovery/explore_category_test.dart
@@ -155,7 +155,7 @@ git commit -m "feat(sources): support dynamic js and loose json in explore categ
 - Produces: `LegadoRequest(url, method, headers, body, charset)`
 - 能力：当 URL options 中的 `body` 是 Map/List 时，递归替换其中的 `{{key}}` 与 `{{page}}`，并编码为正确的 JSON 字符串。
 
-- [ ] **Step 1: 编写 Map 请求体解析失败单测**
+- [x] **Step 1: 编写 Map 请求体解析失败单测**
 
 ```dart
 // test/app/sources/legado_request_test.dart
@@ -172,23 +172,23 @@ test('builds request when body option is raw JSON map', () {
 });
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/app/sources/legado_request_test.dart`
 预期：FAIL，`body` 解析错误或类型不匹配。
 
-- [ ] **Step 3: 优化 `LegadoRequestBuilder` 的 options 解析与 body 插值**
+- [x] **Step 3: 优化 `LegadoRequestBuilder` 的 options 解析与 body 插值**
 
 1. 当 options 中的 `body` 是 Map 时，递归遍历其键值；
 2. 对字符串类型值执行 `{{key}}` / `{{page}}` 替换；若值为 `{{page}}` 且类型可转为数字，则直接保留为 `int`；
 3. 将处理后的 Map 序列化为 UTF-8 JSON 字符串。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/app/sources/legado_request_test.dart`
 预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add lib/app/sources/legado/legado_request.dart test/app/sources/legado_request_test.dart
@@ -210,7 +210,7 @@ git commit -m "feat(sources): support json map body with placeholder interpolati
 - Consumes: `RuleEvaluationContext`, `rule` 规则文本
 - Produces: 字段求值结果，同时将 `@put:{...}` 中的键值写入 `context.variables`，并在 `SourceBookInfo.variables` 中透传。
 
-- [ ] **Step 1: 编写 `@put:{...}` 语法和 `init` 上下文转移的失败单测**
+- [x] **Step 1: 编写 `@put:{...}` 语法和 `init` 上下文转移的失败单测**
 
 ```dart
 // test/app/sources/legado_rule_evaluator_test.dart
@@ -231,24 +231,24 @@ test('extracts field and executes @put variables', () async {
 });
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/app/sources/legado_rule_evaluator_test.dart`
 预期：FAIL，不支持 `@put` 语法或未存入变量。
 
-- [ ] **Step 3: 实现 `@put:{...}` 语法解析与 `ruleBookInfo.init` 逻辑**
+- [x] **Step 3: 实现 `@put:{...}` 语法解析与 `ruleBookInfo.init` 逻辑**
 
 1. 在 `LegadoRuleEvaluator` 中拆分主规则与 `@put:{...}` 部分；
 2. 主规则求值返回字段值，对 `@put` 内部的各规则针对当前节点求值并写入 `context.sourceVariables`；
 3. 在 `LegadoSourceEngine.bookInfo` 中，若存在 `fields['init']`，先求值得到新根节点，后续字段针对该新根节点求值；
 4. 将产生的变量挂载到 `SourceBookInfo.variables`。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/app/sources/legado_rule_evaluator_test.dart`
 预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add lib/app/sources/legado/legado_rule_evaluator.dart lib/domain/sources/rules/rule_context.dart lib/domain/sources/discovery/source_models.dart lib/app/sources/legado/legado_source_engine.dart test/app/sources/legado_rule_evaluator_test.dart
@@ -270,7 +270,7 @@ git commit -m "feat(sources): support @put variable extraction and bookInfo init
   1. 将 `info.variables` 注入到目录求值上下文中，使得 `ruleToc.chapterUrl` 中的 `{{java.get("entityType")}}` 能正确解析；
   2. 求值 `ruleToc.nextTocUrl`，若返回 `List<dynamic>`，则依次抓取数组中的每个 URL 并合并章节，同时保持防循环与 50 页上限。
 
-- [ ] **Step 1: 编写 `nextTocUrl` 返回 URL 数组时的多页目录抓取失败单测**
+- [x] **Step 1: 编写 `nextTocUrl` 返回 URL 数组时的多页目录抓取失败单测**
 
 ```dart
 // test/app/sources/legado_source_engine_test.dart
@@ -280,23 +280,23 @@ test('fetches all chapters when nextTocUrl returns a list of URLs', () async {
 });
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：`flutter test test/app/sources/legado_source_engine_test.dart`
 预期：FAIL，目前只抓取了第 1 页。
 
-- [ ] **Step 3: 实现 `toc` 的数组翻页与上下文变量注入**
+- [x] **Step 3: 实现 `toc` 的数组翻页与上下文变量注入**
 
 1. 将 `info.variables` 注入到 `SourceEvaluationContext`；
 2. 当 `nextTocUrl` 求值结果为 `List` 时，将其展开为待爬取队列，依次遍历拉取并累加章节；
 3. 单页失败时不崩溃，记录 warning 并返回已有章节。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 运行：`flutter test test/app/sources/legado_source_engine_test.dart`
 预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add lib/app/sources/legado/legado_source_engine.dart test/app/sources/legado_source_engine_test.dart
@@ -315,23 +315,23 @@ git commit -m "feat(sources): support batch array pagination and variable propag
 **Interfaces:**
 - 完整覆盖两个书源真实 JSON 配置的导入、分类识别、搜索、书籍详情、目录抓取及音频播放链接解析全链路。
 
-- [ ] **Step 1: 编写两套基准书源端到端模拟测试**
+- [x] **Step 1: 编写两套基准书源端到端模拟测试**
 
 编写使用 Mock HTTP 响应驱动的端到端测试：
 1. 听友听书：测试 `exploreUrl` 分类、`searchUrl` 的 POST Map body、`chapterUrl` 的多行 `var` 脚本解析播放 options；
 2. 懒人听书：测试 `exploreUrl` 的 `@js:` 动态生成、`init` 前置解包、`@put` 与 `java.get` 变量传递、`nextTocUrl` 批量数组翻页与章节解析。
 
-- [ ] **Step 2: 运行测试并验证**
+- [x] **Step 2: 运行测试并验证**
 
 运行：`flutter test test/app/sources/benchmark_sources_regression_test.dart`
 预期：全部用例 PASS。
 
-- [ ] **Step 3: 运行全量测试套件确保零回归**
+- [x] **Step 3: 运行全量测试套件确保零回归**
 
 运行：`flutter test`
 预期：所有现有测试与新测试全部 PASS。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add test/fixtures/sources/ test/app/sources/benchmark_sources_regression_test.dart

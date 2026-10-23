@@ -24,6 +24,21 @@ class LegadoRuleEvaluator {
       return null;
     }
 
+    // 检查并剥离 @put:{...} 后缀
+    String? putContent;
+    final putIndex = trimmed.indexOf('@put:{');
+    if (putIndex >= 0 && trimmed.endsWith('}')) {
+      putContent = trimmed.substring(putIndex + 6, trimmed.length - 1).trim();
+      trimmed = trimmed.substring(0, putIndex).trim();
+    }
+
+    if (putContent != null && putContent.isNotEmpty) {
+      await _executePut(putContent, context);
+      if (trimmed.isEmpty) {
+        return null;
+      }
+    }
+
     if (trimmed.startsWith('@js:')) {
       return _evaluateJs(trimmed.substring(4).trim(), trimmed, context);
     }
@@ -168,6 +183,7 @@ class LegadoRuleEvaluator {
           page: context.page,
           key: context.key,
           source: context.source,
+          variables: context.variables,
         ),
       );
     } on JsRuntimeException {
@@ -189,11 +205,63 @@ class LegadoRuleEvaluator {
           page: context.page,
           key: context.key,
           source: context.source,
+          variables: context.variables,
         ),
       );
     } on JsRuntimeException {
       throw RuleEvaluationException('JS 规则执行失败', rule: rule);
     }
+  }
+
+  Future<void> _executePut(
+    String putContent,
+    RuleEvaluationContext context,
+  ) async {
+    final pairs = _splitPutPairs(putContent);
+    for (final pair in pairs) {
+      final colon = pair.indexOf(':');
+      if (colon <= 0) continue;
+      final varName = pair.substring(0, colon).trim();
+      final varRule = pair.substring(colon + 1).trim();
+      if (varName.isEmpty || varRule.isEmpty) continue;
+      final val = await evaluate(varRule, context);
+      if (context.sourceVariables != null) {
+        context.sourceVariables![varName] = val;
+      }
+    }
+  }
+
+  static List<String> _splitPutPairs(String content) {
+    final result = <String>[];
+    final buffer = StringBuffer();
+    var braceDepth = 0;
+    var bracketDepth = 0;
+    var inSingleQuote = false;
+    var inDoubleQuote = false;
+
+    for (var i = 0; i < content.length; i++) {
+      final char = content[i];
+      if (char == "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+      } else if (char == '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+      } else if (!inSingleQuote && !inDoubleQuote) {
+        if (char == '{') braceDepth++;
+        if (char == '}') braceDepth--;
+        if (char == '[') bracketDepth++;
+        if (char == ']') bracketDepth--;
+        if (char == ',' && braceDepth == 0 && bracketDepth == 0) {
+          result.add(buffer.toString().trim());
+          buffer.clear();
+          continue;
+        }
+      }
+      buffer.write(char);
+    }
+    if (buffer.isNotEmpty) {
+      result.add(buffer.toString().trim());
+    }
+    return result;
   }
 
   bool _isUnsupported(String rule) {

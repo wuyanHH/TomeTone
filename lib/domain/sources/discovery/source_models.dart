@@ -39,9 +39,11 @@ class SourceBookInfo extends SourceBookSummary {
     super.wordCount,
     super.lastChapter,
     super.status,
+    this.variables = const <String, Object?>{},
   });
 
   final String tocUrl;
+  final Map<String, Object?> variables;
 }
 
 /// 在线目录的一章。

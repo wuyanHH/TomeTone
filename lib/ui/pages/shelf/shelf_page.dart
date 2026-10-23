@@ -435,7 +435,7 @@ class _ShelfPageState extends ConsumerState<ShelfPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             headerWidget,
-            if (hasBooks)
+            if (!failed && !loading)
               SearchFilterBar(
                 key: ShelfPage.filterBarKey,
                 searchFieldKey: ShelfPage.searchFieldKey,
