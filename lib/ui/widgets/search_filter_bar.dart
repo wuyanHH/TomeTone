@@ -18,6 +18,10 @@ class SearchFilterBar extends StatefulWidget {
     this.onExpandChanged,
     this.margin,
     this.padding,
+    this.searchFieldKey,
+    this.searchClearKey,
+    this.searchToggleKey,
+    this.filterButtonKey,
   });
 
   /// 搜索输入控制器。
@@ -49,6 +53,18 @@ class SearchFilterBar extends StatefulWidget {
 
   /// 输入条内部边距。
   final EdgeInsetsGeometry? padding;
+
+  /// 搜索输入框的可选测试键。
+  final Key? searchFieldKey;
+
+  /// 搜索清除按钮的可选测试键。
+  final Key? searchClearKey;
+
+  /// 搜索图标的可选测试键。
+  final Key? searchToggleKey;
+
+  /// 筛选触发按钮的可选测试键。
+  final Key? filterButtonKey;
 
   @override
   State<SearchFilterBar> createState() => _SearchFilterBarState();
@@ -126,14 +142,23 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
             child: Row(
               children: <Widget>[
                 const SizedBox(width: AppSpacing.sm),
-                Icon(
-                  Icons.search_rounded,
-                  size: 20,
-                  color: scheme.onSurfaceVariant,
+                InkWell(
+                  key: widget.searchToggleKey,
+                  borderRadius: AppRadii.pill,
+                  onTap: () => widget.focusNode?.requestFocus(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xxs),
+                    child: Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: TextField(
+                    key: widget.searchFieldKey,
                     controller: widget.controller,
                     focusNode: widget.focusNode,
                     onChanged: widget.onQueryChanged,
@@ -155,6 +180,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                 ),
                 if (hasQuery)
                   IconButton(
+                    key: widget.searchClearKey,
                     icon: const Icon(Icons.close_rounded, size: 18),
                     tooltip: '清除搜索',
                     splashRadius: 18,
@@ -172,6 +198,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                   color: scheme.outlineVariant.withValues(alpha: 0.5),
                 ),
                 Material(
+                  key: widget.filterButtonKey,
                   color: filterBtnColor,
                   borderRadius: AppRadii.pill,
                   child: InkWell(
@@ -247,7 +274,14 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                         color: scheme.outlineVariant.withValues(alpha: 0.35),
                       ),
                     ),
-                    child: widget.filterPanelBuilder!(context),
+                    child: SearchFilterBarScope(
+                      collapse: () {
+                        if (_expanded) _toggleExpanded();
+                      },
+                      toggleExpanded: _toggleExpanded,
+                      isExpanded: _expanded,
+                      child: Builder(builder: widget.filterPanelBuilder!),
+                    ),
                   )
                 : const SizedBox(width: double.infinity, height: 0),
           ),
@@ -462,5 +496,35 @@ class SearchFilterChip extends StatelessWidget {
       label: tooltip ?? label,
       child: chipContent,
     );
+  }
+}
+
+/// 筛选面板上下文作用域，提供折叠面板等操作给卡片内部子组件。
+class SearchFilterBarScope extends InheritedWidget {
+  const SearchFilterBarScope({
+    super.key,
+    required this.collapse,
+    required this.toggleExpanded,
+    required this.isExpanded,
+    required super.child,
+  });
+
+  /// 收起筛选面板。
+  final VoidCallback collapse;
+
+  /// 切换展开/收起。
+  final VoidCallback toggleExpanded;
+
+  /// 当前是否已展开。
+  final bool isExpanded;
+
+  /// 获取最近的作用域，若不存在返回 null。
+  static SearchFilterBarScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<SearchFilterBarScope>();
+  }
+
+  @override
+  bool updateShouldNotify(SearchFilterBarScope oldWidget) {
+    return isExpanded != oldWidget.isExpanded;
   }
 }

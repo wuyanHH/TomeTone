@@ -24,6 +24,7 @@ import 'package:tometone/ui/pages/shelf/shelf_book_card.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_row.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
 import 'package:tometone/ui/pages/shelf/shelf_page.dart';
+import 'package:tometone/ui/pages/shelf/shelf_series_management_sheet.dart';
 import 'package:tometone/ui/widgets/book_cover.dart';
 
 import '../app/playback/fake_media_source_resolver.dart';
@@ -726,7 +727,6 @@ void main() {
       ]) {
         expect(find.text(title), findsOneWidget);
       }
-      expect(find.text('4 册'), findsOneWidget);
 
       await tester.tap(find.byKey(ShelfPage.searchToggleKey));
       await tester.pumpAndSettle();
@@ -736,14 +736,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('长夜行舟'), findsOneWidget);
       expect(find.text('雾中灯塔'), findsNothing);
-      expect(find.text('1 / 4 册'), findsOneWidget);
 
       // 有关键字时出现清除按钮；点它恢复全部。
       expect(find.byKey(ShelfPage.searchClearKey), findsOneWidget);
       await tester.tap(find.byKey(ShelfPage.searchClearKey));
       await tester.pumpAndSettle();
       expect(find.text('雾中灯塔'), findsOneWidget);
-      expect(find.text('4 册'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -763,14 +761,12 @@ void main() {
       expect(find.byKey(ShelfPage.filteredEmptyKey), findsOneWidget);
       expect(find.text('没有符合条件的书'), findsOneWidget);
       expect(find.text('清除筛选'), findsOneWidget);
-      expect(find.text('0 / 4 册'), findsOneWidget);
 
       await tester.tap(find.byKey(ShelfPage.clearFiltersKey));
       await tester.pumpAndSettle();
 
       expect(find.byKey(ShelfPage.filteredEmptyKey), findsNothing);
       expect(find.text('长夜行舟'), findsOneWidget);
-      expect(find.text('4 册'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -782,20 +778,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // 展开筛选面板
+      await tester.tap(find.text('筛选'));
+      await tester.pumpAndSettle();
+
       await tester.tap(
         find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.listening)),
       );
       await tester.pumpAndSettle();
       expect(find.text('长夜行舟'), findsOneWidget);
       expect(find.text('雾中灯塔'), findsNothing);
-      expect(find.text('1 / 4 册'), findsOneWidget);
 
       await tester.tap(
         find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.all)),
       );
       await tester.pumpAndSettle();
       expect(find.text('雪落长安'), findsOneWidget);
-      expect(find.text('4 册'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -807,51 +805,31 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 分类菜单：选项来自书单标签（跨书大小写折叠去重，保留原文）。
-      // 菜单项按类型定位后 tap，避免点到 Text 中心时触发 hit-test 警告。
-      Finder checkedItem(String label) => find
-          .ancestor(
-            of: find.text(label),
-            matching: find.byType(CheckedPopupMenuItem<String>),
-          )
-          .first;
-      Finder plainItem(String label) => find
-          .ancestor(
-            of: find.text(label),
-            matching: find.byType(PopupMenuItem<String>),
-          )
-          .first;
-
-      await tester.tap(find.byKey(ShelfPage.tagFilterKey));
+      // 展开筛选面板，按分类标签过滤
+      await tester.tap(find.text('筛选'));
       await tester.pumpAndSettle();
-      expect(find.text('不限分类'), findsOneWidget);
+
+      expect(find.text('不限'), findsOneWidget);
       expect(find.text('悬疑'), findsOneWidget);
-      await tester.tap(checkedItem('悬疑'));
+      await tester.tap(find.byKey(ShelfPage.tagChipKey('悬疑')));
       await tester.pumpAndSettle();
       expect(find.text('雾中灯塔'), findsOneWidget);
       expect(find.text('长夜行舟'), findsNothing);
-      expect(find.text('1 / 4 册'), findsOneWidget);
 
-      // 系列叠加：《雾中灯塔》属于「山海纪」，《雪落长安》属于「长安三夜」。
-      await tester.tap(find.byKey(ShelfPage.seriesFilterKey));
+      // 系列联动：切换到「长安三夜」Tab。《长安三夜》只包含《雪落长安》（无悬疑标签）
+      await tester.ensureVisible(find.byKey(ShelfPage.seriesTabKey('长安三夜')));
       await tester.pumpAndSettle();
-      expect(find.text('不限系列'), findsOneWidget);
-      expect(find.text('长安三夜'), findsOneWidget);
-      await tester.tap(checkedItem('长安三夜'));
+      await tester.tap(find.byKey(ShelfPage.seriesTabKey('长安三夜')));
       await tester.pumpAndSettle();
-      // 悬疑 ∩ 长安三夜 = 空：出现专用零结果态，网格被替换。
+      // 悬疑 ∩ 长安三夜 = 空：出现专用零结果态
       expect(find.text('雾中灯塔'), findsNothing);
       expect(find.byKey(ShelfPage.filteredEmptyKey), findsOneWidget);
-      expect(find.text('0 / 4 册'), findsOneWidget);
 
-      // 「不限分类」只清标签，系列筛选保留（《长安三夜》只含《雪落长安》）。
-      await tester.tap(find.byKey(ShelfPage.tagFilterKey));
-      await tester.pumpAndSettle();
-      await tester.tap(plainItem('不限分类'));
+      // 选「不限」标签：系列筛选保留（《长安三夜》只含《雪落长安》）
+      await tester.tap(find.byKey(ShelfPage.tagChipKey(null)));
       await tester.pumpAndSettle();
       expect(find.text('雪落长安'), findsOneWidget);
       expect(find.text('雾中灯塔'), findsNothing);
-      expect(find.text('1 / 4 册'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -895,6 +873,10 @@ void main() {
       await tester.tap(find.byKey(ShelfPage.searchToggleKey));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(ShelfPage.searchFieldKey), '沈砚');
+
+      // 展开筛选并勾选状态
+      await tester.tap(find.text('筛选'));
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.listening)),
       );
@@ -1045,6 +1027,236 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ShelfBookRow), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('书架系列导航与 SearchFilterBar 联动', () {
+    List<BookSummary> multiSeriesFixture() => <BookSummary>[
+      testSummary(
+        id: 'book-1',
+        title: '长夜行舟',
+        author: '沈砚',
+        seriesName: '山海纪',
+        sourceType: 'local',
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+      ),
+      testSummary(
+        id: 'book-2',
+        title: '海风沉寂',
+        author: '江照',
+        seriesName: '山海纪',
+        sourceType: 'online',
+        progressPositionMs: 60 * 1000,
+        progressChapterIndex: 1,
+      ),
+      testSummary(
+        id: 'book-3',
+        title: '雪落长安',
+        author: '温酒',
+        seriesName: '长安三夜',
+        sourceType: 'local',
+      ),
+      testSummary(
+        id: 'book-4',
+        title: '单本闲谈',
+        author: '无名',
+        seriesName: null,
+        sourceType: 'local',
+      ),
+    ];
+
+    testWidgets('1. Tab 模式切页：点击系列 Tab 与 PageView 左右滑动手势切换系列', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: multiSeriesFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 默认在「全部」Tab，包含所有 4 本书
+      expect(find.text('全部'), findsOneWidget);
+      expect(find.text('未分类'), findsOneWidget);
+      expect(find.text('山海纪'), findsOneWidget);
+      expect(find.text('长安三夜'), findsOneWidget);
+
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('海风沉寂'), findsOneWidget);
+      expect(find.text('雪落长安'), findsOneWidget);
+      expect(find.text('单本闲谈'), findsOneWidget);
+
+      // 点击「山海纪」Tab
+      await tester.tap(find.text('山海纪'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('海风沉寂'), findsOneWidget);
+      expect(find.text('雪落长安'), findsNothing);
+      expect(find.text('单本闲谈'), findsNothing);
+
+      // 通过 PageView 滑动手势滑动到下一个系列「长安三夜」
+      await tester.drag(find.byType(PageView), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('雪落长安'), findsOneWidget);
+      expect(find.text('长夜行舟'), findsNothing);
+      expect(find.text('海风沉寂'), findsNothing);
+    });
+
+    testWidgets('2. 选择框模式：在下拉模式下点击标题选择系列，成功切换内容', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      final AppPreferences dropdownPrefs = AppPreferences.defaults.copyWith(
+        shelfSeriesNavMode: ShelfSeriesNavMode.dropdown,
+      );
+      await pumpShelf(
+        tester,
+        overrides: <Override>[
+          preferencesStoreProvider.overrideWithValue(
+            InMemoryAppPreferencesStore(),
+          ),
+          initialPreferencesProvider.overrideWithValue(dropdownPrefs),
+          booksProvider.overrideWith((Ref ref) async => multiSeriesFixture()),
+          libraryRootsProvider.overrideWith(
+            (Ref ref) async => const <LibraryRootView>[testRoot],
+          ),
+          playbackControllerProvider.overrideWithValue(controller),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      // 初始显示全部
+      expect(find.byKey(ShelfPage.seriesDropdownKey), findsOneWidget);
+      expect(find.text('全部'), findsOneWidget);
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('雪落长安'), findsOneWidget);
+
+      // 点击下拉标题选择框
+      await tester.tap(find.byKey(ShelfPage.seriesDropdownKey));
+      await tester.pumpAndSettle();
+
+      // 弹出系列列表，点击「山海纪」
+      expect(
+        find.byKey(ShelfPage.seriesDropdownItemKey('山海纪')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(ShelfPage.seriesDropdownItemKey('山海纪')));
+      await tester.pumpAndSettle();
+
+      // 内容仅展示山海纪书籍
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('海风沉寂'), findsOneWidget);
+      expect(find.text('雪落长安'), findsNothing);
+    });
+
+    testWidgets('3. 一体化筛选与角标：在 SearchFilterBar 中展开卡片，勾选在听与本地音频，验证角标为 2 且正确过滤', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: multiSeriesFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 点击筛选按钮展开折叠卡片
+      expect(find.text('筛选'), findsOneWidget);
+      await tester.tap(find.text('筛选'));
+      await tester.pumpAndSettle();
+
+      // 勾选「在听」
+      await tester.tap(
+        find.byKey(ShelfPage.statusChipKey(ShelfStatusFilter.listening)),
+      );
+      await tester.pumpAndSettle();
+
+      // 勾选「本地音频」
+      await tester.tap(
+        find.byKey(ShelfPage.sourceChipKey(ShelfSourceFilter.local)),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证筛选角标显示为 "2"
+      expect(
+        find.descendant(
+          of: find.byKey(ShelfPage.filterToggleKey),
+          matching: find.text('2'),
+        ),
+        findsOneWidget,
+      );
+
+      // 只有长夜行舟同时满足在听（hasProgress && !isFinished）且为本地音频（!isOnline）
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(find.text('海风沉寂'), findsNothing); // online
+      expect(find.text('雪落长安'), findsNothing); // unlistened
+      expect(find.text('单本闲谈'), findsNothing); // unlistened
+    });
+
+    testWidgets('4. 防空兜底：当隐藏全部系列且书单无系列时，页面安全降级保底展示「全部」，不崩溃', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      final AppPreferences emptySeriesPrefs = AppPreferences.defaults.copyWith(
+        shelfShowAllSeriesTab: false,
+        shelfShowUncategorizedSeriesTab: false,
+        shelfHiddenSeries: const <String>['山海纪', '长安三夜'],
+      );
+      await pumpShelf(
+        tester,
+        overrides: <Override>[
+          preferencesStoreProvider.overrideWithValue(
+            InMemoryAppPreferencesStore(),
+          ),
+          initialPreferencesProvider.overrideWithValue(emptySeriesPrefs),
+          booksProvider.overrideWith((Ref ref) async => multiSeriesFixture()),
+          libraryRootsProvider.overrideWith(
+            (Ref ref) async => const <LibraryRootView>[testRoot],
+          ),
+          playbackControllerProvider.overrideWithValue(controller),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      // 必须安全兜底显示「全部」
+      expect(find.text('全部'), findsOneWidget);
+      expect(find.text('长夜行舟'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('5. 更多菜单入口：右上角「⋮」菜单中提供「管理系列」条目，点击弹出管理抽屉', (
+      WidgetTester tester,
+    ) async {
+      usePhoneViewport(tester);
+      await pumpShelf(
+        tester,
+        overrides: testOverrides(
+          controller: controller,
+          books: multiSeriesFixture(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 点击右上角更多菜单
+      await tester.tap(find.byKey(ShelfPage.moreMenuKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text('管理系列'), findsOneWidget);
+      await tester.tap(find.text('管理系列'));
+      await tester.pumpAndSettle();
+
+      // 弹出 ShelfSeriesManagementSheet
+      expect(find.byKey(ShelfSeriesManagementKeys.sheet), findsOneWidget);
+      expect(find.text('导航模式'), findsOneWidget);
+      expect(find.text('显示全部'), findsOneWidget);
     });
   });
 }

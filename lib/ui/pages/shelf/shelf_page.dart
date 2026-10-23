@@ -13,25 +13,28 @@ import 'package:tometone/ui/pages/shelf/open_book_action.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_card.dart';
 import 'package:tometone/ui/pages/shelf/shelf_book_row.dart';
 import 'package:tometone/ui/pages/shelf/shelf_filter.dart';
+import 'package:tometone/ui/pages/shelf/shelf_series_management_sheet.dart';
 import 'package:tometone/ui/theme/theme_tokens.dart';
+import 'package:tometone/ui/widgets/search_filter_bar.dart';
 
 /// 书架（《架构需求文档》§2.1）。
 ///
 /// 职责边界（方案 A）：书架只负责「看与听」，内容来源在「书库」tab 里管理。
 ///
-/// 布局：
-/// - 页首是藏馆题头与藏书数量（进入页面先知道"有多少"）；
-/// - 题头下方是筛选工具行：可展开的搜索输入、状态 chips（全部 / 在听 /
-///   未听 / 已完）、分类与系列弹层（选项从当前书单派生）、布局切换；
+/// 布局与导航：
+/// - 顶部系列导航（TabBar 横向滑动切页 / Dropdown 下拉选择框）；
+/// - 一体化 [SearchFilterBar] 搜索与筛选卡片，收纳收听状态、来源渠道与分类标签；
 /// - 手机纵屏 2 列，`>=600dp` 3 列、`>=960dp` 4 列；
 /// - 每一项从上到下是封面 → 书名（最多两行）→ 进度 / 未听 → 缺失提示。
-///
-/// 三态都直接来自 [booksProvider]：加载中不假装有内容，空态一句话指向
-/// 「书库」并给出直达按钮，错误态提供重试（`ref.invalidate`）。筛选只作用于
-/// 加载完成后的书单；筛选后的零结果有独立空态与「清除筛选」出口。
 class ShelfPage extends ConsumerStatefulWidget {
   /// 创建书架。
   const ShelfPage({super.key});
+
+  /// 全部系列固定标识符。
+  static const String kSeriesAll = '__all__';
+
+  /// 未分类（单本）系列固定标识符。
+  static const String kSeriesUncategorized = '__uncategorized__';
 
   /// 加载态。
   static const Key loadingKey = Key('shelf-loading');
@@ -51,7 +54,7 @@ class ShelfPage extends ConsumerStatefulWidget {
   /// 书籍列表。
   static const Key listKey = Key('shelf-list');
 
-  /// 更多设置菜单（列数与字段显隐）。
+  /// 更多设置菜单（列数、字段显隐与管理系列入口）。
   static const Key moreMenuKey = Key('shelf-more-menu');
 
   /// 空态里「去书库添加目录」的引导按钮。
@@ -66,10 +69,10 @@ class ShelfPage extends ConsumerStatefulWidget {
   /// 零结果空态里的「清除筛选」按钮。
   static const Key clearFiltersKey = Key('shelf-clear-filters');
 
-  /// 搜索图标（展开 / 收起搜索输入）。
+  /// 搜索图标（展开 / 聚焦搜索输入）。
   static const Key searchToggleKey = Key('shelf-search-toggle');
 
-  /// 展开后的单行搜索输入框。
+  /// 单行搜索输入框。
   static const Key searchFieldKey = Key('shelf-search-field');
 
   /// 有搜索词时输入框尾部的清除按钮。
@@ -86,37 +89,191 @@ class ShelfPage extends ConsumerStatefulWidget {
 
   /// 状态筛选 chip 的稳定 key（`shelf-status-<枚举名>`）。
   static Key statusChipKey(ShelfStatusFilter status) =>
-      ValueKey('shelf-status-${status.name}');
+      ValueKey<String>('shelf-status-${status.name}');
+
+  /// 系列导航 TabBar 的 key。
+  static const Key seriesTabBarKey = Key('shelf-series-tab-bar');
+
+  /// 单个系列 Tab 的 key。
+  static Key seriesTabKey(String series) =>
+      ValueKey<String>('shelf-series-tab-$series');
+
+  /// 系列下拉选择框标题按钮的 key。
+  static const Key seriesDropdownKey = Key('shelf-series-dropdown');
+
+  /// 系列下拉选择项的 key。
+  static Key seriesDropdownItemKey(String series) =>
+      ValueKey<String>('shelf-series-dropdown-item-$series');
+
+  /// 一体化搜索筛选条的 key。
+  static const Key filterBarKey = Key('shelf-search-filter-bar');
+
+  /// 筛选折叠卡片触发按钮的 key。
+  static const Key filterToggleKey = Key('shelf-filter-toggle');
+
+  /// 筛选重置按钮的 key。
+  static const Key resetFilterKey = Key('shelf-reset-filter');
+
+  /// 筛选面板收起按钮的 key。
+  static const Key collapseFilterKey = Key('shelf-collapse-filter');
+
+  /// 来源渠道 chip 的 key。
+  static Key sourceChipKey(ShelfSourceFilter source) =>
+      ValueKey<String>('shelf-source-${source.name}');
+
+  /// 分类标签 chip 的 key。
+  static Key tagChipKey(String? tag) =>
+      ValueKey<String>('shelf-tag-${tag ?? "all"}');
+
+  /// 计算可见系列列表（结合偏好过滤、排序与防空保底）。
+  static List<String> calculateVisibleSeries({
+    required List<String> allAvailableSeries,
+    required AppPreferences prefs,
+  }) {
+    final List<String> ordered = _computeOrderedSeries(
+      allAvailableSeries,
+      prefs.shelfSeriesOrder,
+    );
+    final List<String> result = <String>[];
+    if (prefs.shelfShowAllSeriesTab) {
+      result.add(kSeriesAll);
+    }
+    if (prefs.shelfShowUncategorizedSeriesTab) {
+      result.add(kSeriesUncategorized);
+    }
+    final Set<String> hidden = prefs.shelfHiddenSeries.toSet();
+    for (final String s in ordered) {
+      if (!hidden.contains(s)) {
+        result.add(s);
+      }
+    }
+    if (result.isEmpty) {
+      result.add(kSeriesAll);
+    }
+    return result;
+  }
+
+  static List<String> _computeOrderedSeries(
+    List<String> allAvailable,
+    List<String> savedOrder,
+  ) {
+    final List<String> result = <String>[];
+    final Set<String> availableSet = allAvailable.toSet();
+
+    for (final String s in savedOrder) {
+      if (availableSet.contains(s) && !result.contains(s)) {
+        result.add(s);
+      }
+    }
+    for (final String s in allAvailable) {
+      if (!result.contains(s)) {
+        result.add(s);
+      }
+    }
+    return result;
+  }
+
+  /// 系列展示文案。
+  static String seriesDisplayName(String series) {
+    if (series == kSeriesAll) return '全部';
+    if (series == kSeriesUncategorized) return '未分类';
+    return series;
+  }
+
+  /// 过滤特定系列的书籍。
+  static List<BookSummary> booksForSeries(
+    List<BookSummary> books,
+    String series,
+  ) {
+    if (series == kSeriesAll) {
+      return books;
+    }
+    if (series == kSeriesUncategorized) {
+      return books.where((BookSummary b) {
+        final String? name = b.seriesName?.trim();
+        return name == null || name.isEmpty;
+      }).toList();
+    }
+    return books
+        .where((BookSummary b) => b.seriesName?.trim() == series)
+        .toList();
+  }
+
+  /// 计算特定系列在书架中的总册数（用于 Tab 稳定徽标）。
+  static int countForSeries(List<BookSummary> books, String series) {
+    return booksForSeries(books, series).length;
+  }
 
   @override
   ConsumerState<ShelfPage> createState() => _ShelfPageState();
 }
 
-class _ShelfPageState extends ConsumerState<ShelfPage> {
+class _ShelfPageState extends ConsumerState<ShelfPage>
+    with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
-  /// 当前筛选（搜索词 / 状态 / 分类 / 系列），只存在内存里。
+  /// 当前筛选（搜索词 / 状态 / 来源 / 标签），只存在内存里。
   ShelfFilterState _filter = const ShelfFilterState();
 
   /// 布局密度；本轮仅存内存，重新进入页面回落网格。
   ShelfLayout _layout = ShelfLayout.grid;
 
-  /// 搜索输入框是否展开。
-  bool _searchOpen = false;
+  TabController? _tabController;
+  int _currentSeriesIndex = 0;
+  List<String> _currentVisibleSeries = const <String>[];
 
   @override
   void dispose() {
+    _tabController?.removeListener(_onTabChanged);
+    _tabController?.dispose();
     _searchFocus.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController != null &&
+        _tabController!.index != _currentSeriesIndex) {
+      setState(() {
+        _currentSeriesIndex = _tabController!.index;
+      });
+    }
+  }
+
+  void _syncTabController(List<String> visibleSeries) {
+    if (_tabController == null ||
+        _tabController!.length != visibleSeries.length ||
+        !_listEquals(_currentVisibleSeries, visibleSeries)) {
+      _currentVisibleSeries = List<String>.from(visibleSeries);
+      final int initialIndex =
+          _currentSeriesIndex.clamp(0, visibleSeries.length - 1);
+      _tabController?.removeListener(_onTabChanged);
+      _tabController?.dispose();
+      _tabController = TabController(
+        length: visibleSeries.length,
+        vsync: this,
+        initialIndex: initialIndex,
+      );
+      _currentSeriesIndex = initialIndex;
+      _tabController!.addListener(_onTabChanged);
+    }
+  }
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _updateFilter(ShelfFilterState next) {
     setState(() => _filter = next);
   }
 
-  /// 清除全部筛选（零结果空态的出口）。
+  /// 清除全部筛选（零结果空态与重置按钮的出口）。
   void _clearFilters() {
     _searchController.clear();
     setState(() => _filter = const ShelfFilterState());
@@ -131,17 +288,21 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
     );
   }
 
-  /// 展开 / 收起搜索输入；收起时顺手清空搜索词，避免看不见的隐性筛选。
-  void _toggleSearch() {
-    final bool opening = !_searchOpen;
-    if (!opening && _searchController.text.isNotEmpty) {
-      _searchController.clear();
-      _filter = _filter.copyWith(query: '');
+  int _calculateActiveFilterCount(ShelfFilterState filter) {
+    int count = 0;
+    if (filter.query.trim().isNotEmpty) {
+      count++;
     }
-    setState(() => _searchOpen = opening);
-    if (opening) {
-      _searchFocus.requestFocus();
+    if (filter.status != ShelfStatusFilter.all) {
+      count++;
     }
+    if (filter.source != ShelfSourceFilter.all) {
+      count++;
+    }
+    if (filter.tag != null && filter.tag!.trim().isNotEmpty) {
+      count++;
+    }
+    return count;
   }
 
   /// 从书单派生分类选项：标签跨书去重（大小写折叠），保留首次出现的原文。
@@ -187,20 +348,23 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
             rootsAsync.value == null);
 
     final List<BookSummary> books = booksAsync.value ?? const <BookSummary>[];
-    final List<BookSummary> visibleBooks = _filter.apply(books);
     final AppPreferences prefs = ref.watch(preferencesProvider);
 
-    // 工具行只在「加载完成且有书」时出现：加载 / 错误 / 全局空态保持原样。
-    final bool toolbarVisible = !failed && !loading && books.isNotEmpty;
+    final List<String> allAvailableSeries = _deriveSeriesOptions(books);
+    final List<String> visibleSeries = ShelfPage.calculateVisibleSeries(
+      allAvailableSeries: allAvailableSeries,
+      prefs: prefs,
+    );
 
-    // 数量徽标：读取态保持原文案；筛选激活时给出「可见 / 总数」。
+    _syncTabController(visibleSeries);
+
+    final bool hasBooks = !failed && !loading && books.isNotEmpty;
+
     final String countLabel = failed
         ? '读取失败'
         : loading
-        ? '正在读取…'
-        : _filter.isActive
-        ? '${visibleBooks.length} / ${books.length} 册'
-        : '${books.length} 册';
+            ? '正在读取…'
+            : '${books.length} 册';
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -232,168 +396,363 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
         final double coverHeight = tileWidth * 1.5;
         final SliverGridDelegate delegate =
             SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: AppSpacing.lg,
-              crossAxisSpacing: AppSpacing.md,
-              childAspectRatio: tileWidth / (coverHeight + textBlock),
-            );
+          crossAxisCount: columns,
+          mainAxisSpacing: AppSpacing.lg,
+          crossAxisSpacing: AppSpacing.md,
+          childAspectRatio: tileWidth / (coverHeight + textBlock),
+        );
 
-        return CustomScrollView(
-          slivers: <Widget>[
-            SliverToBoxAdapter(
-              child: _ShelfHeader(
-                countLabel: countLabel,
-                searchOpen: _searchOpen,
-                layout: _layout,
-                prefs: prefs,
-                onSearchToggle: _toggleSearch,
-                onLayoutToggle: () {
-                  setState(() {
-                    _layout = _layout == ShelfLayout.grid
-                        ? ShelfLayout.list
-                        : ShelfLayout.grid;
-                  });
-                },
-                onPrefsChanged: (AppPreferences newPrefs) {
-                  ref.read(preferencesProvider.notifier).replace(newPrefs);
-                },
+        final Widget headerWidget = _ShelfHeader(
+          countLabel: countLabel,
+          hasBooks: hasBooks,
+          navMode: prefs.shelfSeriesNavMode,
+          visibleSeries: visibleSeries,
+          currentSeriesIndex: _currentSeriesIndex,
+          tabController: _tabController,
+          books: books,
+          allAvailableSeries: allAvailableSeries,
+          layout: _layout,
+          prefs: prefs,
+          onSeriesSelected: (int index) {
+            setState(() {
+              _currentSeriesIndex = index;
+              _tabController?.animateTo(index);
+            });
+          },
+          onLayoutToggle: () {
+            setState(() {
+              _layout = _layout == ShelfLayout.grid
+                  ? ShelfLayout.list
+                  : ShelfLayout.grid;
+            });
+          },
+          onPrefsChanged: (AppPreferences newPrefs) {
+            ref.read(preferencesProvider.notifier).replace(newPrefs);
+          },
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            headerWidget,
+            if (hasBooks)
+              SearchFilterBar(
+                key: ShelfPage.filterBarKey,
+                searchFieldKey: ShelfPage.searchFieldKey,
+                searchClearKey: ShelfPage.searchClearKey,
+                searchToggleKey: ShelfPage.searchToggleKey,
+                filterButtonKey: ShelfPage.filterToggleKey,
+                controller: _searchController,
+                focusNode: _searchFocus,
+                hintText: '搜书名、作者、演播或简介',
+                margin: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
+                onQueryChanged: (String value) =>
+                    _updateFilter(_filter.copyWith(query: value)),
+                activeFilterCount: _calculateActiveFilterCount(_filter),
+                filterPanelBuilder: (BuildContext context) =>
+                    _buildFilterPanel(context, _deriveTagOptions(books)),
               ),
+            Expanded(
+              child: failed
+                  ? SingleChildScrollView(
+                      child: _ShelfError(
+                        onRetry: () {
+                          ref.invalidate(booksProvider);
+                          ref.invalidate(libraryRootsProvider);
+                        },
+                      ),
+                    )
+                  : loading
+                      ? CustomScrollView(
+                          slivers: <Widget>[
+                            const SliverToBoxAdapter(
+                              child: _ShelfLoadingLine(),
+                            ),
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.lg,
+                                AppSpacing.md,
+                                AppSpacing.lg,
+                                AppSpacing.xl,
+                              ),
+                              sliver: SliverGrid.builder(
+                                key: ShelfPage.loadingKey,
+                                gridDelegate: delegate,
+                                itemCount: columns * 3,
+                                itemBuilder:
+                                    (BuildContext context, int index) {
+                                  return const _ShelfSkeletonTile();
+                                },
+                              ),
+                            ),
+                          ],
+                        )
+                      : books.isEmpty
+                          ? SingleChildScrollView(
+                              child: _ShelfEmpty(
+                                onOpenDiscovery: () {
+                                  ref
+                                      .read(appTabProvider.notifier)
+                                      .select(AppTab.discovery);
+                                },
+                                onOpenLibrary: () {
+                                  ref
+                                      .read(appTabProvider.notifier)
+                                      .select(AppTab.library);
+                                },
+                                onRefresh: () {
+                                  ref.invalidate(booksProvider);
+                                  ref.invalidate(libraryRootsProvider);
+                                },
+                              ),
+                            )
+                          : prefs.shelfSeriesNavMode ==
+                                  ShelfSeriesNavMode.tabs
+                              ? TabBarView(
+                                  controller: _tabController,
+                                  children: <Widget>[
+                                    for (int i = 0;
+                                        i < visibleSeries.length;
+                                        i++)
+                                      _buildSeriesPage(
+                                        context: context,
+                                        series: visibleSeries[i],
+                                        books: books,
+                                        delegate: delegate,
+                                        isCurrentPage:
+                                            i == _currentSeriesIndex,
+                                      ),
+                                  ],
+                                )
+                              : _buildSeriesPage(
+                                  context: context,
+                                  series: visibleSeries[_currentSeriesIndex
+                                      .clamp(0, visibleSeries.length - 1)],
+                                  books: books,
+                                  delegate: delegate,
+                                  isCurrentPage: true,
+                                ),
             ),
-            if (toolbarVisible)
-              SliverToBoxAdapter(
-                child: _ShelfToolbar(
-                  filter: _filter,
-                  searchOpen: _searchOpen,
-                  searchController: _searchController,
-                  searchFocus: _searchFocus,
-                  tagOptions: _deriveTagOptions(books),
-                  seriesOptions: _deriveSeriesOptions(books),
-                  onQueryChanged: (String value) =>
-                      _updateFilter(_filter.copyWith(query: value)),
-                  onStatusChanged: (ShelfStatusFilter status) =>
-                      _updateFilter(_filter.copyWith(status: status)),
-                  onTagChanged: (String? tag) =>
-                      _updateFilter(_filter.copyWith(tag: tag)),
-                  onSeriesChanged: (String? series) =>
-                      _updateFilter(_filter.copyWith(series: series)),
-                ),
-              ),
-            if (failed)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _ShelfError(
-                  onRetry: () {
-                    ref.invalidate(booksProvider);
-                    ref.invalidate(libraryRootsProvider);
-                  },
-                ),
-              )
-            else if (loading) ...<Widget>[
-              const SliverToBoxAdapter(child: _ShelfLoadingLine()),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.md,
-                  AppSpacing.lg,
-                  AppSpacing.xl,
-                ),
-                sliver: SliverGrid.builder(
-                  key: ShelfPage.loadingKey,
-                  gridDelegate: delegate,
-                  itemCount: columns * 3,
-                  itemBuilder: (BuildContext context, int index) {
-                    return const _ShelfSkeletonTile();
-                  },
-                ),
-              ),
-            ] else if (books.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _ShelfEmpty(
-                  onOpenDiscovery: () {
-                    ref.read(appTabProvider.notifier).select(AppTab.discovery);
-                  },
-                  onOpenLibrary: () {
-                    ref.read(appTabProvider.notifier).select(AppTab.library);
-                  },
-                  onRefresh: () {
-                    ref.invalidate(booksProvider);
-                    ref.invalidate(libraryRootsProvider);
-                  },
-                ),
-              )
-            else if (visibleBooks.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _ShelfFilteredEmpty(onClear: _clearFilters),
-              )
-            else if (_layout == ShelfLayout.grid)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  0,
-                  AppSpacing.lg,
-                  AppSpacing.xl,
-                ),
-                sliver: SliverGrid.builder(
-                  key: ShelfPage.gridKey,
-                  gridDelegate: delegate,
-                  itemCount: visibleBooks.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final BookSummary book = visibleBooks[index];
-                    return ShelfBookCard(
-                      book: book,
-                      onOpen: () => _openDetail(context, book),
-                      onLongPress: () => _showBookActions(context, book),
-                      onPlay: () => unawaited(
-                        playBookFromSummary(
-                          context: context,
-                          ref: ref,
-                          book: book,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  0,
-                  AppSpacing.lg,
-                  AppSpacing.xl,
-                ),
-                sliver: SliverList.builder(
-                  key: ShelfPage.listKey,
-                  itemCount: visibleBooks.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final BookSummary book = visibleBooks[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == visibleBooks.length - 1
-                            ? 0
-                            : AppSpacing.md,
-                      ),
-                      child: ShelfBookRow(
-                        book: book,
-                        onOpen: () => _openDetail(context, book),
-                        onLongPress: () => _showBookActions(context, book),
-                        onPlay: () => unawaited(
-                          playBookFromSummary(
-                            context: context,
-                            ref: ref,
-                            book: book,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildSeriesPage({
+    required BuildContext context,
+    required String series,
+    required List<BookSummary> books,
+    required SliverGridDelegate delegate,
+    required bool isCurrentPage,
+  }) {
+    final List<BookSummary> seriesBooks =
+        ShelfPage.booksForSeries(books, series);
+    final List<BookSummary> visibleBooks = _filter.apply(seriesBooks);
+
+    if (visibleBooks.isEmpty) {
+      return _ShelfFilteredEmpty(onClear: _clearFilters);
+    }
+
+    if (_layout == ShelfLayout.grid) {
+      return CustomScrollView(
+        slivers: <Widget>[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            sliver: SliverGrid.builder(
+              key: isCurrentPage
+                  ? ShelfPage.gridKey
+                  : ValueKey<String>('shelf-grid-$series'),
+              gridDelegate: delegate,
+              itemCount: visibleBooks.length,
+              itemBuilder: (BuildContext context, int index) {
+                final BookSummary book = visibleBooks[index];
+                return ShelfBookCard(
+                  book: book,
+                  onOpen: () => _openDetail(context, book),
+                  onLongPress: () => _showBookActions(context, book),
+                  onPlay: () => unawaited(
+                    playBookFromSummary(
+                      context: context,
+                      ref: ref,
+                      book: book,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    } else {
+      return CustomScrollView(
+        slivers: <Widget>[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            sliver: SliverList.builder(
+              key: isCurrentPage
+                  ? ShelfPage.listKey
+                  : ValueKey<String>('shelf-list-$series'),
+              itemCount: visibleBooks.length,
+              itemBuilder: (BuildContext context, int index) {
+                final BookSummary book = visibleBooks[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == visibleBooks.length - 1
+                        ? 0
+                        : AppSpacing.md,
+                  ),
+                  child: ShelfBookRow(
+                    book: book,
+                    onOpen: () => _openDetail(context, book),
+                    onLongPress: () => _showBookActions(context, book),
+                    onPlay: () => unawaited(
+                      playBookFromSummary(
+                        context: context,
+                        ref: ref,
+                        book: book,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildFilterPanel(BuildContext context, List<String> tagOptions) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SearchFilterGroup.wrap(
+          title: '收听状态',
+          children: <Widget>[
+            SearchFilterChip(
+              key: ShelfPage.statusChipKey(ShelfStatusFilter.all),
+              label: '全部',
+              selected: _filter.status == ShelfStatusFilter.all,
+              onTap: () => _updateFilter(
+                _filter.copyWith(status: ShelfStatusFilter.all),
+              ),
+            ),
+            SearchFilterChip(
+              key: ShelfPage.statusChipKey(ShelfStatusFilter.listening),
+              label: '在听',
+              selected: _filter.status == ShelfStatusFilter.listening,
+              onTap: () => _updateFilter(
+                _filter.copyWith(status: ShelfStatusFilter.listening),
+              ),
+            ),
+            SearchFilterChip(
+              key: ShelfPage.statusChipKey(ShelfStatusFilter.unlistened),
+              label: '未听',
+              selected: _filter.status == ShelfStatusFilter.unlistened,
+              onTap: () => _updateFilter(
+                _filter.copyWith(status: ShelfStatusFilter.unlistened),
+              ),
+            ),
+            SearchFilterChip(
+              key: ShelfPage.statusChipKey(ShelfStatusFilter.finished),
+              label: '已完',
+              selected: _filter.status == ShelfStatusFilter.finished,
+              onTap: () => _updateFilter(
+                _filter.copyWith(status: ShelfStatusFilter.finished),
+              ),
+            ),
+          ],
+        ),
+        SearchFilterGroup.wrap(
+          title: '来源渠道',
+          children: <Widget>[
+            SearchFilterChip(
+              key: ShelfPage.sourceChipKey(ShelfSourceFilter.all),
+              label: '全部来源',
+              selected: _filter.source == ShelfSourceFilter.all,
+              onTap: () => _updateFilter(
+                _filter.copyWith(source: ShelfSourceFilter.all),
+              ),
+            ),
+            SearchFilterChip(
+              key: ShelfPage.sourceChipKey(ShelfSourceFilter.local),
+              label: '本地音频',
+              selected: _filter.source == ShelfSourceFilter.local,
+              onTap: () => _updateFilter(
+                _filter.copyWith(source: ShelfSourceFilter.local),
+              ),
+            ),
+            SearchFilterChip(
+              key: ShelfPage.sourceChipKey(ShelfSourceFilter.online),
+              label: '在线网络源',
+              selected: _filter.source == ShelfSourceFilter.online,
+              onTap: () => _updateFilter(
+                _filter.copyWith(source: ShelfSourceFilter.online),
+              ),
+            ),
+          ],
+        ),
+        if (tagOptions.isNotEmpty)
+          SearchFilterGroup.wrap(
+            title: '分类标签',
+            children: <Widget>[
+              SearchFilterChip(
+                key: ShelfPage.tagChipKey(null),
+                label: '不限',
+                selected: _filter.tag == null,
+                onTap: () => _updateFilter(_filter.copyWith(tag: null)),
+              ),
+              for (final String tag in tagOptions)
+                SearchFilterChip(
+                  key: ShelfPage.tagChipKey(tag),
+                  label: tag,
+                  selected: _filter.tag == tag,
+                  onTap: () => _updateFilter(
+                    _filter.copyWith(
+                      tag: _filter.tag == tag ? null : tag,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: <Widget>[
+            TextButton.icon(
+              key: ShelfPage.resetFilterKey,
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.restart_alt_rounded, size: 18),
+              label: const Text('重置筛选'),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              key: ShelfPage.collapseFilterKey,
+              onPressed: () {
+                SearchFilterBarScope.maybeOf(context)?.collapse();
+              },
+              icon: const Icon(Icons.expand_less_rounded, size: 18),
+              label: const Text('收起'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -429,7 +788,8 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
                     builder: (BuildContext dialogContext) {
                       return AlertDialog(
                         title: const Text('移出书架'),
-                        content: Text('确定将《${book.title}》移出书架？\n（不会删除本地音频文件）'),
+                        content:
+                            Text('确定将《${book.title}》移出书架？\n（不会删除本地音频文件）'),
                         actions: <Widget>[
                           TextButton(
                             onPressed: () =>
@@ -461,43 +821,153 @@ class _ShelfPageState extends ConsumerState<ShelfPage> {
   }
 }
 
-/// 藏馆题头：单行紧凑题头（标题 + 册数徽标 + 搜索 / 布局操作）。
+/// 藏馆题头：系列导航（TabBar / Dropdown）+ 布局切换 + 更多设置（含管理系列）。
 class _ShelfHeader extends StatelessWidget {
   const _ShelfHeader({
     required this.countLabel,
-    required this.searchOpen,
+    required this.hasBooks,
+    required this.navMode,
+    required this.visibleSeries,
+    required this.currentSeriesIndex,
+    required this.tabController,
+    required this.books,
+    required this.allAvailableSeries,
     required this.layout,
     required this.prefs,
-    required this.onSearchToggle,
+    required this.onSeriesSelected,
     required this.onLayoutToggle,
     required this.onPrefsChanged,
   });
 
-  /// 册数徽标文案（读取态 / 失败态 / `N 册` / `M / N 册`）。
   final String countLabel;
-
-  /// 搜索输入是否展开（决定搜索按钮的提示文案）。
-  final bool searchOpen;
-
-  /// 当前视图模式。
+  final bool hasBooks;
+  final ShelfSeriesNavMode navMode;
+  final List<String> visibleSeries;
+  final int currentSeriesIndex;
+  final TabController? tabController;
+  final List<BookSummary> books;
+  final List<String> allAvailableSeries;
   final ShelfLayout layout;
-
-  /// 应用偏好配置。
   final AppPreferences prefs;
-
-  /// 展开 / 收起搜索。
-  final VoidCallback onSearchToggle;
-
-  /// 切换网格 / 列表。
+  final ValueChanged<int> onSeriesSelected;
   final VoidCallback onLayoutToggle;
-
-  /// 偏好变更回调。
   final ValueChanged<AppPreferences> onPrefsChanged;
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final TextTheme text = theme.textTheme;
+
+    Widget titleOrSeriesNav;
+
+    if (!hasBooks) {
+      titleOrSeriesNav = Row(
+        children: <Widget>[
+          Flexible(
+            child: Semantics(
+              header: true,
+              child: Text(
+                '我的书架',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            countLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    } else if (navMode == ShelfSeriesNavMode.tabs && tabController != null) {
+      titleOrSeriesNav = TabBar(
+        key: ShelfPage.seriesTabBarKey,
+        controller: tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.label,
+        tabs: <Widget>[
+          for (int i = 0; i < visibleSeries.length; i++)
+            _buildTab(
+              context: context,
+              series: visibleSeries[i],
+              isSelected: currentSeriesIndex == i,
+              count: ShelfPage.countForSeries(books, visibleSeries[i]),
+            ),
+        ],
+      );
+    } else {
+      final String currentSeries = visibleSeries[
+          currentSeriesIndex.clamp(0, visibleSeries.length - 1)];
+      final String displayName = ShelfPage.seriesDisplayName(currentSeries);
+      final int count = ShelfPage.countForSeries(books, currentSeries);
+
+      titleOrSeriesNav = Align(
+        alignment: Alignment.centerLeft,
+        child: InkWell(
+          key: ShelfPage.seriesDropdownKey,
+          borderRadius: AppRadii.md,
+          onTap: () => _showDropdownPicker(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: AppSpacing.xs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Flexible(
+                  child: Text(
+                    displayName,
+                    style: text.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: AppRadii.pill,
+                  ),
+                  child: Text(
+                    '$count',
+                    style: text.labelSmall?.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xxs),
+                Icon(
+                  Icons.arrow_drop_down_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -509,40 +979,7 @@ class _ShelfHeader extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 48),
         child: Row(
           children: <Widget>[
-            Expanded(
-              child: Row(
-                children: <Widget>[
-                  Flexible(
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        '我的书架',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    countLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: text.labelMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              key: ShelfPage.searchToggleKey,
-              onPressed: onSearchToggle,
-              tooltip: searchOpen ? '收起搜索' : '搜索',
-              icon: const Icon(Icons.search_rounded),
-            ),
+            Expanded(child: titleOrSeriesNav),
             IconButton(
               key: ShelfPage.layoutToggleKey,
               onPressed: onLayoutToggle,
@@ -581,7 +1018,8 @@ class _ShelfHeader extends StatelessWidget {
                     break;
                   case 'toggle-author':
                     onPrefsChanged(
-                      prefs.copyWith(shelfShowAuthor: !prefs.shelfShowAuthor),
+                      prefs.copyWith(
+                          shelfShowAuthor: !prefs.shelfShowAuthor),
                     );
                     break;
                   case 'toggle-narrator':
@@ -591,9 +1029,16 @@ class _ShelfHeader extends StatelessWidget {
                       ),
                     );
                     break;
+                  case 'manage-series':
+                    ShelfSeriesManagementSheet.show(
+                      context,
+                      allAvailableSeries: allAvailableSeries,
+                    );
+                    break;
                 }
               },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              itemBuilder: (BuildContext context) =>
+                  <PopupMenuEntry<String>>[
                 CheckedPopupMenuItem<String>(
                   value: 'col-2',
                   checked:
@@ -633,6 +1078,17 @@ class _ShelfHeader extends StatelessWidget {
                   checked: prefs.shelfShowNarrator,
                   child: const Text('显示演播'),
                 ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'manage-series',
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.tune_rounded, size: 20),
+                      SizedBox(width: AppSpacing.sm),
+                      Text('管理系列'),
+                    ],
+                  ),
+                ),
               ],
             ),
           ],
@@ -640,230 +1096,129 @@ class _ShelfHeader extends StatelessWidget {
       ),
     );
   }
-}
 
-/// 筛选工具行：可展开的单行搜索输入 + 状态 chips + 分类 / 系列弹层。
-///
-/// chips 用 [Wrap] 排布，窄屏与系统大字号下自动折行而不是溢出；
-/// 分类与系列的选项由页面从当前书单派生后传入。
-class _ShelfToolbar extends StatelessWidget {
-  const _ShelfToolbar({
-    required this.filter,
-    required this.searchOpen,
-    required this.searchController,
-    required this.searchFocus,
-    required this.tagOptions,
-    required this.seriesOptions,
-    required this.onQueryChanged,
-    required this.onStatusChanged,
-    required this.onTagChanged,
-    required this.onSeriesChanged,
-  });
+  Widget _buildTab({
+    required BuildContext context,
+    required String series,
+    required bool isSelected,
+    required int count,
+  }) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final String displayName = ShelfPage.seriesDisplayName(series);
 
-  /// 当前筛选状态。
-  final ShelfFilterState filter;
-
-  /// 搜索输入是否展开。
-  final bool searchOpen;
-
-  /// 搜索输入控制器（清除按钮共用）。
-  final TextEditingController searchController;
-
-  /// 搜索输入焦点（展开时自动聚焦）。
-  final FocusNode searchFocus;
-
-  /// 分类选项（书单标签派生）。
-  final List<String> tagOptions;
-
-  /// 系列选项（书单系列派生）。
-  final List<String> seriesOptions;
-
-  /// 搜索词变化。
-  final ValueChanged<String> onQueryChanged;
-
-  /// 状态切换。
-  final ValueChanged<ShelfStatusFilter> onStatusChanged;
-
-  /// 分类切换；`null` 表示不限。
-  final ValueChanged<String?> onTagChanged;
-
-  /// 系列切换；`null` 表示不限。
-  final ValueChanged<String?> onSeriesChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Tab(
+      key: ShelfPage.seriesTabKey(series),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // 搜索输入：收起时高度归零，展开时撑满一行。
-          AnimatedSize(
-            duration: AppMotion.resolve(context, AppDurations.standard),
-            curve: AppDurations.standardCurve,
-            alignment: Alignment.topCenter,
-            child: searchOpen
-                ? Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: TextField(
-                      key: ShelfPage.searchFieldKey,
-                      controller: searchController,
-                      focusNode: searchFocus,
-                      onChanged: onQueryChanged,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText: '搜书名、作者、演播或简介',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        suffixIcon: filter.query.trim().isNotEmpty
-                            ? IconButton(
-                                key: ShelfPage.searchClearKey,
-                                onPressed: () {
-                                  searchController.clear();
-                                  onQueryChanged('');
-                                },
-                                tooltip: '清除搜索',
-                                icon: const Icon(Icons.close_rounded, size: 18),
-                              )
-                            : null,
-                      ),
-                    ),
-                  )
-                : const SizedBox(width: double.infinity),
+          Text(
+            displayName,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+            ),
           ),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            children: <Widget>[
-              _statusChip(context, '全部', ShelfStatusFilter.all),
-              _statusChip(context, '在听', ShelfStatusFilter.listening),
-              _statusChip(context, '未听', ShelfStatusFilter.unlistened),
-              _statusChip(context, '已完', ShelfStatusFilter.finished),
-              _filterMenu(
-                context,
-                menuKey: ShelfPage.tagFilterKey,
-                tooltip: '按分类筛选',
-                icon: Icons.sell_outlined,
-                label: '分类',
-                clearLabel: '不限分类',
-                options: tagOptions,
-                selectedValue: filter.tag,
-                onSelected: onTagChanged,
+          const SizedBox(width: AppSpacing.xs),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? scheme.primary.withValues(alpha: 0.15)
+                  : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: AppRadii.pill,
+            ),
+            child: Text(
+              '$count',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color:
+                    isSelected ? scheme.primary : scheme.onSurfaceVariant,
               ),
-              _filterMenu(
-                context,
-                menuKey: ShelfPage.seriesFilterKey,
-                tooltip: '按系列筛选',
-                icon: Icons.auto_stories_outlined,
-                label: '系列',
-                clearLabel: '不限系列',
-                options: seriesOptions,
-                selectedValue: filter.series,
-                onSelected: onSeriesChanged,
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// 单个状态 chip（选中即过滤，无需确认）。
-  Widget _statusChip(
-    BuildContext context,
-    String label,
-    ShelfStatusFilter value,
-  ) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    final bool selected = filter.status == value;
-    return ChoiceChip(
-      key: ShelfPage.statusChipKey(value),
-      label: Text(label),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => onStatusChanged(value),
-      labelStyle: text.labelMedium?.copyWith(
-        color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
-      ),
-    );
-  }
-
-  /// 分类 / 系列的弹层筛选入口（胶囊按钮 + 下拉菜单）。
-  Widget _filterMenu(
-    BuildContext context, {
-    required Key menuKey,
-    required String tooltip,
-    required IconData icon,
-    required String label,
-    required String clearLabel,
-    required List<String> options,
-    required String? selectedValue,
-    required ValueChanged<String?> onSelected,
-  }) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final TextTheme text = Theme.of(context).textTheme;
-    final bool selected =
-        selectedValue != null && selectedValue.trim().isNotEmpty;
-    final Color foreground = selected
-        ? scheme.onPrimaryContainer
-        : scheme.onSurfaceVariant;
-
-    return PopupMenuButton<String>(
-      key: menuKey,
-      tooltip: tooltip,
-      // 长菜单限高，窄屏不顶出屏幕。
-      constraints: const BoxConstraints(maxHeight: 360),
-      shape: const RoundedRectangleBorder(borderRadius: AppRadii.md),
-      // 空字符串是「不限」哨兵：清除该维度。
-      onSelected: (String value) => onSelected(value.isEmpty ? null : value),
-      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        PopupMenuItem<String>(value: '', child: Text(clearLabel)),
-        for (final String option in options)
-          CheckedPopupMenuItem<String>(
-            value: option,
-            checked: option == selectedValue,
-            child: Text(option),
-          ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: ShapeDecoration(
-          color: selected
-              ? scheme.primaryContainer
-              : scheme.surfaceContainerHigh,
-          shape: StadiumBorder(
-            side: selected
-                ? BorderSide(color: scheme.primary)
-                : BorderSide.none,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 14, color: foreground),
-            const SizedBox(width: AppSpacing.xs),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 160),
-              child: Text(
-                selected ? '$label · $selectedValue' : label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.labelMedium?.copyWith(color: foreground),
+  void _showDropdownPicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext sheetContext) {
+        final ColorScheme scheme = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.xs,
+                ),
+                child: Text(
+                  '选择系列',
+                  style: Theme.of(sheetContext)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Icon(Icons.expand_more_rounded, size: 16, color: foreground),
-          ],
-        ),
-      ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: visibleSeries.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final String series = visibleSeries[index];
+                    final bool isSelected = index == currentSeriesIndex;
+                    final int count =
+                        ShelfPage.countForSeries(books, series);
+                    return ListTile(
+                      key: ShelfPage.seriesDropdownItemKey(series),
+                      selected: isSelected,
+                      leading: Icon(
+                        isSelected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color:
+                            isSelected ? scheme.primary : scheme.outline,
+                      ),
+                      title: Text(
+                        ShelfPage.seriesDisplayName(series),
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: Text(
+                        '$count 册',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        onSeriesSelected(index);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -919,19 +1274,19 @@ class _ShelfSkeletonTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        AspectRatio(
-          aspectRatio: 1,
+        Expanded(
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: scheme.surfaceContainer,
-              borderRadius: AppRadii.cover,
+              borderRadius: AppRadii.md,
             ),
+            child: const SizedBox.expand(),
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        bar(0.82, 12),
+        bar(0.8, 14),
         const SizedBox(height: AppSpacing.xs),
-        bar(0.48, 10),
+        bar(0.45, 12),
       ],
     );
   }
@@ -967,7 +1322,8 @@ class _ShelfEmpty extends StatelessWidget {
           AppSpacing.xxxl,
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
+          constraints:
+              const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
           child: Column(
             key: ShelfPage.emptyKey,
             mainAxisSize: MainAxisSize.min,
@@ -1050,7 +1406,8 @@ class _ShelfFilteredEmpty extends StatelessWidget {
           AppSpacing.xxxl,
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
+          constraints:
+              const BoxConstraints(maxWidth: AppSizes.readingMaxWidth),
           child: Column(
             key: ShelfPage.filteredEmptyKey,
             mainAxisSize: MainAxisSize.min,
@@ -1073,7 +1430,7 @@ class _ShelfFilteredEmpty extends StatelessWidget {
               Text('没有符合条件的书', style: text.titleLarge),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '试试换个关键词，或清除状态、分类与系列筛选。',
+                '试试换个关键词，或清除状态、渠道与标签筛选。',
                 textAlign: TextAlign.center,
                 style: text.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
@@ -1131,15 +1488,16 @@ class _ShelfError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('书架读取失败', style: text.headlineSmall),
+            Text('书架读取失败', style: text.titleLarge),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '书库数据暂时读不出来，可能是数据库还没准备好。稍后再试一次。',
-              textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              '可能是音频目录未就绪或存储权限受阻。',
+              style: text.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            FilledButton.icon(
+            FilledButton.tonalIcon(
               key: ShelfPage.retryKey,
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
