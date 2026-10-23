@@ -15,6 +15,18 @@ enum ShelfStatusFilter {
   finished,
 }
 
+/// 书架藏书来源类型筛选。
+enum ShelfSourceFilter {
+  /// 全部藏书（本地与在线）。
+  all,
+
+  /// 仅本地音频。
+  local,
+
+  /// 仅在线网络书源。
+  online,
+}
+
 /// 书架布局密度（本轮只存内存）。
 enum ShelfLayout {
   /// 双列藏书格。
@@ -24,12 +36,13 @@ enum ShelfLayout {
   list,
 }
 
-/// 书架筛选状态：搜索词 + 状态 + 标签 + 系列，组合为 AND。
+/// 书架筛选状态：搜索词 + 状态 + 来源 + 标签 + 系列，组合为 AND。
 ///
 /// 各维度的比较口径：
 /// - 搜索：小写化后对书名 / 作者 / 演播 / 系列 / 简介做 contains；
 /// - 状态：`listening => hasProgress && !isFinished`、`unlistened =>
 ///   !hasProgress`、`finished => isFinished`；
+/// - 来源：`local => !isOnline`、`online => isOnline`；
 /// - 标签：大小写折叠后相等；
 /// - 系列：按原文（trim 后）相等。
 class ShelfFilterState {
@@ -37,6 +50,7 @@ class ShelfFilterState {
   const ShelfFilterState({
     this.query = '',
     this.status = ShelfStatusFilter.all,
+    this.source = ShelfSourceFilter.all,
     this.tag,
     this.series,
   });
@@ -46,6 +60,9 @@ class ShelfFilterState {
 
   /// 收听状态。
   final ShelfStatusFilter status;
+
+  /// 藏书来源类型。
+  final ShelfSourceFilter source;
 
   /// 标签（大小写折叠比较）。
   final String? tag;
@@ -59,6 +76,7 @@ class ShelfFilterState {
   bool get isActive =>
       query.trim().isNotEmpty ||
       status != ShelfStatusFilter.all ||
+      source != ShelfSourceFilter.all ||
       _present(tag) ||
       _present(series);
 
@@ -75,18 +93,34 @@ class ShelfFilterState {
   ShelfFilterState copyWith({
     String? query,
     ShelfStatusFilter? status,
+    ShelfSourceFilter? source,
     Object? tag = _unset,
     Object? series = _unset,
   }) {
     return ShelfFilterState(
       query: query ?? this.query,
       status: status ?? this.status,
+      source: source ?? this.source,
       tag: identical(tag, _unset) ? this.tag : tag as String?,
       series: identical(series, _unset) ? this.series : series as String?,
     );
   }
 
   bool _matches(BookSummary book, String needle) {
+    // 来源：本地 vs 在线。
+    switch (source) {
+      case ShelfSourceFilter.all:
+        break;
+      case ShelfSourceFilter.local:
+        if (book.isOnline) {
+          return false;
+        }
+      case ShelfSourceFilter.online:
+        if (!book.isOnline) {
+          return false;
+        }
+    }
+
     // 搜索：五个可检索字段，大小写不敏感 contains。
     if (needle.isNotEmpty) {
       final bool hit =
@@ -144,6 +178,25 @@ class ShelfFilterState {
   static bool _present(String? value) {
     return value != null && value.trim().isNotEmpty;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ShelfFilterState &&
+          runtimeType == other.runtimeType &&
+          query == other.query &&
+          status == other.status &&
+          source == other.source &&
+          tag == other.tag &&
+          series == other.series;
+
+  @override
+  int get hashCode => Object.hash(query, status, source, tag, series);
+
+  @override
+  String toString() =>
+      'ShelfFilterState(query: "$query", status: ${status.name}, '
+      'source: ${source.name}, tag: $tag, series: $series)';
 
   /// `copyWith` 的「未传参」哨兵，用于区分「不改动」与「清除为 null」。
   static const Object _unset = Object();

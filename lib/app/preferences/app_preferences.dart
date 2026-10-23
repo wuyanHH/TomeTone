@@ -13,6 +13,15 @@ enum BrightnessPreference {
   dark,
 }
 
+/// 书架系列导航展示模式。
+enum ShelfSeriesNavMode {
+  /// 横向滑动 Tab 栏。
+  tabs,
+
+  /// 顶部选择框。
+  dropdown,
+}
+
 /// 全局应用偏好（《架构需求文档》§8.2）。
 ///
 /// 不可变实体类。存储色盘、明暗、更新检查等应用级配置。
@@ -39,6 +48,11 @@ class AppPreferences {
     this.defaultPlaybackSpeed = 1.0,
     this.defaultSkipIntroSeconds = 0,
     this.defaultSkipOutroSeconds = 0,
+    this.shelfSeriesNavMode = ShelfSeriesNavMode.tabs,
+    this.shelfShowAllSeriesTab = true,
+    this.shelfShowUncategorizedSeriesTab = true,
+    this.shelfHiddenSeries = const <String>[],
+    this.shelfSeriesOrder = const <String>[],
   });
 
   /// 默认应用偏好（琥珀旧卷、跟随系统、关闭 OLED 纯黑、开启自动检查）。
@@ -95,6 +109,21 @@ class AppPreferences {
   /// 全局默认跳过片尾秒数（默认 0）。
   final int defaultSkipOutroSeconds;
 
+  /// 书架系列导航模式（Tab 栏 / 选择框，默认 Tab 栏）。
+  final ShelfSeriesNavMode shelfSeriesNavMode;
+
+  /// 是否显示「全部」系列 Tab（默认开启）。
+  final bool shelfShowAllSeriesTab;
+
+  /// 是否显示「未分类」系列 Tab（默认开启）。
+  final bool shelfShowUncategorizedSeriesTab;
+
+  /// 隐藏的系列标识集合（默认空）。
+  final List<String> shelfHiddenSeries;
+
+  /// 自定义系列顺序标识列表（默认空）。
+  final List<String> shelfSeriesOrder;
+
   static const Object _sentinel = Object();
 
   /// 复制并覆盖部分字段。
@@ -118,6 +147,11 @@ class AppPreferences {
     double? defaultPlaybackSpeed,
     int? defaultSkipIntroSeconds,
     int? defaultSkipOutroSeconds,
+    ShelfSeriesNavMode? shelfSeriesNavMode,
+    bool? shelfShowAllSeriesTab,
+    bool? shelfShowUncategorizedSeriesTab,
+    List<String>? shelfHiddenSeries,
+    List<String>? shelfSeriesOrder,
   }) {
     return AppPreferences(
       paletteId: paletteId ?? this.paletteId,
@@ -151,6 +185,13 @@ class AppPreferences {
           defaultSkipIntroSeconds ?? this.defaultSkipIntroSeconds,
       defaultSkipOutroSeconds:
           defaultSkipOutroSeconds ?? this.defaultSkipOutroSeconds,
+      shelfSeriesNavMode: shelfSeriesNavMode ?? this.shelfSeriesNavMode,
+      shelfShowAllSeriesTab:
+          shelfShowAllSeriesTab ?? this.shelfShowAllSeriesTab,
+      shelfShowUncategorizedSeriesTab:
+          shelfShowUncategorizedSeriesTab ?? this.shelfShowUncategorizedSeriesTab,
+      shelfHiddenSeries: shelfHiddenSeries ?? this.shelfHiddenSeries,
+      shelfSeriesOrder: shelfSeriesOrder ?? this.shelfSeriesOrder,
     );
   }
 
@@ -175,6 +216,11 @@ class AppPreferences {
         'defaultPlaybackSpeed': defaultPlaybackSpeed,
         'defaultSkipIntroSeconds': defaultSkipIntroSeconds,
         'defaultSkipOutroSeconds': defaultSkipOutroSeconds,
+        'shelfSeriesNavMode': shelfSeriesNavMode.name,
+        'shelfShowAllSeriesTab': shelfShowAllSeriesTab,
+        'shelfShowUncategorizedSeriesTab': shelfShowUncategorizedSeriesTab,
+        'shelfHiddenSeries': shelfHiddenSeries,
+        'shelfSeriesOrder': shelfSeriesOrder,
       };
 
   /// 从 JSON Map 反序列化偏好。
@@ -253,6 +299,42 @@ class AppPreferences {
     final defaultSkipOutroSeconds =
         rawOutro is int ? rawOutro : defaults.defaultSkipOutroSeconds;
 
+    final rawNavMode = json['shelfSeriesNavMode'];
+    final shelfSeriesNavMode = rawNavMode is String
+        ? _parseShelfSeriesNavMode(rawNavMode)
+        : defaults.shelfSeriesNavMode;
+
+    final rawShowAll = json['shelfShowAllSeriesTab'];
+    final shelfShowAllSeriesTab =
+        rawShowAll is bool ? rawShowAll : defaults.shelfShowAllSeriesTab;
+
+    final rawShowUncategorized = json['shelfShowUncategorizedSeriesTab'];
+    final shelfShowUncategorizedSeriesTab = rawShowUncategorized is bool
+        ? rawShowUncategorized
+        : defaults.shelfShowUncategorizedSeriesTab;
+
+    final rawHidden = json['shelfHiddenSeries'];
+    final List<String> shelfHiddenSeries;
+    if (rawHidden is List) {
+      shelfHiddenSeries = <String>[
+        for (final item in rawHidden)
+          if (item is String) item,
+      ];
+    } else {
+      shelfHiddenSeries = defaults.shelfHiddenSeries;
+    }
+
+    final rawOrder = json['shelfSeriesOrder'];
+    final List<String> shelfSeriesOrder;
+    if (rawOrder is List) {
+      shelfSeriesOrder = <String>[
+        for (final item in rawOrder)
+          if (item is String) item,
+      ];
+    } else {
+      shelfSeriesOrder = defaults.shelfSeriesOrder;
+    }
+
     return AppPreferences(
       paletteId: paletteId,
       brightness: brightness,
@@ -271,6 +353,11 @@ class AppPreferences {
       defaultPlaybackSpeed: defaultPlaybackSpeed,
       defaultSkipIntroSeconds: defaultSkipIntroSeconds,
       defaultSkipOutroSeconds: defaultSkipOutroSeconds,
+      shelfSeriesNavMode: shelfSeriesNavMode,
+      shelfShowAllSeriesTab: shelfShowAllSeriesTab,
+      shelfShowUncategorizedSeriesTab: shelfShowUncategorizedSeriesTab,
+      shelfHiddenSeries: shelfHiddenSeries,
+      shelfSeriesOrder: shelfSeriesOrder,
     );
   }
 
@@ -289,6 +376,15 @@ class AppPreferences {
       }
     }
     return defaults.brightness;
+  }
+
+  static ShelfSeriesNavMode _parseShelfSeriesNavMode(String name) {
+    for (final value in ShelfSeriesNavMode.values) {
+      if (value.name == name) {
+        return value;
+      }
+    }
+    return defaults.shelfSeriesNavMode;
   }
 
   static DateTime? _parseDateTime(Object? value) {
@@ -319,27 +415,40 @@ class AppPreferences {
           shelfShowNarrator == other.shelfShowNarrator &&
           defaultPlaybackSpeed == other.defaultPlaybackSpeed &&
           defaultSkipIntroSeconds == other.defaultSkipIntroSeconds &&
-          defaultSkipOutroSeconds == other.defaultSkipOutroSeconds;
+          defaultSkipOutroSeconds == other.defaultSkipOutroSeconds &&
+          shelfSeriesNavMode == other.shelfSeriesNavMode &&
+          shelfShowAllSeriesTab == other.shelfShowAllSeriesTab &&
+          shelfShowUncategorizedSeriesTab ==
+              other.shelfShowUncategorizedSeriesTab &&
+          listEquals(shelfHiddenSeries, other.shelfHiddenSeries) &&
+          listEquals(shelfSeriesOrder, other.shelfSeriesOrder);
 
   @override
   int get hashCode => Object.hash(
-        paletteId,
-        brightness,
-        oledDark,
-        autoCheckUpdates,
-        skippedVersion,
-        promptedVersion,
-        acknowledgedVersion,
-        lastCheckAt,
-        lastAttemptAt,
-        cachedRelease,
-        shelfColumns,
-        shelfShowTitle,
-        shelfShowAuthor,
-        shelfShowNarrator,
-        defaultPlaybackSpeed,
-        defaultSkipIntroSeconds,
-        defaultSkipOutroSeconds,
+        Object.hash(
+          paletteId,
+          brightness,
+          oledDark,
+          autoCheckUpdates,
+          skippedVersion,
+          promptedVersion,
+          acknowledgedVersion,
+          lastCheckAt,
+          lastAttemptAt,
+          cachedRelease,
+          shelfColumns,
+          shelfShowTitle,
+          shelfShowAuthor,
+          shelfShowNarrator,
+          defaultPlaybackSpeed,
+          defaultSkipIntroSeconds,
+          defaultSkipOutroSeconds,
+        ),
+        shelfSeriesNavMode,
+        shelfShowAllSeriesTab,
+        shelfShowUncategorizedSeriesTab,
+        Object.hashAll(shelfHiddenSeries),
+        Object.hashAll(shelfSeriesOrder),
       );
 
   @override
@@ -353,5 +462,10 @@ class AppPreferences {
       'shelfShowTitle: $shelfShowTitle, shelfShowAuthor: $shelfShowAuthor, '
       'shelfShowNarrator: $shelfShowNarrator, defaultPlaybackSpeed: $defaultPlaybackSpeed, '
       'defaultSkipIntroSeconds: $defaultSkipIntroSeconds, '
-      'defaultSkipOutroSeconds: $defaultSkipOutroSeconds)';
+      'defaultSkipOutroSeconds: $defaultSkipOutroSeconds, '
+      'shelfSeriesNavMode: ${shelfSeriesNavMode.name}, '
+      'shelfShowAllSeriesTab: $shelfShowAllSeriesTab, '
+      'shelfShowUncategorizedSeriesTab: $shelfShowUncategorizedSeriesTab, '
+      'shelfHiddenSeries: $shelfHiddenSeries, '
+      'shelfSeriesOrder: $shelfSeriesOrder)';
 }

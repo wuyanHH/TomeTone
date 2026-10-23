@@ -47,6 +47,11 @@ void main() {
       expect(prefs.defaultPlaybackSpeed, 1.0);
       expect(prefs.defaultSkipIntroSeconds, 0);
       expect(prefs.defaultSkipOutroSeconds, 0);
+      expect(prefs.shelfSeriesNavMode, ShelfSeriesNavMode.tabs);
+      expect(prefs.shelfShowAllSeriesTab, isTrue);
+      expect(prefs.shelfShowUncategorizedSeriesTab, isTrue);
+      expect(prefs.shelfHiddenSeries, isEmpty);
+      expect(prefs.shelfSeriesOrder, isEmpty);
     });
 
     test('无参构造函数产生与 defaults 一致的偏好', () {
@@ -68,6 +73,11 @@ void main() {
         defaultPlaybackSpeed: 1.25,
         defaultSkipIntroSeconds: 30,
         defaultSkipOutroSeconds: 45,
+        shelfSeriesNavMode: ShelfSeriesNavMode.dropdown,
+        shelfShowAllSeriesTab: false,
+        shelfShowUncategorizedSeriesTab: false,
+        shelfHiddenSeries: const ['series-1', 'series-2'],
+        shelfSeriesOrder: const ['series-b', 'series-a'],
       );
 
       expect(updated.paletteId, 'bambooMist');
@@ -82,6 +92,11 @@ void main() {
       expect(updated.defaultPlaybackSpeed, 1.25);
       expect(updated.defaultSkipIntroSeconds, 30);
       expect(updated.defaultSkipOutroSeconds, 45);
+      expect(updated.shelfSeriesNavMode, ShelfSeriesNavMode.dropdown);
+      expect(updated.shelfShowAllSeriesTab, isFalse);
+      expect(updated.shelfShowUncategorizedSeriesTab, isFalse);
+      expect(updated.shelfHiddenSeries, ['series-1', 'series-2']);
+      expect(updated.shelfSeriesOrder, ['series-b', 'series-a']);
     });
 
     test('显式传入 null 可以清空可空字段', () {
@@ -148,6 +163,11 @@ void main() {
         defaultPlaybackSpeed: 1.5,
         defaultSkipIntroSeconds: 15,
         defaultSkipOutroSeconds: 20,
+        shelfSeriesNavMode: ShelfSeriesNavMode.dropdown,
+        shelfShowAllSeriesTab: false,
+        shelfShowUncategorizedSeriesTab: false,
+        shelfHiddenSeries: const ['hidden-1'],
+        shelfSeriesOrder: const ['s1', 's2'],
       );
 
       final json = original.toJson();
@@ -156,6 +176,11 @@ void main() {
       expect(restored, equals(original));
       expect(restored.toJson(), equals(json));
       expect(restored.cachedRelease, equals(sampleCachedRelease));
+      expect(restored.shelfSeriesNavMode, ShelfSeriesNavMode.dropdown);
+      expect(restored.shelfShowAllSeriesTab, isFalse);
+      expect(restored.shelfShowUncategorizedSeriesTab, isFalse);
+      expect(restored.shelfHiddenSeries, ['hidden-1']);
+      expect(restored.shelfSeriesOrder, ['s1', 's2']);
     });
 
     test('默认配置 JSON 往返一致', () {
@@ -179,6 +204,39 @@ void main() {
   });
 
   group('AppPreferences 容错解析', () {
+    test('系列导航字段容错解析与向后兼容', () {
+      final jsonWithBadValues = <String, Object?>{
+        'shelfSeriesNavMode': 'unknown_nav_mode',
+        'shelfShowAllSeriesTab': 'not-a-bool',
+        'shelfShowUncategorizedSeriesTab': 123,
+        'shelfHiddenSeries': 'not-a-list',
+        'shelfSeriesOrder': [1, null, 'valid-series'],
+      };
+
+      final prefs = AppPreferences.fromJson(jsonWithBadValues);
+
+      expect(prefs.shelfSeriesNavMode, ShelfSeriesNavMode.tabs);
+      expect(prefs.shelfShowAllSeriesTab, isTrue);
+      expect(prefs.shelfShowUncategorizedSeriesTab, isTrue);
+      expect(prefs.shelfHiddenSeries, isEmpty);
+      expect(prefs.shelfSeriesOrder, ['valid-series']);
+    });
+
+    test('历史 JSON（无系列导航字段）向后兼容保持默认值', () {
+      final legacyJson = <String, Object?>{
+        'paletteId': 'amberScroll',
+        'shelfColumns': 3,
+      };
+
+      final prefs = AppPreferences.fromJson(legacyJson);
+
+      expect(prefs.shelfSeriesNavMode, ShelfSeriesNavMode.tabs);
+      expect(prefs.shelfShowAllSeriesTab, isTrue);
+      expect(prefs.shelfShowUncategorizedSeriesTab, isTrue);
+      expect(prefs.shelfHiddenSeries, isEmpty);
+      expect(prefs.shelfSeriesOrder, isEmpty);
+    });
+
     test('损坏与错误字段类型独立回退至默认值', () {
       final corrupted = <String, Object?>{
         'paletteId': 12345, // 错误类型
